@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 from setuptools import setup, find_packages
 
+requires = [
+    'requests==2.22.*'
+]
+
 with open('README.md') as f:
     readme = f.read()
 
@@ -16,5 +20,7 @@ setup(
     author_email='hldh214@gmail.com',
     url='https://github.com/hldh214/recorder',
     license=_license,
-    packages=find_packages(exclude=('tests', 'docs'))
+    packages=find_packages(exclude=('tests', 'docs')),
+    python_requires='~=3.5',
+    install_requires=requires
 )
