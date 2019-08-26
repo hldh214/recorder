@@ -26,18 +26,18 @@ def parse_m3u8(room_id, sticky_m3u8=None):
     res = opener.get('https://m.huya.com/{0}'.format(room_id))
     m3u8_result = m3u8_pattern.findall(res.text)
 
-    if m3u8_result:
-        # on air
-        m3u8 = None
+    if not m3u8_result:
+        return False
 
-        if sticky_m3u8 is not None:
-            if opener.get(sticky_m3u8).status_code == 200:
-                m3u8 = sticky_m3u8
+    # on air
+    m3u8 = None
 
-        if not m3u8:
-            # replace sd -> original
-            m3u8 = m3u8_result[0].replace('_1200/playlist', '').replace('_1200', '')
+    if sticky_m3u8 is not None:
+        if opener.get(sticky_m3u8).status_code == 200:
+            m3u8 = sticky_m3u8
 
-        return m3u8
+    if not m3u8:
+        # replace sd -> original
+        m3u8 = m3u8_result[0].replace('_1200/playlist', '').replace('_1200', '')
 
-    return False
+    return m3u8
