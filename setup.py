@@ -2,7 +2,11 @@
 from setuptools import setup, find_packages
 
 requires = [
-    'requests==2.22.*'
+    'requests==2.22.*',
+    'google-api-python-client==1.7.*',
+    'google-auth-oauthlib==0.4.*',
+    'google-auth-httplib2==0.0.3',
+    'toml==0.10.*'
 ]
 
 with open('README.md') as f:
