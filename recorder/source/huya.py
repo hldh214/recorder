@@ -41,3 +41,8 @@ def parse_m3u8(room_id, sticky_m3u8=None):
         m3u8 = m3u8_result[0].replace('_1200/playlist', '').replace('_1200', '')
 
     return m3u8
+
+
+if __name__ == '__main__':
+    print(is_live('668668'))
+    print(parse_m3u8('668668'))
