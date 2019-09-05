@@ -3,7 +3,7 @@ import json
 import os
 import re
 import subprocess
-from typing import List, Union
+import typing
 
 
 def record(input_url, output_file):
@@ -61,19 +61,21 @@ def split(input_file, chunk=10 * 3600):
 
 
 def rename(input_file, chunk):
+    ext = input_file.split('.')[-1]
+    pattern = re.compile(r'part\d{3}\.' + re.escape(ext))
+
     has_part = True
     while has_part:
         # expected type bytes got str instead
-        files: List[str] = os.listdir(os.path.dirname(input_file))
+        files: typing.List[str] = os.listdir(os.path.dirname(input_file))
 
         for each_file in files:
-            # fixme: hard-coded file extension
-            if re.search(r'part\d{3}\.mp4', each_file) is None:
+            if pattern.search(each_file) is None:
                 has_part = False
                 continue
 
             has_part = True
-            part = int(re.findall(r'part(\d{3})\.mp4', each_file)[0])
+            part = int(pattern.findall(each_file)[0])
 
             # why bytes???
             date = each_file.split('.')[0]
@@ -86,7 +88,9 @@ def rename(input_file, chunk):
                 continue
 
             dst_filename = str(
-                datetime.datetime.strptime(date, '%Y-%m-%d %H:%M:%S') + datetime.timedelta(hours=chunk / 3600)) + '.mp4'
+                datetime.datetime.strptime(date, '%Y-%m-%d %H:%M:%S') +
+                datetime.timedelta(hours=chunk / 3600)
+            ) + '.mp4'
             print('{} -> {}'.format(each_file, dst_filename))
             os.rename(each_file, dst_filename)
 
