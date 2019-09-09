@@ -2,6 +2,7 @@ import os
 import pathlib
 import pickle
 
+import apiclient
 import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import google.auth.transport.requests
@@ -45,8 +46,31 @@ class Youtube:
             api_service_name, api_version, credentials=credentials
         )
 
-    def upload(self):
-        pass
+    def upload(
+            self, video_path, title, description,
+            chunk_size=4 * 1024 * 1024, progress_callback=None
+    ):
+        body = {
+            'snippet': {
+                'title': title, 'description': description
+            }
+        }
+
+        insert_request = self.youtube.videos().insert(
+            part=','.join(body.keys()),
+            body=body,
+            media_body=apiclient.http.MediaFileUpload(
+                video_path, chunksize=chunk_size, resumable=True
+            )
+        )
+
+        while True:
+            status, response = insert_request.next_chunk()
+            if status and progress_callback:
+                progress_callback(status.total_size, status.resumable_progress)
+            if response:
+                if 'id' in response:
+                    return response['id']
 
     def check_uploaded(self, video_id):
         response = self.youtube.videos().list(
