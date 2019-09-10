@@ -11,9 +11,7 @@ import tqdm
 
 
 class Youtube:
-    def __init__(self, config_path):
-        config = toml.load(config_path)
-
+    def __init__(self, config):
         scopes = [
             'https://www.googleapis.com/auth/youtube.readonly',
             'https://www.googleapis.com/auth/youtube.upload'
@@ -102,7 +100,7 @@ class Youtube:
 
 
 if __name__ == '__main__':
-    youtube = Youtube(os.path.join(
+    youtube = Youtube(toml.load(os.path.join(
         pathlib.Path(os.path.abspath(__file__)).parent.parent.parent, 'config.toml'
-    ))
+    )))
     print(youtube.check_uploaded('EkYec3Vwico'))
