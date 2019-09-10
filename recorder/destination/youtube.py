@@ -7,6 +7,7 @@ import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import google.auth.transport.requests
 import toml
+import tqdm
 
 
 class Youtube:
@@ -47,8 +48,8 @@ class Youtube:
         )
 
     def upload(
-            self, video_path, title, description,
-            chunk_size=4 * 1024 * 1024, progress_callback=None
+            self, video_path, title, description='',
+            chunk_size=4 * 1024 * 1024
     ):
         body = {
             'snippet': {
@@ -64,12 +65,21 @@ class Youtube:
             )
         )
 
+        progress_bar = None
+        last_progress = 0  # last known iteration, start at 0
         while True:
             status, response = insert_request.next_chunk()
-            if status and progress_callback:
-                progress_callback(status.total_size, status.resumable_progress)
+            if status:
+                if progress_bar is None:
+                    progress_bar = tqdm.tqdm(
+                        total=status.total_size, unit='B', unit_scale=True
+                    )
+                progress_bar.update(status.resumable_progress - last_progress)
+                last_progress = status.resumable_progress
             if response:
                 if 'id' in response:
+                    if progress_bar is not None:
+                        progress_bar.close()
                     return response['id']
 
     def check_uploaded(self, video_id):

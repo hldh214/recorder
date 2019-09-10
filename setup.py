@@ -7,7 +7,8 @@ requires = [
     'google-auth-oauthlib==0.4.*',
     'google-auth-httplib2==0.0.3',
     'toml==0.10.*',
-    'httplib2==0.13.*'
+    'httplib2==0.13.*',
+    'tqdm==4.35.*'
 ]
 
 with open('README.md') as f:
