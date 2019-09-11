@@ -1,3 +1,8 @@
 [youtube]
 client_secrets_file = ""
 credentials_file = ""
+
+[huya]
+    [huya."668668"]
+    room_id = "668668"
+    sticky_m3u8 = "http://aldirect.hls.huya.com/huyalive/1445831202-1445831202-6209797728126369792-3356350302-10057-A-0-1.m3u8"
