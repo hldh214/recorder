@@ -31,8 +31,10 @@ def record_thread(room_id, sticky_m3u8='', interval=5):
 def recorder(config):
     # todo: polyfill for all sites
     huya_conf = config['huya']
-    for conf in huya_conf.values():
-        threading.Thread(target=record_thread, kwargs=conf).start()
+    for name, conf in huya_conf:
+        threading.Thread(
+            target=record_thread, kwargs=conf, name='Recorder-{}'.format(name)
+        ).start()
 
 
 def upload_thread():
