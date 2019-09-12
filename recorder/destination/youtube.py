@@ -18,8 +18,8 @@ class Youtube:
         ]
         api_service_name = 'youtube'
         api_version = 'v3'
-        client_secrets_file = config['youtube']['client_secrets_file']
-        credentials_file = config['youtube']['credentials_file']
+        client_secrets_file = config['client_secrets_file']
+        credentials_file = config['credentials_file']
 
         credentials = None
         # The file token.pickle stores the user's access and refresh tokens, and is
