@@ -94,9 +94,14 @@ def upload_thread(config, youtube, chunk=10 * 3600, interval=5):
             )
 
             # move to validate folder and add video_id in filename
+            dst_dir = os.path.join(validate_path, name)
+
+            if not os.path.exists(dst_dir):
+                os.mkdir(dst_dir)
+
             os.rename(
                 video_path,
-                os.path.join(validate_path, '{0}{1}{2}'.format(
+                os.path.join(dst_dir, '{0}{1}{2}'.format(
                     video_id, video_name_sep, split_video_path[-1]
                 ))
             )
