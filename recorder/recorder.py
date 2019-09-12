@@ -12,6 +12,8 @@ import toml
 import destination.youtube
 import ffmpeg
 
+video_name_sep = '|'
+
 base_path = pathlib.Path(os.path.abspath(__file__)).parent.parent
 # todo: dont use hard-coded output path
 upload_path = os.path.join(base_path, 'videos', 'upload')
@@ -19,7 +21,8 @@ validate_path = os.path.join(base_path, 'videos', 'validate')
 
 logging.basicConfig(
     filename=os.path.join(base_path, 'recorder.log'),
-    level=logging.INFO
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)-8s %(message)s'
 )
 
 
@@ -51,7 +54,7 @@ def recorder(config):
         ).start()
 
 
-def valid_check_thread(chunk=10 * 3600):
+def valid_check_thread(chunk=10 * 3600, interval=5):
     while True:
         videos = glob.glob(os.path.join(upload_path, '*', '*.mp4'))
 
@@ -68,8 +71,10 @@ def valid_check_thread(chunk=10 * 3600):
                 ffmpeg.split(video_path)
                 logging.info('{}: split'.format(video_path))
 
+        time.sleep(interval)
 
-def upload_thread(config, youtube, chunk=10 * 3600):
+
+def upload_thread(config, youtube, chunk=10 * 3600, interval=5):
     while True:
         videos = glob.glob(os.path.join(upload_path, '*', '*.mp4'))
 
@@ -91,10 +96,12 @@ def upload_thread(config, youtube, chunk=10 * 3600):
             # move to validate folder and add video_id in filename
             os.rename(
                 video_path,
-                os.path.join(validate_path, '{0}|{1}'.format(
-                    video_id, split_video_path[-1]
+                os.path.join(validate_path, '{0}{1}{2}'.format(
+                    video_id, video_name_sep, split_video_path[-1]
                 ))
             )
+
+        time.sleep(interval)
 
 
 def uploader(config, youtube, chunk=10 * 3600):
@@ -109,12 +116,24 @@ def uploader(config, youtube, chunk=10 * 3600):
     }).start()
 
 
-def validate_thread():
-    pass
+def validate_thread(youtube, interval=5):
+    while True:
+        videos = glob.glob(os.path.join(validate_path, '*', '*.mp4'))
+
+        for video_path in videos:
+            video_id = video_path.split(video_name_sep)[0]
+
+            if youtube.check_uploaded(video_id):
+                os.unlink(video_path)
+                logging.info('{0}|{1}: uploaded successfully'.format(video_id, video_path))
+
+        time.sleep(interval)
 
 
 def upload_validator(youtube):
-    pass
+    threading.Thread(target=validate_thread, kwargs={
+        'youtube': youtube
+    }).start()
 
 
 def main():
@@ -125,7 +144,6 @@ def main():
 
     uploader(config['source'], youtube)
 
-    # todo
     upload_validator(youtube)
 
 
