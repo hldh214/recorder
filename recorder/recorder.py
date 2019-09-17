@@ -4,6 +4,7 @@ import importlib
 import logging
 import os
 import pathlib
+import subprocess
 import threading
 import time
 
@@ -60,6 +61,9 @@ def valid_check_thread(chunk=10 * 3600, interval=5):
 
         for video_path in videos:
             if not ffmpeg.valid(video_path):
+                # check if this file is in use
+                if ffmpeg.in_use(video_path):
+                    continue
                 # unlink that file and save log
                 os.unlink(video_path)
                 logging.warning('{}: unlinked'.format(video_path))

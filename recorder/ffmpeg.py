@@ -37,6 +37,10 @@ def valid(input_file):
     return bool(duration(input_file))
 
 
+def in_use(input_file):
+    return bool(subprocess.run(['fuser', input_file], stdout=subprocess.PIPE).stdout)
+
+
 def split(input_file, chunk=10 * 3600):
     current_duration = duration(input_file)
 
