@@ -44,12 +44,13 @@ def record_thread(source_type, room_id, name, sticky_m3u8='', interval=5):
 
 
 def recorder(config):
-    for name, conf in config:
+    for name, conf in config.items():
         conf.update({'name': name})
 
         threading.Thread(
             # todo: whereis the output???
             target=record_thread,
+            # todo: got an unexpected keyword argument
             kwargs=conf,
             name='Recorder-{}'.format(name)
         ).start()
