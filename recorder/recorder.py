@@ -20,6 +20,9 @@ base_path = pathlib.Path(os.path.abspath(__file__)).parent.parent
 upload_path = os.path.join(base_path, 'videos', 'upload')
 validate_path = os.path.join(base_path, 'videos', 'validate')
 
+# https://github.com/googleapis/google-api-python-client/issues/299#issuecomment-255793971
+logging.getLogger('googleapicliet.discovery_cache').setLevel(logging.ERROR)
+
 logging.basicConfig(
     filename=os.path.join(base_path, 'recorder.log'),
     level=logging.INFO,
