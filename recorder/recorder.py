@@ -19,14 +19,12 @@ base_path = pathlib.Path(os.path.abspath(__file__)).parent.parent
 upload_path = os.path.join(base_path, 'videos', 'upload')
 validate_path = os.path.join(base_path, 'videos', 'validate')
 
-# https://github.com/googleapis/google-api-python-client/issues/299#issuecomment-255793971
-logging.getLogger('googleapicliet.discovery_cache').setLevel(logging.ERROR)
-
-logging.basicConfig(
-    filename=os.path.join(base_path, 'recorder.log'),
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)-8s %(message)s'
-)
+logger = logging.getLogger(__name__)
+handler = logging.FileHandler(filename=os.path.join(base_path, 'recorder.log'))
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 
 def get_config(filename='config.toml'):
@@ -39,6 +37,7 @@ def record_thread(source_type, room_id, name, sticky_m3u8='', interval=5):
     while True:
         if source.is_live(room_id):
             m3u8_url = source.parse_m3u8(room_id, sticky_m3u8)
+            logger.info('recording: {}'.format(m3u8_url))
             ffmpeg.record(m3u8_url, os.path.join(
                 upload_path, '{0}/{1}.mp4'.format(name, datetime.datetime.now())
             ))
@@ -69,14 +68,14 @@ def valid_check_thread(chunk=10 * 3600, interval=5):
                     continue
                 # unlink that file and save log
                 os.unlink(video_path)
-                logging.warning('{}: unlinked'.format(video_path))
+                logger.warning('unlinked: {}'.format(video_path))
 
             duration = ffmpeg.duration(video_path)
 
             if duration > chunk:
                 # need split
                 ffmpeg.split(video_path)
-                logging.info('{}: split'.format(video_path))
+                logger.info('split: {}'.format(video_path))
 
         time.sleep(interval)
 
@@ -94,11 +93,13 @@ def upload_thread(config, youtube, chunk=10 * 3600, interval=5):
             split_video_path = video_path.split(os.sep)
             name = split_video_path[-2]
 
+            logger.info('uploading: {}'.format(video_path))
             video_id = youtube.upload(
                 video_path,
                 config[name]['title'].format(datetime=datetime.datetime.now()),
                 config[name]['description']
             )
+            logger.info('uploaded: {}'.format(video_path))
 
             # move to validate folder and add video_id in filename
             dst_dir = os.path.join(validate_path, name)
@@ -137,7 +138,7 @@ def validate_thread(youtube, interval=360):
 
             if youtube.check_uploaded(video_id):
                 os.unlink(video_path)
-                logging.info('{0}|{1}: uploaded successfully'.format(video_id, video_path))
+                logger.info('uploaded successfully: {0}|{1}'.format(video_id, video_path))
 
         time.sleep(interval)
 
