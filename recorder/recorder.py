@@ -50,8 +50,9 @@ def recorder(config):
         threading.Thread(
             # todo: whereis the output???
             target=record_thread,
-            # todo: got an unexpected keyword argument
-            kwargs=conf,
+            kwargs={key: conf[key] for key in (
+                'source_type', 'room_id', 'name', 'sticky_m3u8'
+            )},
             name='Recorder-{}'.format(name)
         ).start()
 
@@ -126,7 +127,7 @@ def uploader(config, youtube, chunk=10 * 3600):
     }).start()
 
 
-def validate_thread(youtube, interval=5):
+def validate_thread(youtube, interval=360):
     while True:
         videos = glob.glob(os.path.join(validate_path, '*', '*.mp4'))
 
