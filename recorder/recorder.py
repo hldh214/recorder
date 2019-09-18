@@ -4,7 +4,6 @@ import importlib
 import logging
 import os
 import pathlib
-import subprocess
 import threading
 import time
 
@@ -51,7 +50,6 @@ def recorder(config):
         conf.update({'name': name})
 
         threading.Thread(
-            # todo: whereis the output???
             target=record_thread,
             kwargs={key: conf[key] for key in (
                 'source_type', 'room_id', 'name', 'sticky_m3u8'
