@@ -92,11 +92,13 @@ def upload_thread(config, youtube, chunk=10 * 3600, interval=5):
 
             split_video_path = video_path.split(os.sep)
             name = split_video_path[-2]
+            split_filename = split_video_path[-1].split('.')
+            filename = '{0}.{1}'.format(split_filename[0], split_filename[-1])
 
             logger.info('uploading: {}'.format(video_path))
             video_id = youtube.upload(
                 video_path,
-                config[name]['title'].format(datetime=datetime.datetime.now()),
+                config[name]['title'].format(datetime=filename),
                 config[name]['description']
             )
             logger.info('uploaded: {}'.format(video_path))
