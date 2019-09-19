@@ -21,7 +21,7 @@ validate_path = os.path.join(base_path, 'videos', 'validate')
 
 logger = logging.getLogger(__name__)
 handler = logging.FileHandler(filename=os.path.join(base_path, 'recorder.log'))
-handler.setLevel(logging.INFO)
+logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
