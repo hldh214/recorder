@@ -136,7 +136,8 @@ def validate_thread(youtube, interval=360):
         videos = glob.glob(os.path.join(validate_path, '*', '*.mp4'))
 
         for video_path in videos:
-            video_id = video_path.split(video_name_sep)[0]
+            split_video_path = video_path.split(os.sep)
+            video_id = split_video_path[-1].split(video_name_sep)[0]
 
             if youtube.check_uploaded(video_id):
                 os.unlink(video_path)
