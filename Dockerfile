@@ -2,8 +2,6 @@ FROM alpine:3.10
 
 WORKDIR /app
 
-COPY requirements.txt /app
-
 # credit: https://github.com/frol/docker-alpine-python3/blob/master/Dockerfile
 RUN apk add --no-cache python3 && \
     if [ ! -e /usr/bin/python ]; then ln -sf python3 /usr/bin/python ; fi && \
@@ -15,8 +13,8 @@ RUN apk add --no-cache python3 && \
     \
     apk add --update --no-cache ffmpeg
 
-RUN pip3 install -r requirements.txt
-
 COPY . /app
+
+RUN pip3 install -r requirements.txt
 
 CMD ['python3', '/app/recorder/recorder.py']
