@@ -6,6 +6,16 @@ stream recorder &amp;&amp; automatic upload
 
 These instructions will get you a copy of the project up and running on your local machine for development purposes.
 
+### From Docker
+
+[![Docker Stars](https://img.shields.io/docker/stars/hldh214/recorder.svg)](https://hub.docker.com/r/hldh214/recorder/)
+[![Docker Pulls](https://img.shields.io/docker/pulls/hldh214/recorder.svg)](https://hub.docker.com/r/hldh214/recorder/)
+[![Docker Automated buil](https://img.shields.io/docker/automated/hldh214/recorder.svg)](https://hub.docker.com/r/hldh214/recorder/)
+
+``` sh
+$ docker run -d --name recorder --restart always -v /path/to/your/config.toml:/app/config.toml -v /path/to/your/videos:/app/videos hldh214/recorder
+```
+
 ### Prerequisites
 
 ```

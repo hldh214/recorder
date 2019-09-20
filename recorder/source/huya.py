@@ -12,6 +12,8 @@ opener.headers = {
 
 
 def is_live(room_id):
+    # todo: a better way to check is live
+    # current: may be off air -> 404
     res = opener.get('https://m.huya.com/{0}'.format(room_id))
     m3u8_result = m3u8_pattern.findall(res.text)
 
