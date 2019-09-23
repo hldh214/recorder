@@ -15,7 +15,6 @@ import ffmpeg
 video_name_sep = '|'
 
 base_path = pathlib.Path(os.path.abspath(__file__)).parent.parent
-# todo: dont use hard-coded output path
 upload_path = os.path.join(base_path, 'videos', 'upload')
 validate_path = os.path.join(base_path, 'videos', 'validate')
 
@@ -52,8 +51,7 @@ def recorder(config):
             target=record_thread,
             kwargs={key: conf[key] for key in (
                 'source_type', 'room_id', 'name', 'sticky_m3u8'
-            )},
-            name='Recorder-{}'.format(name)
+            )}
         ).start()
 
 
