@@ -7,6 +7,7 @@ import pathlib
 import threading
 import time
 
+import googleapiclient.errors
 import toml
 
 import destination.youtube
@@ -137,7 +138,12 @@ def validate_thread(youtube, interval=360):
             split_video_path = video_path.split(os.sep)
             video_id = split_video_path[-1].split(video_name_sep)[0]
 
-            if youtube.check_uploaded(video_id):
+            try:
+                uploaded = youtube.check_uploaded(video_id)
+            except googleapiclient.errors.HttpError:
+                continue
+
+            if uploaded:
                 os.unlink(video_path)
                 logger.info('uploaded successfully: {0}|{1}'.format(video_id, video_path))
 
