@@ -66,7 +66,7 @@ def split(input_file, chunk=10 * 3600):
 
 def rename(input_file, chunk):
     ext = input_file.split('.')[-1]
-    pattern = re.compile(r'part\d{3}\.' + re.escape(ext))
+    pattern = re.compile(r'part(\d{3})\.' + re.escape(ext))
 
     has_part = True
     while has_part:
