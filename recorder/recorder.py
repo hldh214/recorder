@@ -95,6 +95,7 @@ def upload_thread(config, youtube, chunk=10 * 3600, interval=5):
             filename_datetime = '{0}'.format(split_filename[0])
 
             logger.info('uploading: {}'.format(video_path))
+            # fixme: exception handle??????
             video_id = youtube.upload(
                 video_path,
                 config[name]['title'].format(datetime=filename_datetime),
