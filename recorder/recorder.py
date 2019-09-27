@@ -163,8 +163,6 @@ def main():
     config = get_config()
     youtube = destination.youtube.Youtube(config['youtube'])
 
-    ffmpeg.rename('')
-    exit()
     recorder(config['source'])
 
     uploader(config['source'], youtube)
