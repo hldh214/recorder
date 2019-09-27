@@ -73,7 +73,9 @@ def valid_check_thread(chunk=10 * 3600, interval=5):
 
             if duration > chunk:
                 # need split
-                ffmpeg.split(video_path)
+                # cuz video will be parsed using keyframes, which is very fast
+                # so we minus 5 min to insure each chunk size < 10 hrs
+                ffmpeg.split(video_path, chunk - 300)
                 logger.info('split: {}'.format(video_path))
 
         time.sleep(interval)
@@ -161,6 +163,8 @@ def main():
     config = get_config()
     youtube = destination.youtube.Youtube(config['youtube'])
 
+    ffmpeg.rename('')
+    exit()
     recorder(config['source'])
 
     uploader(config['source'], youtube)

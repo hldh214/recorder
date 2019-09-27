@@ -41,7 +41,7 @@ def in_use(input_file):
     return bool(subprocess.run(['fuser', input_file], stdout=subprocess.PIPE).stdout)
 
 
-def split(input_file, chunk=10 * 3600 - 360):
+def split(input_file, chunk=10 * 3600 - 300):
     current_duration = duration(input_file)
 
     split_input_file = input_file.split('.')
@@ -59,7 +59,7 @@ def split(input_file, chunk=10 * 3600 - 360):
     for line in ff.stdout:
         print(line.decode(), end='')
 
-    rename(input_file, chunk)
+    # rename(input_file, chunk)
 
     return True
 
@@ -91,9 +91,10 @@ def rename(input_file, chunk):
                 os.rename(each_file, dst_filename)
                 continue
 
+            # fixme: handle > 2 chunks case
             dst_filename = str(
                 datetime.datetime.strptime(date, '%Y-%m-%d %H:%M:%S') +
-                datetime.timedelta(hours=chunk / 3600)
+                datetime.timedelta(seconds=chunk)
             ) + '.mp4'
             print('{} -> {}'.format(each_file, dst_filename))
             os.rename(each_file, dst_filename)
