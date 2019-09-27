@@ -41,7 +41,7 @@ def in_use(input_file):
     return bool(subprocess.run(['fuser', input_file], stdout=subprocess.PIPE).stdout)
 
 
-def split(input_file, chunk=10 * 3600):
+def split(input_file, chunk=10 * 3600 - 360):
     current_duration = duration(input_file)
 
     split_input_file = input_file.split('.')
