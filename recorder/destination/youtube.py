@@ -59,7 +59,8 @@ class Youtube:
             part=','.join(body.keys()),
             body=body,
             media_body=apiclient.http.MediaFileUpload(
-                video_path, chunksize=chunk_size, resumable=True
+                video_path, chunksize=chunk_size, resumable=True,
+                mimetype='application/octet-stream'
             )
         )
 
