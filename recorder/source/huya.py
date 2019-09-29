@@ -20,7 +20,7 @@ def is_live(room_id):
         return False
     m3u8_result = m3u8_pattern.findall(res.text)
 
-    if m3u8_result and ffmpeg.valid(m3u8_result):
+    if m3u8_result and ffmpeg.valid(m3u8_result[0]):
         # on air
         return True
 
