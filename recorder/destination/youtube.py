@@ -1,16 +1,25 @@
 import os
 import pathlib
 import pickle
+import socket
 
 import apiclient
 import google_auth_oauthlib.flow
 import googleapiclient.discovery
+import googleapiclient.errors
 import google.auth.transport.requests
 import toml
 import tqdm
 
 
 class Youtube:
+    # Always retry when an apiclient.errors.HttpError with one of these status
+    # codes is raised.
+    RETRYABLE_STATUS_CODES = [500, 502, 503, 504]
+
+    # Always retry when these exceptions are raised.
+    RETRYABLE_EXCEPTIONS = (IOError, socket.timeout)
+
     def __init__(self, config):
         scopes = [
             'https://www.googleapis.com/auth/youtube.readonly',
@@ -66,8 +75,28 @@ class Youtube:
 
         progress_bar = None
         last_progress = 0  # last known iteration, start at 0
+        status = None
+        response = None
         while True:
-            status, response = insert_request.next_chunk()
+            error = None
+            try:
+                status, response = insert_request.next_chunk()
+            except googleapiclient.errors.HttpError as exception:
+                if exception.resp.status in self.RETRYABLE_STATUS_CODES:
+                    error = 'A retryable HTTP error {0} occurred:\n{1}'.format(
+                        exception.resp.status, exception.content
+                    )
+                elif exception.resp.status == 403:
+                    return False
+                else:
+                    raise
+            except self.RETRYABLE_EXCEPTIONS as exception:
+                error = 'A retryable error occurred: {}'.format(exception)
+
+            if error is not None:
+                print(error)
+                continue
+
             if status:
                 if progress_bar is None:
                     progress_bar = tqdm.tqdm(

@@ -81,7 +81,10 @@ def valid_check_thread(chunk=10 * 3600, interval=5):
         time.sleep(interval)
 
 
-def upload_thread(config, youtube, chunk=10 * 3600, interval=5):
+def upload_thread(
+        config, youtube, chunk=10 * 3600, interval=5,
+        quota_exceeded_sleep=3600
+):
     while True:
         videos = glob.glob(os.path.join(upload_path, '*', '*.mp4'))
 
@@ -97,12 +100,21 @@ def upload_thread(config, youtube, chunk=10 * 3600, interval=5):
             filename_datetime = '{0}'.format('.'.join(split_filename[:-1]))
 
             logger.info('uploading: {}'.format(video_path))
-            # fixme: exception handle??????
             video_id = youtube.upload(
                 video_path,
                 config[name]['title'].format(datetime=filename_datetime),
                 config[name]['description']
             )
+
+            if not video_id:
+                # googleapiclient.errors.ResumableUploadError:
+                # <HttpError 403 "The request cannot be completed
+                # because you have exceeded your
+                # <a href="/youtube/v3/getting-started#quota">quota</a>.">
+                logger.warning('quota exceeded, sleep {} secs'.format(quota_exceeded_sleep))
+                time.sleep(quota_exceeded_sleep)
+                continue
+
             logger.info('uploaded: {}'.format(video_path))
 
             # move to validate folder and add video_id in filename
