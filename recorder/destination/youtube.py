@@ -74,11 +74,11 @@ class Youtube:
                     )
                 progress_bar.update(status.resumable_progress - last_progress)
                 last_progress = status.resumable_progress
-            if response:
-                if 'id' in response:
-                    if progress_bar is not None:
-                        progress_bar.close()
-                    return response['id']
+
+            if response and ('id' in response):
+                if progress_bar is not None:
+                    progress_bar.close()
+                return response['id']
 
     def check_uploaded(self, video_id):
         response = self.youtube.videos().list(
