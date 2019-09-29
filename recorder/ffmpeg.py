@@ -12,10 +12,10 @@ def record(input_url, output_file):
         print(line.decode(), end='')
 
 
-def duration(input_file):
+def show_format(input_file):
     """
-    :param input_file: video's path
-    :return: video's duration in seconds, False if video is not valid
+    :param input_file: video's path or m3u8 url
+    :return: video's format information in json dictionary, None if video is not valid
     """
     proc = subprocess.run([
         'ffprobe', '-print_format', 'json',
@@ -25,13 +25,27 @@ def duration(input_file):
     res = json.loads(proc.stdout)
 
     if not res:
-        return False
+        return None
 
-    return int(float(res['format']['duration']))
+    return res
+
+
+def duration(input_file):
+    """
+    :param input_file: video's path
+    :return: video's duration in seconds, False if video is not valid
+    """
+    res = show_format(input_file)
+
+    return res['format']['duration'] if res else False
 
 
 def valid(input_file):
-    return bool(duration(input_file))
+    """
+    :param input_file: video's path or m3u8 url
+    :return: True if video is valid, False if not
+    """
+    return True if show_format(input_file) else False
 
 
 def in_use(input_file):

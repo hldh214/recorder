@@ -2,6 +2,8 @@ import re
 
 import requests
 
+import ffmpeg
+
 m3u8_pattern = re.compile(r"hasvedio\s*:\s*'(\S+)'")
 
 opener = requests.session()
@@ -12,15 +14,13 @@ opener.headers = {
 
 
 def is_live(room_id):
-    # todo: a better way to check is live
-    # current: may be off air -> 404
     try:
         res = opener.get('https://m.huya.com/{0}'.format(room_id))
     except requests.exceptions.ChunkedEncodingError:
         return False
     m3u8_result = m3u8_pattern.findall(res.text)
 
-    if m3u8_result:
+    if m3u8_result and ffmpeg.valid(m3u8_result):
         # on air
         return True
 
