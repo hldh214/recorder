@@ -1,9 +1,6 @@
 import datetime
 import json
-import os
-import re
 import subprocess
-import typing
 
 
 def record(input_url, output_file):
@@ -59,45 +56,7 @@ def split(input_file, chunk=10 * 3600 - 300):
     for line in ff.stdout:
         print(line.decode(), end='')
 
-    # rename(input_file, chunk)
-
     return True
-
-
-def rename(input_file, chunk):
-    ext = input_file.split('.')[-1]
-    pattern = re.compile(r'part(\d{3})\.' + re.escape(ext))
-
-    has_part = True
-    while has_part:
-        # expected type bytes got str instead
-        files: typing.List[str] = os.listdir(os.path.dirname(input_file))
-
-        for each_file in files:
-            if pattern.search(each_file) is None:
-                has_part = False
-                continue
-
-            has_part = True
-            part = int(pattern.findall(each_file)[0])
-
-            # why bytes???
-            date = each_file.split('.')[0]
-
-            if part == 0:
-                # first part
-                dst_filename = date + '.mp4'
-                print('{} -> {}'.format(each_file, dst_filename))
-                os.rename(each_file, dst_filename)
-                continue
-
-            # fixme: handle > 2 chunks case
-            dst_filename = str(
-                datetime.datetime.strptime(date, '%Y-%m-%d %H:%M:%S') +
-                datetime.timedelta(seconds=chunk)
-            ) + '.mp4'
-            print('{} -> {}'.format(each_file, dst_filename))
-            os.rename(each_file, dst_filename)
 
 
 if __name__ == '__main__':
