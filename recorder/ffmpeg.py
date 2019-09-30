@@ -2,10 +2,13 @@ import datetime
 import json
 import subprocess
 
+TIMEOUT_US = str(60 * 1000000)
+
 
 def record(input_url, output_file):
     ff = subprocess.Popen([
-        'ffmpeg', '-hide_banner', '-i', input_url, '-c', 'copy', output_file
+        'ffmpeg', '-hide_banner', '-rw_timeout', TIMEOUT_US, '-timeout', TIMEOUT_US,
+        '-i', input_url, '-c', 'copy', output_file
     ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     for line in ff.stdout:
