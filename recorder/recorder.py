@@ -31,7 +31,7 @@ def get_config(filename='config.toml'):
     return toml.load(os.path.join(base_path, filename))
 
 
-def record_thread(source_type, room_id, name, sticky_m3u8='', interval=5):
+def record_thread(source_type, room_id, name, sticky_m3u8=None, interval=5):
     source = importlib.import_module('source.{}'.format(source_type))
 
     while True:
