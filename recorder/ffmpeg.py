@@ -49,7 +49,11 @@ def valid(input_file):
 
 
 def in_use(input_file):
-    return bool(subprocess.run(['fuser', input_file], stdout=subprocess.PIPE).stdout)
+    return bool(subprocess.run(
+        ['fuser', input_file],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT
+    ).stdout)
 
 
 def split(input_file, chunk=10 * 3600 - 300):
