@@ -132,5 +132,5 @@ class Youtube:
 if __name__ == '__main__':
     youtube = Youtube(toml.load(os.path.join(
         pathlib.Path(os.path.abspath(__file__)).parent.parent.parent, 'config.toml'
-    )))
+    ))['youtube'])
     print(youtube.check_uploaded('EkYec3Vwico'))
