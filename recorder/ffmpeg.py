@@ -40,7 +40,7 @@ def duration(input_file):
     """
     res = show_format(input_file)
 
-    return res['format']['duration'] if res else False
+    return int(float(res['format']['duration'])) if res else False
 
 
 def valid(input_file):
