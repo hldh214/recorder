@@ -6,3 +6,4 @@ toml==0.10.*
 httplib2==0.13.*
 tqdm==4.35.*
 pytest==5.2.*
+notifiers==1.2.*
