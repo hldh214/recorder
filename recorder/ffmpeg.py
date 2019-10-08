@@ -52,6 +52,7 @@ def valid(input_file):
 
 
 def in_use(input_file):
+    # todo: use psutil instead
     return bool(subprocess.run(
         ['fuser', input_file],
         stdout=subprocess.PIPE,
