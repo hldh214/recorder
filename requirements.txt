@@ -5,3 +5,4 @@ google-auth-httplib2==0.0.3
 toml==0.10.*
 httplib2==0.13.*
 tqdm==4.35.*
+pytest==5.2.*
