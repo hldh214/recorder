@@ -5,11 +5,18 @@ import subprocess
 TIMEOUT_US = str(60 * 1000000)
 
 
-def record(input_url, output_file):
-    ff = subprocess.Popen([
+def record(input_url, output_file, args=None):
+    popen_args = [
         'ffmpeg', '-hide_banner', '-rw_timeout', TIMEOUT_US, '-timeout', TIMEOUT_US,
-        '-i', input_url, '-c', 'copy', output_file
-    ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        '-i', input_url, '-c', 'copy'
+    ]
+
+    if args is not None:
+        popen_args.extend(args)
+
+    popen_args.append(output_file)
+
+    ff = subprocess.Popen(popen_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     for line in ff.stdout:
         print(line.decode(), end='')
