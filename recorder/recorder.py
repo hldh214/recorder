@@ -67,7 +67,7 @@ def valid_check_thread(chunk=10 * 3600, interval=5):
                     continue
                 # unlink that file and save log
                 os.unlink(video_path)
-                logger.warning('unlinked: {}'.format(video_path))
+                logger.warning('not valid and unlinked: {}'.format(video_path))
 
             duration = ffmpeg.duration(video_path)
 
@@ -76,7 +76,8 @@ def valid_check_thread(chunk=10 * 3600, interval=5):
                 # cuz video will be parsed using keyframes, which is very fast
                 # so we minus 5 min to insure each chunk size < 10 hrs
                 ffmpeg.split(video_path, chunk - 300)
-                logger.info('split: {}'.format(video_path))
+                os.unlink(video_path)
+                logger.info('split and unlinked: {}'.format(video_path))
 
         time.sleep(interval)
 
