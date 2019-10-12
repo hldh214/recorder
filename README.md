@@ -28,7 +28,7 @@ python >= 3.5
 git clone https://github.com/hldh214/recorder.git
 cd ./recorder
 pip install -r requirements.txt
-python recorder/recorder.py
+python -m recorder.recorder
 ```
 
 ## Built With

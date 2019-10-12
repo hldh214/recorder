@@ -10,8 +10,8 @@ import time
 import googleapiclient.errors
 import toml
 
-import destination.youtube
-import ffmpeg
+import recorder.destination.youtube
+import recorder.ffmpeg as ffmpeg
 
 video_name_sep = '|'
 
@@ -32,7 +32,7 @@ def get_config(filename='config.toml'):
 
 
 def record_thread(source_type, room_id, name, sticky_m3u8=None, interval=5):
-    source = importlib.import_module('source.{}'.format(source_type))
+    source = importlib.import_module('recorder.source.{}'.format(source_type))
 
     while True:
         if source.is_live(room_id):
@@ -44,7 +44,7 @@ def record_thread(source_type, room_id, name, sticky_m3u8=None, interval=5):
         time.sleep(interval)
 
 
-def recorder(config):
+def my_recorder(config):
     for name, conf in config.items():
         conf.update({'name': name})
 
@@ -174,9 +174,9 @@ def upload_validator(youtube):
 
 def main():
     config = get_config()
-    youtube = destination.youtube.Youtube(config['youtube'])
+    youtube = recorder.destination.youtube.Youtube(config['youtube'])
 
-    recorder(config['source'])
+    my_recorder(config['source'])
 
     uploader(config['source'], youtube)
 
