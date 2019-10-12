@@ -2,7 +2,7 @@ import re
 
 import requests
 
-import ffmpeg
+import recorder.ffmpeg as ffmpeg
 
 m3u8_pattern = re.compile(r"hasvedio\s*:\s*'(\S+)'")
 
