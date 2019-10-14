@@ -28,7 +28,7 @@ def show_format(input_file):
     :return: video's format information in json dictionary, None if video is not valid
     """
     proc = subprocess.run([
-        'ffprobe', '-print_format', 'json',
+        'ffprobe', '-print_format', 'json', '-rw_timeout', TIMEOUT_US, '-timeout', TIMEOUT_US,
         '-show_format', '-i', input_file
     ], stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
