@@ -101,11 +101,16 @@ def upload_thread(
             filename_datetime = '{0}'.format('.'.join(split_filename[:-1]))
 
             logger.info('uploading: {}'.format(video_path))
-            video_id = youtube.upload(
-                video_path,
-                config[name]['title'].format(datetime=filename_datetime),
-                config[name]['description']
-            )
+            try:
+                video_id = youtube.upload(
+                    video_path,
+                    config[name]['title'].format(datetime=filename_datetime),
+                    config[name]['description']
+                )
+            except googleapiclient.errors.HttpError as exception:
+                time.sleep(interval)
+                logger.warning('A HTTP error occurred:\n{0}'.format(exception))
+                continue
 
             if not video_id:
                 # googleapiclient.errors.ResumableUploadError:

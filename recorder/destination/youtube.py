@@ -15,7 +15,7 @@ import tqdm
 class Youtube:
     # Always retry when an apiclient.errors.HttpError with one of these status
     # codes is raised.
-    RETRYABLE_STATUS_CODES = [410, 500, 502, 503, 504]
+    RETRYABLE_STATUS_CODES = [500, 502, 503, 504]
 
     # Always retry when these exceptions are raised.
     RETRYABLE_EXCEPTIONS = (IOError, socket.timeout)
