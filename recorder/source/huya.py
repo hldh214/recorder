@@ -16,7 +16,7 @@ opener.headers = {
 def is_live(room_id):
     try:
         res = opener.get('https://m.huya.com/{0}'.format(room_id))
-    except requests.exceptions.ChunkedEncodingError:
+    except requests.exceptions.RequestException:
         return False
     m3u8_result = m3u8_pattern.findall(res.text)
 
