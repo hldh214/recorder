@@ -4,23 +4,17 @@ import requests
 
 import recorder.ffmpeg as ffmpeg
 
-m3u8_pattern = re.compile(r"hasvedio\s*:\s*'(\S+)'")
+hls_url_pattern = re.compile(r'"sHlsUrl"\s*:\s*"(\S+?)"')
+stream_name_pattern = re.compile(r'"sStreamName"\s*:\s*"(\S+?)"')
+URL_SUFFIX = '.m3u8'
 
 opener = requests.session()
-opener.headers = {
-    'User-Agent': 'Mozilla/5.0 (Linux; Android 8.0; Pixel 2 Build/OPD3.170816.012) '
-                  'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Mobile Safari/537.36'
-}
 
 
 def is_live(room_id):
-    try:
-        res = opener.get('https://m.huya.com/{0}'.format(room_id))
-    except requests.exceptions.RequestException:
-        return False
-    m3u8_result = m3u8_pattern.findall(res.text)
+    m3u8_result = parse_m3u8(room_id)
 
-    if m3u8_result and ffmpeg.valid(m3u8_result[0]):
+    if m3u8_result and ffmpeg.valid(m3u8_result):
         # on air
         return True
 
@@ -28,24 +22,19 @@ def is_live(room_id):
 
 
 def parse_m3u8(room_id, sticky_m3u8=None):
-    res = opener.get('https://m.huya.com/{0}'.format(room_id))
-    m3u8_result = m3u8_pattern.findall(res.text)
+    if sticky_m3u8 is not None:
+        if ffmpeg.valid(sticky_m3u8):
+            return sticky_m3u8
 
-    if not m3u8_result:
+    res = opener.get('https://www.huya.com/{0}'.format(room_id))
+    hls_url_result = hls_url_pattern.findall(res.text)
+    stream_name_result = stream_name_pattern.findall(res.text)
+
+    if (not hls_url_result) or (not stream_name_result):
         return False
 
     # on air
-    m3u8 = None
-
-    if sticky_m3u8 is not None:
-        if opener.get(sticky_m3u8).status_code == 200:
-            m3u8 = sticky_m3u8
-
-    if not m3u8:
-        # replace sd -> original
-        m3u8 = m3u8_result[0].replace('_1200/playlist', '').replace('_1200', '')
-
-    return m3u8
+    return hls_url_result[0].replace('\\', '') + '/' + stream_name_result[0] + URL_SUFFIX
 
 
 if __name__ == '__main__':
