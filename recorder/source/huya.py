@@ -22,7 +22,7 @@ def is_live(room_id):
 
 
 def parse_m3u8(room_id, sticky_m3u8=None):
-    if sticky_m3u8 is not None:
+    if sticky_m3u8 is not None and sticky_m3u8:
         if ffmpeg.valid(sticky_m3u8):
             return sticky_m3u8
 

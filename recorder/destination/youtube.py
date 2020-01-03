@@ -107,6 +107,7 @@ class Youtube:
 
             if response and ('id' in response):
                 if progress_bar is not None:
+                    # todo: 100%???
                     progress_bar.close()
                 return response['id']
 
