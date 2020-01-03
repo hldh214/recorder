@@ -26,7 +26,11 @@ def parse_m3u8(room_id, sticky_m3u8=None):
         if ffmpeg.valid(sticky_m3u8):
             return sticky_m3u8
 
-    res = opener.get('https://www.huya.com/{0}'.format(room_id))
+    try:
+        res = opener.get('https://www.huya.com/{0}'.format(room_id))
+    except requests.exceptions.RequestException:
+        return False
+
     hls_url_result = hls_url_pattern.findall(res.text)
     stream_name_result = stream_name_pattern.findall(res.text)
 
