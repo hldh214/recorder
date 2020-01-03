@@ -166,7 +166,7 @@ def validate_thread(youtube, interval=360):
 
             if uploaded:
                 os.unlink(video_path)
-                logger.info('uploaded successfully: {0}|{1}'.format(video_id, video_path))
+                logger.info('uploaded successfully: {0}'.format(video_path))
 
         time.sleep(interval)
 
