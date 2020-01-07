@@ -37,9 +37,13 @@ def record_thread(source_type, room_id, name, sticky_m3u8=None, interval=5):
     while True:
         if source.is_live(room_id):
             m3u8_url = source.parse_m3u8(room_id, sticky_m3u8)
+
+            folder_path = os.path.join(upload_path, name)
+            pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
+
             logger.info('recording: {}'.format(m3u8_url))
             ffmpeg.record(m3u8_url, os.path.join(
-                upload_path, '{0}/{1}.mp4'.format(name, datetime.datetime.now())
+                folder_path, '{0}.mp4'.format(datetime.datetime.now())
             ))
         time.sleep(interval)
 
@@ -126,8 +130,7 @@ def upload_thread(
             # move to validate folder and add video_id in filename
             dst_dir = os.path.join(validate_path, name)
 
-            if not os.path.exists(dst_dir):
-                os.mkdir(dst_dir)
+            pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
 
             os.rename(
                 video_path,
