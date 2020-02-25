@@ -1,12 +1,12 @@
+import html
+import json
 import re
 
 import requests
 
 import recorder.ffmpeg as ffmpeg
 
-hls_url_pattern = re.compile(r'"sHlsUrl"\s*:\s*"(\S+?)"')
-stream_name_pattern = re.compile(r'"sStreamName"\s*:\s*"(\S+?)"')
-URL_SUFFIX = '.m3u8'
+stream_pattern = re.compile(r'"stream"\s*:\s*({.+?})\s*};')
 
 opener = requests.session()
 
@@ -31,14 +31,21 @@ def parse_m3u8(room_id, sticky_m3u8=None):
     except requests.exceptions.RequestException:
         return False
 
-    hls_url_result = hls_url_pattern.findall(res.text)
-    stream_name_result = stream_name_pattern.findall(res.text)
+    stream_result = stream_pattern.findall(res.text)
 
-    if (not hls_url_result) or (not stream_name_result):
+    if not stream_result:
         return False
 
+    stream = json.loads(stream_result[0])
+    # we choose first source(ali in default)
+    stream_info = stream['data'][0]['gameStreamInfoList'][0]
+    flv_url = stream_info['sFlvUrl']
+    stream_name = stream_info['sStreamName']
+    flv_url_suffix = stream_info['sFlvUrlSuffix']
+    flv_anti_code = html.unescape(stream_info['sFlvAntiCode'])
+
     # on air
-    return hls_url_result[0].replace('\\', '') + '/' + stream_name_result[0] + URL_SUFFIX
+    return f'{flv_url}/{stream_name}.{flv_url_suffix}?{flv_anti_code}'
 
 
 if __name__ == '__main__':
