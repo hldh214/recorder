@@ -94,5 +94,5 @@ if __name__ == '__main__':
     record(
         'https://aldirect.hls.huya.com/backsrc/'
         '94525224-2460685313-10568562945082523648-2789274524-10057-A-0-1.m3u8',
-        './{}.mp4'.format(datetime.datetime.now())
+        './{}.flv'.format(datetime.datetime.now())
     )

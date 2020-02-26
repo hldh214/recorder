@@ -43,7 +43,7 @@ def record_thread(source_type, room_id, name, sticky_m3u8=None, interval=5):
 
             logger.info('recording: {}'.format(m3u8_url))
             ffmpeg.record(m3u8_url, os.path.join(
-                folder_path, '{0}.mp4'.format(datetime.datetime.now())
+                folder_path, '{0}.flv'.format(datetime.datetime.now())
             ))
         time.sleep(interval)
 
@@ -62,7 +62,7 @@ def my_recorder(config):
 
 def valid_check_thread(chunk=10 * 3600, interval=5):
     while True:
-        videos = glob.glob(os.path.join(upload_path, '*', '*.mp4'))
+        videos = glob.glob(os.path.join(upload_path, '*', '*.flv'))
 
         for video_path in videos:
             if not ffmpeg.valid(video_path):
@@ -91,7 +91,7 @@ def upload_thread(
         quota_exceeded_sleep=3600
 ):
     while True:
-        videos = glob.glob(os.path.join(upload_path, '*', '*.mp4'))
+        videos = glob.glob(os.path.join(upload_path, '*', '*.flv'))
 
         for video_path in videos:
             duration = ffmpeg.duration(video_path)
@@ -156,7 +156,7 @@ def uploader(config, youtube, chunk=10 * 3600):
 
 def validate_thread(youtube, interval=360):
     while True:
-        videos = glob.glob(os.path.join(validate_path, '*', '*.mp4'))
+        videos = glob.glob(os.path.join(validate_path, '*', '*.flv'))
 
         for video_path in videos:
             split_video_path = video_path.split(os.sep)

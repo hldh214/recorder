@@ -4,7 +4,7 @@ import recorder.ffmpeg as ffmpeg
 
 SAMPLE_M3U8_URL = 'https://aldirect.hls.huya.com/backsrc/' \
                   '94525224-2460685313-10568562945082523648-2789274524-10057-A-0-1.m3u8'
-OUTPUT_FILE = './test_video.mp4'
+OUTPUT_FILE = './test_video.flv'
 VIDEO_DURATION = 5
 
 
