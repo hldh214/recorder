@@ -26,7 +26,7 @@ def record(input_url, output_file, args=None):
 
 def show_format(input_file):
     """
-    :param input_file: video's path or m3u8 url
+    :param input_file: video's path or stream url
     :return: video's format information in json dictionary, None if video is not valid
     """
     proc = subprocess.run([
@@ -54,7 +54,7 @@ def duration(input_file):
 
 def valid(input_file):
     """
-    :param input_file: video's path or m3u8 url
+    :param input_file: video's path or stream url
     :return: True if video is valid, False if not
     """
     return True if show_format(input_file) else False

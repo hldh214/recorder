@@ -12,20 +12,16 @@ opener = requests.session()
 
 
 def is_live(room_id):
-    m3u8_result = parse_m3u8(room_id)
+    result = get_stream(room_id)
 
-    if m3u8_result and ffmpeg.valid(m3u8_result):
+    if result and ffmpeg.valid(result):
         # on air
         return True
 
     return False
 
 
-def parse_m3u8(room_id, sticky_m3u8=None):
-    if sticky_m3u8 is not None and sticky_m3u8:
-        if ffmpeg.valid(sticky_m3u8):
-            return sticky_m3u8
-
+def get_stream(room_id):
     try:
         res = opener.get('https://www.huya.com/{0}'.format(room_id))
     except requests.exceptions.RequestException:
@@ -50,4 +46,4 @@ def parse_m3u8(room_id, sticky_m3u8=None):
 
 if __name__ == '__main__':
     print(is_live('668668'))
-    print(parse_m3u8('668668'))
+    print(get_stream('668668'))

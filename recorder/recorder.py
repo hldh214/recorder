@@ -31,18 +31,18 @@ def get_config(filename='config.toml'):
     return toml.load(os.path.join(base_path, filename))
 
 
-def record_thread(source_type, room_id, name, sticky_m3u8=None, interval=5):
+def record_thread(source_type, room_id, name, interval=5):
     source = importlib.import_module('recorder.source.{}'.format(source_type))
 
     while True:
         if source.is_live(room_id):
-            m3u8_url = source.parse_m3u8(room_id, sticky_m3u8)
+            flv_url = source.get_stream(room_id)
 
             folder_path = os.path.join(upload_path, name)
             pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
 
-            logger.info('recording: {}'.format(m3u8_url))
-            ffmpeg.record(m3u8_url, os.path.join(
+            logger.info('recording: {}'.format(flv_url))
+            ffmpeg.record(flv_url, os.path.join(
                 folder_path, '{0}.flv'.format(datetime.datetime.now())
             ))
         time.sleep(interval)
@@ -54,9 +54,7 @@ def my_recorder(config):
 
         threading.Thread(
             target=record_thread,
-            kwargs={key: conf[key] for key in (
-                'source_type', 'room_id', 'name', 'sticky_m3u8'
-            )}
+            kwargs={key: conf[key] for key in ('source_type', 'room_id', 'name')}
         ).start()
 
 

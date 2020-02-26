@@ -6,7 +6,6 @@ credentials_file = ""
     [source."668668"]
     source_type = "huya"
     room_id = "668668"
-    sticky_m3u8 = "http://aldirect.hls.huya.com/huyalive/1445831202-1445831202-6209797728126369792-3356350302-10057-A-0-1.m3u8"
     title = "风行云 - {datetime} - 录像"
     description = "直播地址：https://www.huya.com/668668"
 
