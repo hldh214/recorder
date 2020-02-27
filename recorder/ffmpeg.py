@@ -5,11 +5,13 @@ import subprocess
 TIMEOUT_US = str(60 * 1000000)
 USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.11 ' \
              'TaoBrowser/2.0 Safari/536.11'
+FFMPEG_BINARY = 'ffmpeg'
+FFPROBE_BINARY = 'ffprobe'
 
 
 def record(input_url, output_file, args=None):
     popen_args = [
-        'ffmpeg', '-user_agent', USER_AGENT, '-hide_banner', '-rw_timeout', TIMEOUT_US, '-timeout', TIMEOUT_US,
+        FFMPEG_BINARY, '-user_agent', USER_AGENT, '-hide_banner', '-rw_timeout', TIMEOUT_US, '-timeout', TIMEOUT_US,
         '-i', input_url, '-c', 'copy'
     ]
 
@@ -29,9 +31,14 @@ def show_format(input_file):
     :param input_file: video's path or stream url
     :return: video's format information in json dictionary, None if video is not valid
     """
-    proc = subprocess.run([
-        'ffprobe', '-print_format', 'json', '-show_format', '-i', input_file
-    ], stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    args = [FFPROBE_BINARY]
+
+    if str(input_file).startswith('http'):
+        args.extend(['-user_agent', USER_AGENT])
+
+    args.extend(['-print_format', 'json', '-rw_timeout', TIMEOUT_US, '-show_format', '-i', input_file])
+
+    proc = subprocess.run(args, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
     res = json.loads(proc.stdout)
 
@@ -79,7 +86,7 @@ def split(input_file, chunk=10 * 3600 - 300):
         return False
 
     ff = subprocess.Popen([
-        'ffmpeg', '-hide_banner', '-i', input_file, '-c', 'copy', '-f', 'segment',
+        FFMPEG_BINARY, '-hide_banner', '-i', input_file, '-c', 'copy', '-f', 'segment',
         '-segment_time', str(chunk), '{0}.part%03d.{1}'.format(file_without_ext, ext)
     ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
