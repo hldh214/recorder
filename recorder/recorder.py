@@ -50,6 +50,9 @@ def record_thread(source_type, room_id, name, interval=5):
 
 def my_recorder(config):
     for name, conf in config.items():
+        if not conf['enabled']:
+            continue
+
         conf.update({'name': name})
 
         threading.Thread(

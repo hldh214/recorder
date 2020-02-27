@@ -4,6 +4,7 @@ credentials_file = ""
 
 [source]
     [source."668668"]
+    enabled = true
     source_type = "huya"
     room_id = "668668"
     title = "风行云 - {datetime} - 录像"
