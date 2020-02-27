@@ -4,7 +4,7 @@ import subprocess
 
 TIMEOUT_US = str(60 * 1000000)
 USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.11 ' \
-             'TaoBrowser/2.0 Safari/536.11 '
+             'TaoBrowser/2.0 Safari/536.11'
 
 
 def record(input_url, output_file, args=None):
@@ -30,8 +30,7 @@ def show_format(input_file):
     :return: video's format information in json dictionary, None if video is not valid
     """
     proc = subprocess.run([
-        'ffprobe', '-user_agent', USER_AGENT, '-print_format', 'json', '-rw_timeout', TIMEOUT_US,
-        '-show_format', '-i', input_file
+        'ffprobe', '-print_format', 'json', '-show_format', '-i', input_file
     ], stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
     res = json.loads(proc.stdout)
