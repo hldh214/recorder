@@ -110,7 +110,7 @@ def upload_thread(
                 video_id = youtube.upload(
                     video_path,
                     config[name]['title'].format(datetime=filename_datetime),
-                    config[name]['description']
+                    config[name]['description'] if 'description' in config[name] else ''
                 )
             except googleapiclient.errors.HttpError as exception:
                 time.sleep(interval)
