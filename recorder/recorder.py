@@ -41,10 +41,12 @@ def record_thread(source_type, room_id, name, interval=5):
             folder_path = os.path.join(upload_path, name)
             pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
 
-            logger.info('recording: {}'.format(flv_url))
-            ffmpeg.record(flv_url, os.path.join(
+            logger.info(f'recording: {flv_url}')
+            exit_code = ffmpeg.record(flv_url, os.path.join(
                 folder_path, '{0}.flv'.format(datetime.datetime.now())
             ))
+            logger.info(f'recorded with exit_code {exit_code}: {flv_url}')
+
         time.sleep(interval)
 
 

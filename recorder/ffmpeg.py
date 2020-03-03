@@ -25,6 +25,8 @@ def record(input_url, output_file, args=None):
     for line in ff.stdout:
         print(line.decode(), end='')
 
+    return ff.wait()
+
 
 def show_format(input_file):
     """
