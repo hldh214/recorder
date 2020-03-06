@@ -1,4 +1,5 @@
 import array
+import asyncio
 import html
 import json
 import os
@@ -7,7 +8,7 @@ import re
 import subprocess
 
 import requests
-import websocket
+import websockets
 
 import recorder.ffmpeg as ffmpeg
 
@@ -32,7 +33,8 @@ def get_stream(room_id):
     if not sub_sid_result:
         return False
 
-    stream_info = get_stream_ng(sub_sid_result[0])
+    loop = asyncio.get_event_loop()
+    stream_info = loop.run_until_complete(get_stream_ng(sub_sid_result[0]))
 
     if not stream_info:
         if not stream_result:
@@ -55,16 +57,13 @@ def get_stream(room_id):
     return result
 
 
-def get_stream_ng(sub_sid):
-    try:
-        ws = websocket.create_connection('wss://wsapi.huya.com')
-        ws.send(array.array('B', get_living_info_request(sub_sid)).tobytes())
-        greeting = ws.recv()
-    except TimeoutError:
-        return False
-    else:
-        living_info = get_living_info_response([each for each in greeting])
-        ws.close()
+async def get_stream_ng(sub_sid):
+    async with websockets.connect('wss://wsapi.huya.com') as websocket:
+        await websocket.send(array.array('B', get_living_info_request(sub_sid)).tobytes())
+
+        greeting = await asyncio.wait_for(websocket.recv(), timeout=5)
+
+    living_info = get_living_info_response([each for each in greeting])
 
     if not living_info['bIsLiving']:
         return False

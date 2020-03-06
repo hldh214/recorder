@@ -6,4 +6,4 @@ toml==0.10.0
 tqdm==4.43.0
 pytest==5.3.5
 notifiers==1.2.1
-websocket-client==0.57.0
+websockets==8.1
