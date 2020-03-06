@@ -33,8 +33,11 @@ def get_stream(room_id):
     if not sub_sid_result:
         return False
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     stream_info = loop.run_until_complete(get_stream_ng(sub_sid_result[0]))
+    asyncio.set_event_loop(None)
+    loop.close()
 
     if not stream_info:
         if not stream_result:
