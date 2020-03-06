@@ -74,13 +74,13 @@ def get_stream_ng(sub_sid):
 def get_living_info_request(sub_sid):
     return json.loads(subprocess.run([
         *TAF_COMMAND, 'GetLivingInfoReq', str(sub_sid)
-    ], capture_output=True).stdout.decode())
+    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.decode())
 
 
 def get_living_info_response(binary_array):
     return json.loads(subprocess.run([
         *TAF_COMMAND, 'GetLivingInfoRsp', str(binary_array)
-    ], capture_output=True).stdout.decode())
+    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.decode())
 
 
 if __name__ == '__main__':
