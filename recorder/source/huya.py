@@ -1,6 +1,8 @@
 import array
 import html
 import json
+import os
+import pathlib
 import re
 import subprocess
 
@@ -10,7 +12,7 @@ import websocket
 import recorder.ffmpeg as ffmpeg
 
 NODE_BINARY = 'node'
-TAF_COMMAND = NODE_BINARY, 'taf.js'
+TAF_COMMAND = NODE_BINARY, os.path.join(pathlib.Path(__file__).parent, 'taf.js')
 
 stream_pattern = re.compile(r'"stream"\s*:\s*({.+?})\s*};')
 sub_sid_pattern = re.compile(r'huyalive\\/\d+-(\d+)-')
@@ -74,13 +76,13 @@ def get_stream_ng(sub_sid):
 def get_living_info_request(sub_sid):
     return json.loads(subprocess.run([
         *TAF_COMMAND, 'GetLivingInfoReq', str(sub_sid)
-    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.decode())
+    ], stdout=subprocess.PIPE).stdout.decode())
 
 
 def get_living_info_response(binary_array):
     return json.loads(subprocess.run([
         *TAF_COMMAND, 'GetLivingInfoRsp', str(binary_array)
-    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.decode())
+    ], stdout=subprocess.PIPE).stdout.decode())
 
 
 if __name__ == '__main__':
