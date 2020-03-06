@@ -6,7 +6,6 @@ import os
 import pathlib
 import re
 import subprocess
-import traceback
 
 import requests
 import websockets
@@ -38,9 +37,6 @@ def get_stream(room_id):
     try:
         asyncio.set_event_loop(loop)
         stream_info = loop.run_until_complete(get_stream_ng(sub_sid_result[0]))
-    except Exception:
-        traceback.print_exc()
-        return False
     finally:
         asyncio.set_event_loop(None)
         loop.close()
@@ -67,10 +63,13 @@ def get_stream(room_id):
 
 
 async def get_stream_ng(sub_sid):
-    async with websockets.connect('wss://wsapi.huya.com') as websocket:
-        await websocket.send(array.array('B', get_living_info_request(sub_sid)).tobytes())
+    try:
+        async with websockets.connect('wss://wsapi.huya.com') as websocket:
+            await websocket.send(array.array('B', get_living_info_request(sub_sid)).tobytes())
 
-        greeting = await asyncio.wait_for(websocket.recv(), timeout=5)
+            greeting = await asyncio.wait_for(websocket.recv(), timeout=5)
+    except (ConnectionResetError, websockets.exceptions.WebSocketException):
+        return False
 
     living_info = get_living_info_response([each for each in greeting])
 
