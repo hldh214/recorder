@@ -56,11 +56,15 @@ def get_stream(room_id):
 
 
 def get_stream_ng(sub_sid):
-    ws = websocket.create_connection('wss://wsapi.huya.com')
-    ws.send(array.array('B', get_living_info_request(sub_sid)).tobytes())
-    greeting = ws.recv()
-    living_info = get_living_info_response([each for each in greeting])
-    ws.close()
+    try:
+        ws = websocket.create_connection('wss://wsapi.huya.com')
+        ws.send(array.array('B', get_living_info_request(sub_sid)).tobytes())
+        greeting = ws.recv()
+    except TimeoutError:
+        return False
+    else:
+        living_info = get_living_info_response([each for each in greeting])
+        ws.close()
 
     if not living_info['bIsLiving']:
         return False
