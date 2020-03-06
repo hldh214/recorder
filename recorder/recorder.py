@@ -35,9 +35,8 @@ def record_thread(source_type, room_id, name, interval=5):
     source = importlib.import_module('recorder.source.{}'.format(source_type))
 
     while True:
-        if source.is_live(room_id):
-            flv_url = source.get_stream(room_id)
-
+        flv_url = source.get_stream(room_id)
+        if flv_url:
             folder_path = os.path.join(upload_path, name)
             pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
 
