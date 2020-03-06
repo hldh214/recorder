@@ -1,5 +1,3 @@
-import asyncio
-
 import recorder.source.huya as huya
 
 
