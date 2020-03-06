@@ -20,6 +20,7 @@ $ docker run -d --name recorder --restart always -v /path/to/your/config.toml:/a
 
 ```
 python >= 3.6
+[node](https://github.com/nvm-sh/nvm)
 ```
 
 ### Installing
