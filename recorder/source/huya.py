@@ -6,6 +6,7 @@ import os
 import pathlib
 import re
 import subprocess
+import traceback
 
 import requests
 import websockets
@@ -34,10 +35,15 @@ def get_stream(room_id):
         return False
 
     loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    stream_info = loop.run_until_complete(get_stream_ng(sub_sid_result[0]))
-    asyncio.set_event_loop(None)
-    loop.close()
+    try:
+        asyncio.set_event_loop(loop)
+        stream_info = loop.run_until_complete(get_stream_ng(sub_sid_result[0]))
+    except Exception:
+        traceback.print_exc()
+        return False
+    finally:
+        asyncio.set_event_loop(None)
+        loop.close()
 
     if not stream_info:
         if not stream_result:
