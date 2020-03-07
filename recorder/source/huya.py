@@ -4,6 +4,7 @@ import html
 import json
 import os
 import pathlib
+import random
 import re
 import subprocess
 
@@ -24,8 +25,8 @@ opener = requests.session()
 
 def get_stream(room_id, **kwargs):
     ws_api = WS_API
-    if 'ws_api' in kwargs:
-        ws_api = kwargs['ws_api']
+    if 'ws_apis' in kwargs:
+        ws_api = random.choice(kwargs['ws_apis'])
 
     try:
         res = opener.get('https://www.huya.com/{0}'.format(room_id))
