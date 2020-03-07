@@ -6031,6 +6031,33 @@ var get_living_info_req = function (lSubSid) {
     return new Uint8Array(outputStream.getBuffer());
 }
 
+var get_live_launch_req = function () {
+    let live_launch = new HUYA.LiveLaunchReq;
+    live_launch.tId = new HUYA.UserId;
+    live_launch.tLiveUB = new HUYA.LiveUserbase;
+    live_launch.tId.lUid = 0;
+    live_launch.tId.sGuid = "";
+    live_launch.tId.sToken = "";
+    live_launch.tId.sHuYaUA = "webh5&2002291515&websocket";
+    live_launch.tId.sCookie = "";
+    live_launch.tId.iTokenType = 0;
+    live_launch.tId.sDeviceInfo = "Chrome";
+    var a = new Taf.Wup;
+
+    a.setServant('liveui');
+    a.setFunc('doLaunch');
+    a.writeStruct("tReq", live_launch);
+    a.setRequestId(-1);
+
+    var cmd = new HUYA.WebSocketCommand;
+    cmd.iCmdType = HUYA.EWebSocketCommandType.EWSCmd_WupReq;
+    cmd.vData = a.encode();
+    outputStream = new Taf.JceOutputStream;
+    cmd.writeTo(outputStream);
+
+    return new Uint8Array(outputStream.getBuffer());
+}
+
 var myArgs = process.argv.slice(2);
 
 switch (myArgs[0]) {
@@ -6039,6 +6066,9 @@ switch (myArgs[0]) {
         break;
     case 'GetLivingInfoRsp':
         console.log(JSON.stringify(get_living_info_rsp(new Uint8Array(JSON.parse(myArgs[1])))));
+        break;
+    case 'LiveLaunchReq':
+        console.log(JSON.stringify(Array.from(get_live_launch_req())));
         break;
     default:
         console.log('{}');

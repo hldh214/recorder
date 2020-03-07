@@ -12,6 +12,7 @@ import websockets
 
 import recorder.ffmpeg as ffmpeg
 
+WS_API = 'wss://wsapi.huya.com'
 NODE_BINARY = 'node'
 TAF_COMMAND = NODE_BINARY, os.path.join(pathlib.Path(__file__).parent, 'taf.js')
 
@@ -21,7 +22,11 @@ sub_sid_pattern = re.compile(r'huyalive\\/\d+-(\d+)-')
 opener = requests.session()
 
 
-def get_stream(room_id):
+def get_stream(room_id, **kwargs):
+    ws_api = WS_API
+    if 'ws_api' in kwargs:
+        ws_api = kwargs['ws_api']
+
     try:
         res = opener.get('https://www.huya.com/{0}'.format(room_id))
     except requests.exceptions.RequestException:
@@ -36,7 +41,7 @@ def get_stream(room_id):
     loop = asyncio.new_event_loop()
     try:
         asyncio.set_event_loop(loop)
-        stream_info = loop.run_until_complete(get_stream_ng(sub_sid_result[0]))
+        stream_info = loop.run_until_complete(get_stream_ng(sub_sid_result[0], ws_api))
     finally:
         asyncio.set_event_loop(None)
         loop.close()
@@ -62,13 +67,13 @@ def get_stream(room_id):
     return result
 
 
-async def get_stream_ng(sub_sid):
+async def get_stream_ng(sub_sid, ws_api):
     try:
-        async with websockets.connect('wss://wsapi.huya.com') as websocket:
+        async with websockets.connect(ws_api) as websocket:
             await websocket.send(array.array('B', get_living_info_request(sub_sid)).tobytes())
 
             greeting = await asyncio.wait_for(websocket.recv(), timeout=5)
-    except (ConnectionResetError, websockets.exceptions.WebSocketException):
+    except (OSError, websockets.exceptions.WebSocketException):
         return False
 
     living_info = get_living_info_response([each for each in greeting])
