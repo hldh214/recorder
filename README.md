@@ -29,7 +29,7 @@ python >= 3.6
 git clone https://github.com/hldh214/recorder.git
 cd ./recorder
 pip install -r requirements.txt
-python -m recorder.recorder
+python -m recorder
 ```
 
 ## Built With

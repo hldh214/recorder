@@ -31,13 +31,13 @@ def get_config(filename='config.toml'):
     return toml.load(os.path.join(base_path, filename))
 
 
-def record_thread(source_type, room_id, name, interval=5, **kwargs):
+def record_thread(source_type, room_id, interval=5, **kwargs):
     source = importlib.import_module('recorder.source.{}'.format(source_type))
 
     while True:
-        flv_url = source.get_stream(room_id, kwargs)
+        flv_url = source.get_stream(room_id, **kwargs)
         if flv_url:
-            folder_path = os.path.join(upload_path, name)
+            folder_path = os.path.join(upload_path, room_id)
             pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
 
             logger.info(f'recording: {flv_url}')
@@ -50,16 +50,13 @@ def record_thread(source_type, room_id, name, interval=5, **kwargs):
 
 
 def my_recorder(config):
-    for name, conf in config.items():
+    for _, conf in config.items():
         if not conf['enabled']:
             continue
 
-        conf.update({'name': name})
-        conf.update({'kwargs': config})
-
         threading.Thread(
             target=record_thread,
-            kwargs={key: conf[key] for key in ('source_type', 'room_id', 'name', 'kwargs')}
+            kwargs=conf
         ).start()
 
 
