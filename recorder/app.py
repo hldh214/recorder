@@ -33,13 +33,13 @@ def get_config(filename='config.toml'):
 
 
 def record_thread(source_type, room_id, interval=5, **kwargs):
-    source = importlib.import_module('recorder.source.{}'.format(source_type))
+    source = importlib.import_module(f'recorder.source.{source_type}')
 
     while True:
         flv_url = source.get_stream(room_id, **kwargs)
         if flv_url:
             folder_path = os.path.join(record_path, room_id)
-            filename = '{0}.flv'.format(datetime.datetime.now())
+            filename = f'{datetime.datetime.now()}.flv'
             pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
             output_file = os.path.join(folder_path, filename)
 
@@ -69,48 +69,47 @@ def my_recorder(config):
         ).start()
 
 
-def upload_thread(config, youtube, quota_exceeded_sleep=3600):
-    videos = glob.glob(os.path.join(upload_path, '*', '*.flv'))
+def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
+    while True:
+        videos = glob.glob(os.path.join(upload_path, '*', '*.flv'))
 
-    for video_path in videos:
-        split_video_path = video_path.split(os.sep)
-        room_id = split_video_path[-2]
-        split_filename = split_video_path[-1].split('.')
-        filename_datetime = '{0}'.format('.'.join(split_filename[:-1]))
+        for video_path in videos:
+            split_video_path = video_path.split(os.sep)
+            room_id = split_video_path[-2]
+            split_filename = split_video_path[-1].split('.')
+            filename_datetime = split_filename[0]
 
-        logger.info('uploading: {}'.format(video_path))
-        try:
-            video_id = youtube.upload(
-                video_path,
-                config[room_id]['title'].format(datetime=filename_datetime),
-                config[room_id]['description'] if 'description' in config[room_id] else ''
-            )
-        except googleapiclient.errors.HttpError as exception:
-            logger.warning('A HTTP error occurred:\n{0}'.format(exception))
-            continue
+            logger.info(f'uploading: {video_path}')
+            try:
+                video_id = youtube.upload(
+                    video_path,
+                    config[room_id]['title'].format(datetime=filename_datetime),
+                    config[room_id]['description'] if 'description' in config[room_id] else ''
+                )
+            except googleapiclient.errors.HttpError as exception:
+                time.sleep(interval)
+                logger.warning(f'A HTTP error occurred:\n{exception}')
+                continue
 
-        if not video_id:
-            # googleapiclient.errors.ResumableUploadError:
-            # <HttpError 403 "The request cannot be completed
-            # because you have exceeded your
-            # <a href="/youtube/v3/getting-started#quota">quota</a>.">
-            logger.warning('quota exceeded, sleep {} secs'.format(quota_exceeded_sleep))
-            time.sleep(quota_exceeded_sleep)
-            continue
+            if not video_id:
+                # googleapiclient.errors.ResumableUploadError:
+                # <HttpError 403 "The request cannot be completed
+                # because you have exceeded your
+                # <a href="/youtube/v3/getting-started#quota">quota</a>.">
+                logger.warning(f'quota exceeded, sleep {quota_exceeded_sleep} secs')
+                time.sleep(quota_exceeded_sleep)
+                continue
 
-        logger.info('uploaded: {}'.format(video_path))
+            logger.info(f'uploaded: {video_path}')
 
-        # move to validate folder and add video_id in filename
-        dst_dir = os.path.join(validate_path, room_id)
+            # move to validate folder and add video_id in filename
+            dst_dir = os.path.join(validate_path, room_id)
 
-        pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
+            pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
 
-        os.rename(
-            video_path,
-            os.path.join(dst_dir, '{0}{1}{2}'.format(
-                video_id, video_name_sep, split_video_path[-1]
-            ))
-        )
+            os.rename(video_path, os.path.join(dst_dir, f'{video_id}{video_name_sep}{split_video_path[-1]}'))
+
+        time.sleep(interval)
 
 
 def uploader(config, youtube):
@@ -135,7 +134,7 @@ def validate_thread(youtube, interval=360):
 
             if uploaded:
                 os.unlink(video_path)
-                logger.info('uploaded successfully: {0}'.format(video_path))
+                logger.info(f'uploaded successfully: {video_path}')
 
         time.sleep(interval)
 
