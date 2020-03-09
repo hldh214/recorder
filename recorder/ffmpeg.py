@@ -3,6 +3,7 @@ import json
 import subprocess
 
 TIMEOUT_US = str(60 * 1000000)
+MAX_DURATION = str(10 * 3600 - 300)
 USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.11 ' \
              'TaoBrowser/2.0 Safari/536.11'
 FFMPEG_BINARY = 'ffmpeg'
@@ -12,7 +13,7 @@ FFPROBE_BINARY = 'ffprobe'
 def record(input_url, output_file, args=None):
     popen_args = [
         FFMPEG_BINARY, '-user_agent', USER_AGENT, '-hide_banner', '-rw_timeout', TIMEOUT_US, '-timeout', TIMEOUT_US,
-        '-i', input_url, '-c', 'copy'
+        '-i', input_url, '-c', 'copy', '-t', MAX_DURATION
     ]
 
     if args is not None:
