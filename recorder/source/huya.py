@@ -74,7 +74,7 @@ async def get_stream_ng(sub_sid, ws_api):
             await websocket.send(array.array('B', get_living_info_request(sub_sid)).tobytes())
 
             greeting = await asyncio.wait_for(websocket.recv(), timeout=5)
-    except (OSError, websockets.exceptions.WebSocketException):
+    except (OSError, websockets.exceptions.WebSocketException, asyncio.TimeoutError):
         return False
 
     living_info = get_living_info_response([each for each in greeting])
