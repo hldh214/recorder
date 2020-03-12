@@ -65,7 +65,8 @@ def my_recorder(config):
 
         threading.Thread(
             target=record_thread,
-            kwargs=conf
+            kwargs=conf,
+            name=f'Thread-recorder-{conf["source_type"]}-{conf["room_id"]}'
         ).start()
 
 
@@ -113,10 +114,11 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
 
 
 def uploader(config, youtube):
-    threading.Thread(target=upload_thread, kwargs={
-        'config': config,
-        'youtube': youtube
-    }).start()
+    threading.Thread(
+        target=upload_thread,
+        kwargs={'config': config, 'youtube': youtube},
+        name='Thread-uploader'
+    ).start()
 
 
 def validate_thread(youtube, interval=360):
@@ -140,9 +142,11 @@ def validate_thread(youtube, interval=360):
 
 
 def upload_validator(youtube):
-    threading.Thread(target=validate_thread, kwargs={
-        'youtube': youtube
-    }).start()
+    threading.Thread(
+        target=validate_thread,
+        kwargs={'youtube': youtube},
+        name='Thread-upload-validator'
+    ).start()
 
 
 def main():
