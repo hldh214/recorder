@@ -14,6 +14,7 @@ import websockets
 import recorder.ffmpeg as ffmpeg
 
 WS_API = 'wss://wsapi.huya.com'
+PREFERRED_CDN_TYPE = 'AL'
 NODE_BINARY = 'node'
 TAF_COMMAND = NODE_BINARY, os.path.join(pathlib.Path(__file__).parent, 'taf.js')
 
@@ -27,6 +28,10 @@ def get_stream(room_id, **kwargs):
     ws_api = WS_API
     if 'ws_apis' in kwargs:
         ws_api = random.choice(kwargs['ws_apis'])
+
+    preferred_cdn_type = PREFERRED_CDN_TYPE
+    if 'preferred_cdn_type' in kwargs:
+        preferred_cdn_type = kwargs['preferred_cdn_type']
 
     try:
         res = opener.get('https://www.huya.com/{0}'.format(room_id))
@@ -52,8 +57,9 @@ def get_stream(room_id, **kwargs):
             return False
 
         stream = json.loads(stream_result[0])
-        stream_info = stream['data'][0]['gameStreamInfoList'][0]
+        stream_info = stream['data'][0]['gameStreamInfoList']
 
+    stream_info = next((item for item in stream_info if item['sCdnType'] == preferred_cdn_type), stream_info[0])
     flv_url = stream_info['sFlvUrl']
     stream_name = stream_info['sStreamName']
     flv_url_suffix = stream_info['sFlvUrlSuffix']
@@ -86,7 +92,7 @@ async def get_stream_ng(sub_sid, ws_api):
     if not stream_info:
         return False
 
-    return stream_info[0]
+    return stream_info
 
 
 def get_living_info_request(sub_sid):

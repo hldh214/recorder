@@ -10,6 +10,7 @@ credentials_file = ""
     title = "风行云 - {datetime} - 录像"
     description = "直播地址：https://www.huya.com/668668"
     ws_apis = [ "wss://0dfbdba8-ws.va.huya.com", "wss://128a4d17-ws.va.huya.com", "wss://128a9862-ws.va.huya.com" ]
+    preferred_cdn_type = "AL"
 
 [notifiers]
     [notifiers.telegram]
