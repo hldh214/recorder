@@ -50,7 +50,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             if not ffmpeg.valid(output_file):
                 # unlink that file and save log
                 os.unlink(output_file)
-                logger.warning('not valid and unlinked: {}'.format(output_file))
+                logger.warning(f'not valid and unlinked: {output_file}')
 
             # move to upload folder
             dst_dir = os.path.join(upload_path, room_id)
