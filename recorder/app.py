@@ -48,9 +48,14 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             exit_code = ffmpeg.record(flv_url, output_file)
 
             if not ffmpeg.valid(output_file):
+                if not os.path.exists(output_file):
+                    logger.warning(f'not valid and output_file not exist: {output_file}')
+                    continue
+
                 # unlink that file and save log
                 os.unlink(output_file)
                 logger.warning(f'not valid and unlinked: {output_file}')
+                continue
 
             # move to upload folder
             dst_dir = os.path.join(upload_path, room_id)
