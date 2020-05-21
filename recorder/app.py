@@ -57,13 +57,16 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
                 logger.warning(f'not valid and unlinked: {output_file}')
                 continue
 
+            logger.info(f'recorded with exit_code {exit_code}: {flv_url}')
+
+            if not kwargs['auto_upload']:
+                continue
+
             # move to upload folder
             dst_dir = os.path.join(upload_path, room_id)
             pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
             dst_path = os.path.join(dst_dir, filename)
             os.rename(output_file, dst_path)
-
-            logger.info(f'recorded with exit_code {exit_code}: {flv_url} -> {dst_path}')
 
         time.sleep(interval)
 

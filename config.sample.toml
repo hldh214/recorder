@@ -5,12 +5,19 @@ credentials_file = ""
 [source]
     [source."668668"]
     enabled = true
+    auto_upload = true
     source_type = "huya"
     room_id = "668668"
     title = "风行云 - {datetime} - 录像"
     description = "直播地址：https://www.huya.com/668668"
     ws_apis = [ "wss://0dfbdba8-ws.va.huya.com", "wss://128a4d17-ws.va.huya.com", "wss://128a9862-ws.va.huya.com" ]
     preferred_cdn_type = "AL"
+
+    [source."deer98"]
+    enabled = true
+    auto_upload = false
+    source_type = "panda"
+    room_id = "10535725"
 
 [notifiers]
     [notifiers.telegram]

@@ -96,13 +96,7 @@ async def get_stream_ng(room_id, sess_key):
 
 if __name__ == '__main__':
     import time
-    import recorder.ffmpeg
 
     while True:
-        # hyena <3
-        url = get_stream(10731730, sess_key='dc1d04c6b73d348fb74e4772138e8d5dd07db08e856cf8a0c69606736c2a7c84')
-        if url:
-            print(url)
-            recorder.ffmpeg.record(url, f'{time.time()}.flv')
-            break
+        print(get_stream('10535725', sess_key='a5322a72de8db1fa7789ffd98166c978a1978976b7457d09f658980056c6eb96'))
         time.sleep(5)
