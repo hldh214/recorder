@@ -37,38 +37,40 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 
     while True:
         flv_url = source.get_stream(room_id, **kwargs)
-        if flv_url:
-            folder_path = os.path.join(record_path, room_id)
-            filename = f'{datetime.datetime.now()}.flv'
-            pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
-            output_file = os.path.join(folder_path, filename)
 
-            logger.info(f'recording: {flv_url} -> {output_file}')
+        if (not flv_url) or (not ffmpeg.valid(flv_url)):
+            time.sleep(interval)
+            continue
 
-            exit_code = ffmpeg.record(flv_url, output_file)
+        folder_path = os.path.join(record_path, room_id)
+        filename = f'{datetime.datetime.now()}.flv'
+        pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
+        output_file = os.path.join(folder_path, filename)
 
-            if not ffmpeg.valid(output_file):
-                if not os.path.exists(output_file):
-                    logger.warning(f'not valid and output_file not exist: {output_file}')
-                    continue
+        logger.info(f'recording: {flv_url} -> {output_file}')
 
-                # unlink that file and save log
-                os.unlink(output_file)
-                logger.warning(f'not valid and unlinked: {output_file}')
+        exit_code = ffmpeg.record(flv_url, output_file)
+
+        if not ffmpeg.valid(output_file):
+            if not os.path.exists(output_file):
+                logger.warning(f'not valid and output_file not exist: {output_file}')
                 continue
 
-            logger.info(f'recorded with exit_code {exit_code}: {flv_url}')
+            # unlink that file and save log
+            os.unlink(output_file)
+            logger.warning(f'not valid and unlinked: {output_file}')
+            continue
 
-            if not kwargs['auto_upload']:
-                continue
+        logger.info(f'recorded with exit_code {exit_code}: {flv_url}')
 
-            # move to upload folder
-            dst_dir = os.path.join(upload_path, room_id)
-            pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
-            dst_path = os.path.join(dst_dir, filename)
-            os.rename(output_file, dst_path)
+        if not kwargs['auto_upload']:
+            continue
 
-        time.sleep(interval)
+        # move to upload folder
+        dst_dir = os.path.join(upload_path, room_id)
+        pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
+        dst_path = os.path.join(dst_dir, filename)
+        os.rename(output_file, dst_path)
 
 
 def my_recorder(config):

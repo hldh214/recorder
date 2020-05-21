@@ -11,8 +11,6 @@ import subprocess
 import requests
 import websockets
 
-import recorder.ffmpeg as ffmpeg
-
 WS_API = 'wss://wsapi.huya.com'
 PREFERRED_CDN_TYPE = 'AL'
 NODE_BINARY = 'node'
@@ -66,9 +64,6 @@ def get_stream(room_id, **kwargs):
     flv_anti_code = html.unescape(stream_info['sFlvAntiCode'])
 
     result = f'{flv_url}/{stream_name}.{flv_url_suffix}?{flv_anti_code}'
-
-    if not ffmpeg.valid(result):
-        return False
 
     # on air
     return result
