@@ -12,7 +12,11 @@ ROOMID_PATTERN = re.compile(r'var\s+roomid\s*=\s*String\.fromCharCode\((.+?)\);'
 
 
 def get_stream(room_id, **kwargs):
-    res = requests.get(LIVE_PLAY_URL.format(room_id=room_id))
+    try:
+        res = requests.get(LIVE_PLAY_URL.format(room_id=room_id))
+    except requests.exceptions.RequestException:
+        return False
+
     room_id_from_char_code = ROOMID_PATTERN.findall(res.text)
 
     if not room_id_from_char_code:
