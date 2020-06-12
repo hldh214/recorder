@@ -3,7 +3,7 @@ import json
 import subprocess
 
 TIMEOUT_US = str(60 * 1000000)
-MAX_DURATION = str(10 * 3600 - 300)
+MAX_DURATION = str(6 * 3600 - 300)
 USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.11 ' \
              'TaoBrowser/2.0 Safari/536.11'
 FFMPEG_BINARY = 'ffmpeg'
