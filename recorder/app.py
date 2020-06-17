@@ -14,6 +14,7 @@ import recorder.destination.youtube
 import recorder.ffmpeg as ffmpeg
 
 video_name_sep = '|'
+video_extension = 'mp4'
 
 base_path = pathlib.Path(os.path.abspath(__file__)).parent.parent
 record_path = os.path.join(base_path, 'videos', 'record')
@@ -43,7 +44,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             continue
 
         folder_path = os.path.join(record_path, room_id)
-        filename = f'{datetime.datetime.now()}.flv'
+        filename = f'{datetime.datetime.now()}.{video_extension}'
         pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
         output_file = os.path.join(folder_path, filename)
 
@@ -87,7 +88,7 @@ def my_recorder(config):
 
 def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
     while True:
-        videos = glob.glob(os.path.join(upload_path, '*', '*.flv'))
+        videos = glob.glob(os.path.join(upload_path, '*', f'*.{video_extension}'))
 
         for video_path in videos:
             split_video_path = video_path.split(os.sep)
@@ -138,7 +139,7 @@ def uploader(config, youtube):
 
 def validate_thread(youtube, interval=360):
     while True:
-        videos = glob.glob(os.path.join(validate_path, '*', '*.flv'))
+        videos = glob.glob(os.path.join(validate_path, '*', f'*.{video_extension}'))
 
         for video_path in videos:
             split_video_path = video_path.split(os.sep)
