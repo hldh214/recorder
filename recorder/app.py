@@ -43,7 +43,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             time.sleep(interval)
             continue
 
-        folder_path = os.path.join(record_path, room_id)
+        folder_path = os.path.join(record_path, source_type, room_id)
         filename = f'{datetime.datetime.now()}.{video_extension}'
         pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
         output_file = os.path.join(folder_path, filename)
@@ -68,7 +68,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             continue
 
         # move to upload folder
-        dst_dir = os.path.join(upload_path, room_id)
+        dst_dir = os.path.join(upload_path, source_type, room_id)
         pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
         dst_path = os.path.join(dst_dir, filename)
         os.rename(output_file, dst_path)
@@ -88,10 +88,11 @@ def my_recorder(config):
 
 def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
     while True:
-        videos = glob.glob(os.path.join(upload_path, '*', f'*.{video_extension}'))
+        videos = glob.glob(os.path.join(upload_path, '*', '*', f'*.{video_extension}'))
 
         for video_path in videos:
             split_video_path = video_path.split(os.sep)
+            source_type = split_video_path[-3]
             room_id = split_video_path[-2]
             split_filename = split_video_path[-1].split('.')
             filename_datetime = split_filename[0]
@@ -120,7 +121,7 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
             logger.info(f'uploaded: {video_path}')
 
             # move to validate folder and add video_id in filename
-            dst_dir = os.path.join(validate_path, room_id)
+            dst_dir = os.path.join(validate_path, source_type, room_id)
 
             pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
 
@@ -139,7 +140,7 @@ def uploader(config, youtube):
 
 def validate_thread(youtube, interval=360):
     while True:
-        videos = glob.glob(os.path.join(validate_path, '*', f'*.{video_extension}'))
+        videos = glob.glob(os.path.join(validate_path, '*', '*', f'*.{video_extension}'))
 
         for video_path in videos:
             split_video_path = video_path.split(os.sep)
