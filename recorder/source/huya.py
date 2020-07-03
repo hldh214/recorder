@@ -13,6 +13,7 @@ import websockets
 
 WS_API = 'wss://wsapi.huya.com'
 PREFERRED_CDN_TYPE = 'AL'
+DISABLED_CDN_TYPE = 'TX'
 NODE_BINARY = 'node'
 TAF_COMMAND = NODE_BINARY, os.path.join(pathlib.Path(__file__).parent, 'taf.js')
 
@@ -58,6 +59,10 @@ def get_stream(room_id, **kwargs):
         stream_info = stream['data'][0]['gameStreamInfoList']
 
     stream_info = next((item for item in stream_info if item['sCdnType'] == preferred_cdn_type), stream_info[0])
+
+    if stream_info['sCdnType'] == DISABLED_CDN_TYPE:
+        return False
+
     flv_url = stream_info['sFlvUrl']
     stream_name = stream_info['sStreamName']
     flv_url_suffix = stream_info['sFlvUrlSuffix']
@@ -106,5 +111,5 @@ if __name__ == '__main__':
     import time
 
     while True:
-        print(get_stream('nginx'))
+        print(get_stream('668668'))
         time.sleep(5)
