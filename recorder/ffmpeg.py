@@ -14,7 +14,8 @@ def record(input_url, output_file, args=None):
     popen_args = [
         FFMPEG_BINARY, '-re', '-user_agent', USER_AGENT, '-hide_banner',
         '-rw_timeout', TIMEOUT_US, '-timeout', TIMEOUT_US,
-        '-i', input_url, '-c', 'copy', '-t', MAX_DURATION
+        '-i', input_url, '-c', 'copy', '-t', MAX_DURATION,
+        '-movflags +frag_keyframe+separate_moof+omit_tfhd_offset+empty_moov'
     ]
 
     if args is not None:
