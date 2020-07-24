@@ -19,8 +19,23 @@ TAF_COMMAND = NODE_BINARY, os.path.join(pathlib.Path(__file__).parent, 'taf.js')
 
 stream_pattern = re.compile(r'"stream"\s*:\s*({.+?})\s*};')
 sub_sid_pattern = re.compile(r'huyalive\\/\d+-(\d+)-')
+m3u8_pattern = re.compile(r"hasvedio\s*:\s*'(\S+)'")
 
 opener = requests.session()
+
+
+def parse_m3u8(room_id):
+    res = requests.get('https://m.huya.com/{0}'.format(room_id), headers={
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 8.0; Pixel 2 Build/OPD3.170816.012) '
+                      'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Mobile Safari/537.36'
+    })
+    m3u8_result = m3u8_pattern.findall(res.text)
+
+    if m3u8_result:
+        # on air
+        return 'https:' + m3u8_result[0].replace('_2000', '')
+
+    return False
 
 
 def get_stream(room_id, **kwargs):
@@ -31,6 +46,11 @@ def get_stream(room_id, **kwargs):
     preferred_cdn_type = PREFERRED_CDN_TYPE
     if 'preferred_cdn_type' in kwargs:
         preferred_cdn_type = kwargs['preferred_cdn_type']
+
+    m3u8 = parse_m3u8(room_id)
+
+    if m3u8:
+        return m3u8
 
     try:
         res = opener.get('https://www.huya.com/{0}'.format(room_id))
