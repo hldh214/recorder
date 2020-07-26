@@ -26,10 +26,13 @@ opener = requests.session()
 
 
 def parse_m3u8(room_id):
-    res = requests.get('https://m.huya.com/{0}'.format(room_id), headers={
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 8.0; Pixel 2 Build/OPD3.170816.012) '
-                      'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Mobile Safari/537.36'
-    })
+    try:
+        res = requests.get('https://m.huya.com/{0}'.format(room_id), headers={
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 8.0; Pixel 2 Build/OPD3.170816.012) '
+                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Mobile Safari/537.36'
+        })
+    except requests.exceptions.RequestException:
+        return False
 
     if is_live_false_pattern.findall(res.text):
         return False
