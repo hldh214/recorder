@@ -17,74 +17,52 @@ DISABLED_CDN_TYPE = 'TX'
 NODE_BINARY = 'node'
 TAF_COMMAND = NODE_BINARY, os.path.join(pathlib.Path(__file__).parent, 'taf.js')
 
-stream_pattern = re.compile(r'"stream"\s*:\s*({.+?})\s*};')
-sub_sid_pattern = re.compile(r'huyalive\\/\d+-(\d+)-')
+sub_sid_pattern = re.compile(r"ayyuid:\s*'(\d+)'")
 m3u8_pattern = re.compile(r"hasvedio\s*:\s*'(\S+)'")
-is_live_false_pattern = re.compile(r"var\s*ISLIVE\s*=\s*false")
-
-opener = requests.session()
 
 
-def parse_m3u8(room_id):
+def parse_by_mini_program(sub_sid, preferred_cdn_type):
     try:
-        res = requests.get('https://m.huya.com/{0}'.format(room_id), headers={
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 8.0; Pixel 2 Build/OPD3.170816.012) '
-                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Mobile Safari/537.36'
+        res = requests.get('https://mp.huya.com/cache.php', params={
+            'm': 'Live',
+            'do': 'profileRoom',
+            'pid': sub_sid,
+            'showSecret': '1'
+        }, headers={
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0.1; ALP-AL00 Build/V417IR; wv) AppleWebKit/537.36 '
+                          '(KHTML, like Gecko) Version/4.0 Chrome/52.0.2743.100 Mobile Safari/537.36 '
+                          'MicroMessenger/7.0.10.1580(0x27000A59) Process/appbrand0 '
+                          'NetType/WIFI Language/zh_CN ABI/arm32',
+            'Referer': 'https://servicewechat.com/wx74767bf0b684f7d3/127/page-frame.html',  # 127?
+            'content-type': 'application/json'
         })
     except requests.exceptions.RequestException:
         return False
 
-    if is_live_false_pattern.findall(res.text):
-        return False
-
-    m3u8_result = m3u8_pattern.findall(res.text)
-
-    if m3u8_result:
-        # on air
-        return 'https:' + m3u8_result[0].replace('_2000', '')
-
-    return False
-
-
-def get_stream(room_id, **kwargs):
-    ws_api = WS_API
-    if 'ws_apis' in kwargs:
-        ws_api = random.choice(kwargs['ws_apis'])
-
-    preferred_cdn_type = PREFERRED_CDN_TYPE
-    if 'preferred_cdn_type' in kwargs:
-        preferred_cdn_type = kwargs['preferred_cdn_type']
-
-    m3u8 = parse_m3u8(room_id)
-
-    if m3u8:
-        return m3u8
-
     try:
-        res = opener.get('https://www.huya.com/{0}'.format(room_id))
-    except requests.exceptions.RequestException:
+        stream_info = res.json()['data']['stream']['flv']['multiLine']
+
+        stream_info = next((item for item in stream_info if item['cdnType'] == preferred_cdn_type), stream_info[0])
+
+        if stream_info['cdnType'] == DISABLED_CDN_TYPE:
+            return False
+
+        return stream_info['url']
+    except (KeyError, IndexError, ValueError):
         return False
 
-    stream_result = stream_pattern.findall(res.text)
-    sub_sid_result = sub_sid_pattern.findall(res.text)
 
-    if not sub_sid_result:
-        return False
-
+def parse_by_ws(sub_sid, ws_api, preferred_cdn_type):
     loop = asyncio.new_event_loop()
     try:
         asyncio.set_event_loop(loop)
-        stream_info = loop.run_until_complete(get_stream_ng(sub_sid_result[0], ws_api))
+        stream_info = loop.run_until_complete(get_stream_ng(sub_sid, ws_api))
     finally:
         asyncio.set_event_loop(None)
         loop.close()
 
     if not stream_info:
-        if not stream_result:
-            return False
-
-        stream = json.loads(stream_result[0])
-        stream_info = stream['data'][0]['gameStreamInfoList']
+        return False
 
     stream_info = next((item for item in stream_info if item['sCdnType'] == preferred_cdn_type), stream_info[0])
 
@@ -133,6 +111,42 @@ def get_living_info_response(binary_array):
     return json.loads(subprocess.run([
         *TAF_COMMAND, 'GetLivingInfoRsp', str(binary_array)
     ], stdout=subprocess.PIPE).stdout.decode())
+
+
+def get_stream(room_id, **kwargs):
+    try:
+        res = requests.get('https://m.huya.com/{0}'.format(room_id), headers={
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 8.0; Pixel 2 Build/OPD3.170816.012) '
+                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Mobile Safari/537.36'
+        })
+    except requests.exceptions.RequestException:
+        return False
+
+    sub_sid_result = sub_sid_pattern.findall(res.text)
+    m3u8_result = m3u8_pattern.findall(res.text)
+
+    if m3u8_result:
+        return 'https:' + m3u8_result[0].replace('_2000', '')
+
+    if not sub_sid_result:
+        return False
+
+    sub_sid = sub_sid_result[0]
+
+    ws_api = random.choice(kwargs['ws_apis']) if 'ws_apis' in kwargs else WS_API
+    preferred_cdn_type = kwargs['preferred_cdn_type'] if 'preferred_cdn_type' in kwargs else PREFERRED_CDN_TYPE
+
+    result = parse_by_mini_program(sub_sid, preferred_cdn_type)
+
+    if result:
+        return result
+
+    result = parse_by_ws(sub_sid, ws_api, preferred_cdn_type)
+
+    if result:
+        return result
+
+    return False
 
 
 if __name__ == '__main__':
