@@ -20,6 +20,7 @@ TAF_COMMAND = NODE_BINARY, os.path.join(pathlib.Path(__file__).parent, 'taf.js')
 stream_pattern = re.compile(r'"stream"\s*:\s*({.+?})\s*};')
 sub_sid_pattern = re.compile(r'huyalive\\/\d+-(\d+)-')
 m3u8_pattern = re.compile(r"hasvedio\s*:\s*'(\S+)'")
+is_live_false_pattern = re.compile(r"var\s*ISLIVE\s*=\s*false")
 
 opener = requests.session()
 
@@ -29,6 +30,10 @@ def parse_m3u8(room_id):
         'User-Agent': 'Mozilla/5.0 (Linux; Android 8.0; Pixel 2 Build/OPD3.170816.012) '
                       'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Mobile Safari/537.36'
     })
+
+    if is_live_false_pattern.findall(res.text):
+        return False
+
     m3u8_result = m3u8_pattern.findall(res.text)
 
     if m3u8_result:
