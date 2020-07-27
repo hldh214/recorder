@@ -19,6 +19,7 @@ TAF_COMMAND = NODE_BINARY, os.path.join(pathlib.Path(__file__).parent, 'taf.js')
 
 sub_sid_pattern = re.compile(r"ayyuid:\s*'(\d+)'")
 m3u8_pattern = re.compile(r"hasvedio\s*:\s*'(\S+)'")
+is_live_false_pattern = re.compile(r"var\s*ISLIVE\s*=\s*false")
 
 
 def parse_by_mini_program(sub_sid, preferred_cdn_type):
@@ -125,7 +126,7 @@ def get_stream(room_id, **kwargs):
     sub_sid_result = sub_sid_pattern.findall(res.text)
     m3u8_result = m3u8_pattern.findall(res.text)
 
-    if m3u8_result:
+    if m3u8_result and not is_live_false_pattern.findall(res.text):
         return 'https:' + m3u8_result[0].replace('_2000', '')
 
     if not sub_sid_result:
