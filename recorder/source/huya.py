@@ -124,10 +124,10 @@ def get_stream(room_id, **kwargs):
         return False
 
     sub_sid_result = sub_sid_pattern.findall(res.text)
-    m3u8_result = m3u8_pattern.findall(res.text)
+    # m3u8_result = m3u8_pattern.findall(res.text)
 
-    if m3u8_result and not is_live_false_pattern.findall(res.text):
-        return 'https:' + m3u8_result[0].replace('_2000', '')
+    # if m3u8_result and not is_live_false_pattern.findall(res.text):
+    #     return 'https:' + m3u8_result[0].replace('_2000', '')
 
     if not sub_sid_result:
         return False
