@@ -49,7 +49,7 @@ def parse_by_mini_program(sub_sid, preferred_cdn_type):
             return False
 
         return stream_info['url']
-    except (KeyError, IndexError, ValueError):
+    except (KeyError, IndexError, ValueError, TypeError):
         return False
 
 
