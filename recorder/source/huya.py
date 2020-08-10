@@ -11,6 +11,7 @@ import subprocess
 import requests
 import websockets
 
+REQUEST_TIMEOUT = 5
 WS_API = 'wss://wsapi.huya.com'
 PREFERRED_CDN_TYPE = 'AL'
 DISABLED_CDN_TYPE = 'TX'
@@ -36,7 +37,7 @@ def parse_by_mini_program(sub_sid, preferred_cdn_type):
                           'NetType/WIFI Language/zh_CN ABI/arm32',
             'Referer': 'https://servicewechat.com/wx74767bf0b684f7d3/127/page-frame.html',  # 127?
             'content-type': 'application/json'
-        })
+        }, timeout=REQUEST_TIMEOUT)
     except requests.exceptions.RequestException:
         return False
 
@@ -119,7 +120,7 @@ def get_stream(room_id, **kwargs):
         res = requests.get('https://m.huya.com/{0}'.format(room_id), headers={
             'User-Agent': 'Mozilla/5.0 (Linux; Android 8.0; Pixel 2 Build/OPD3.170816.012) '
                           'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Mobile Safari/537.36'
-        })
+        }, timeout=REQUEST_TIMEOUT)
     except requests.exceptions.RequestException:
         return False
 
