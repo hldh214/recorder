@@ -67,6 +67,10 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         if not kwargs['auto_upload']:
             continue
 
+        if kwargs['auto_upload_minimal_size'] > get_file_size(output_file):
+            logger.info(f'auto_upload_minimal_size > get_file_size(output_file): {output_file}')
+            continue
+
         # move to upload folder
         dst_dir = os.path.join(upload_path, source_type, room_id)
         pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
@@ -164,6 +168,10 @@ def upload_validator(youtube):
         kwargs={'youtube': youtube},
         name='Thread-upload-validator'
     ).start()
+
+
+def get_file_size(path):
+    return '{:f}'.format(pathlib.Path(path).stat().st_size / 1024 / 1024)
 
 
 def main():
