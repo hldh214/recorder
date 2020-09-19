@@ -171,7 +171,7 @@ def upload_validator(youtube):
 
 
 def get_file_size(path):
-    return '{:f}'.format(pathlib.Path(path).stat().st_size / 1024 / 1024)
+    return float('{:f}'.format(pathlib.Path(path).stat().st_size / 1024 / 1024))
 
 
 def main():
