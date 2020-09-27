@@ -11,6 +11,8 @@ import subprocess
 import requests
 import websockets
 
+from recorder.source.tars import tarscore
+
 REQUEST_TIMEOUT = 5
 WS_API = 'wss://wsapi.huya.com'
 PREFERRED_CDN_TYPE = 'AL'
@@ -31,7 +33,7 @@ def parse_by_mini_program(sub_sid, preferred_cdn_type):
             'pid': sub_sid,
             'showSecret': '1'
         }, headers={
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0.1; ALP-AL00 Build/V417IR; wv) AppleWebKit/537.36 '
+            'User-Agent': 'Mozilla/5.0 (Linux Android 6.0.1 ALP-AL00 Build/V417IR wv) AppleWebKit/537.36 '
                           '(KHTML, like Gecko) Version/4.0 Chrome/52.0.2743.100 Mobile Safari/537.36 '
                           'MicroMessenger/7.0.10.1580(0x27000A59) Process/appbrand0 '
                           'NetType/WIFI Language/zh_CN ABI/arm32',
@@ -85,13 +87,24 @@ def parse_by_ws(sub_sid, ws_api, preferred_cdn_type):
 async def get_stream_ng(sub_sid, ws_api):
     try:
         async with websockets.connect(ws_api) as websocket:
-            await websocket.send(array.array('B', get_living_info_request(sub_sid)).tobytes())
+            await websocket.send(array.array('B',
+                                             [0, 3, 29, 0, 0, 118, 0, 0, 0, 118, 16, 2, 44, 60, 64, 255, 86, 6, 108,
+                                              105, 118, 101, 117, 105, 102, 13, 103, 101, 116, 76, 105, 118, 105, 110,
+                                              103, 73, 110, 102, 111, 125, 0, 0, 76, 8, 0, 1, 6, 4, 116, 82, 101, 113,
+                                              24, 0, 1, 6, 0, 29, 0, 0, 58, 10, 10, 12, 22, 0, 38, 0, 54, 26, 119, 101,
+                                              98, 104, 53, 38, 50, 48, 48, 50, 50, 57, 49, 53, 49, 53, 38, 119, 101, 98,
+                                              115, 111, 99, 107, 101, 116, 70, 0, 92, 102, 6, 67, 104, 114, 111, 109,
+                                              101, 11, 28, 44, 54, 1, 49, 76, 86, 0, 102, 0, 11, 140, 152, 12, 168, 12]
+
+                                             ).tobytes())
 
             greeting = await asyncio.wait_for(websocket.recv(), timeout=5)
+            print(greeting)
         living_info = get_living_info_response([each for each in greeting])
     except (OSError, ValueError, websockets.exceptions.WebSocketException, asyncio.TimeoutError):
         return False
 
+    print(living_info)
     if not living_info['bIsLiving']:
         return False
 
@@ -101,6 +114,68 @@ async def get_stream_ng(sub_sid, ws_api):
         return False
 
     return stream_info
+
+
+class UserId(tarscore.struct):
+    __tars_class__ = "HUYA.UserId"
+
+    def __init__(self):
+        self.lUid = 0
+        self.sGuid = ''
+        self.sToken = ''
+        self.sHuYaUA = 'webh5&2002291515&websocket'
+        self.sCookie = ''
+        self.iTokenType = 0
+        self.sDeviceInfo = 'Chrome'
+
+    @staticmethod
+    def writeTo(oos, value):
+        oos.write(tarscore.int32, 0, value.lUid)
+        oos.write(tarscore.string, 1, value.sGuid)
+        oos.write(tarscore.string, 2, value.sToken)
+        oos.write(tarscore.string, 3, value.sHuYaUA)
+        oos.write(tarscore.string, 4, value.sCookie)
+        oos.write(tarscore.int32, 5, value.iTokenType)
+        oos.write(tarscore.string, 6, value.sDeviceInfo)
+
+
+class GetLivingInfoReq(tarscore.struct):
+    __tars_class__ = "HUYA.GetLivingInfoReq"
+
+    def __init__(self, l_sub_sid):
+        self.tId = UserId()
+        self.iRoomId = 0
+        self.lPresenterUid = 0
+        self.lSubSid = l_sub_sid
+        self.lTopSid = 0
+        self.sPassword = ""
+        self.sTraceSource = ""
+
+    @staticmethod
+    def writeTo(oos, value):
+        oos.write(tarscore.struct, 0, value.tId)
+        oos.write(tarscore.int32, 1, value.iRoomId)
+        oos.write(tarscore.int32, 2, value.lPresenterUid)
+        oos.write(tarscore.string, 3, value.lSubSid)
+        oos.write(tarscore.int32, 4, value.lTopSid)
+        oos.write(tarscore.string, 5, value.sPassword)
+        oos.write(tarscore.string, 6, value.sTraceSource)
+
+
+def get_living_info_request_ng(sub_sid):
+    living_info = GetLivingInfoReq(sub_sid)
+
+    wup = tarscore.TarsUniPacket()
+    wup.servant = 'liveui'
+    wup.func = 'getLivingInfo'
+    wup.requestid = -1
+    wup.put(tarscore.struct, 'tReq', living_info)
+
+    ws_cmd = tarscore.TarsOutputStream()
+    ws_cmd.write(tarscore.int32, 0, 3)  # EWSCmd_WupReq
+    ws_cmd.write(tarscore.bytes, 1, wup.encode())
+
+    return ws_cmd.getBuffer()
 
 
 def get_living_info_request(sub_sid):
@@ -138,10 +213,10 @@ def get_stream(room_id, **kwargs):
     ws_api = random.choice(kwargs['ws_apis']) if 'ws_apis' in kwargs else WS_API
     preferred_cdn_type = kwargs['preferred_cdn_type'] if 'preferred_cdn_type' in kwargs else PREFERRED_CDN_TYPE
 
-    result = parse_by_mini_program(sub_sid, preferred_cdn_type)
+    # result = parse_by_mini_program(sub_sid, preferred_cdn_type)
 
-    if result:
-        return result
+    # if result:
+    #     return result
 
     result = parse_by_ws(sub_sid, ws_api, preferred_cdn_type)
 
@@ -152,6 +227,23 @@ def get_stream(room_id, **kwargs):
 
 
 if __name__ == '__main__':
+    # dec = tarscore.TarsUniPacket()
+    # dd = dec.decode(array.array(
+    #     'B',
+    #     [0, 3, 29, 0, 0, 116, 0, 0, 0, 116, 16, 3, 44, 60, 64, 255, 86, 6, 108, 105, 118, 101, 117, 105, 102, 13, 103,
+    #      101, 116, 76, 105, 118, 105, 110, 103, 73, 110, 102, 111, 125, 0, 0, 74, 8, 0, 1, 6, 4, 116, 82, 101, 113, 29,
+    #      0, 0, 61, 10, 10, 12, 22, 0, 38, 0, 54, 26, 119, 101, 98, 104, 53, 38, 50, 48, 48, 50, 50, 57, 49, 53, 49, 53,
+    #      38, 119, 101, 98, 115, 111, 99, 107, 101, 116, 70, 0, 92, 102, 6, 67, 104, 114, 111, 109, 101, 11, 28, 32, 1,
+    #      60, 70, 4, 110, 117, 108, 108, 86, 0, 108, 11, 140, 152, 12, 168, 12, 35, 0, 0, 0, 0, 0, 0, 0, 0, 54, 9, 117,
+    #      110, 100, 101, 102, 105, 110, 101, 100]
+    # ))
+    # print(dd)
+    # exit()
+
+    print(get_living_info_request('1'))
+    hex_list = get_living_info_request_ng('1').hex()
+    print([int(hex_list[i:i + 2], 16) for i in range(0, len(hex_list), 2)])
+    # exit()
     import time
 
     while True:
