@@ -112,10 +112,13 @@ class Youtube:
                 return response['id']
 
     def check_uploaded(self, video_id):
-        response = self.youtube.videos().list(
-            part='processingDetails',
-            id=video_id
-        ).execute()
+        try:
+            response = self.youtube.videos().list(
+                part='processingDetails',
+                id=video_id
+            ).execute()
+        except OSError:
+            return False
 
         if not response['items']:
             return False
