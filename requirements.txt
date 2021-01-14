@@ -1,8 +1,8 @@
-requests==2.24.0
-google-api-python-client==1.12.1
-google-auth-oauthlib==0.4.1
-toml==0.10.1
-tqdm==4.49.0
-pytest==6.0.2
+requests==2.25.*
+google-api-python-client==1.12.*
+google-auth-oauthlib==0.4.*
+toml==0.10.*
+tqdm==4.56.*
+pytest==6.2.*
 notifiers==1.2.1
 websockets==8.1
