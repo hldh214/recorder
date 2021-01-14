@@ -100,6 +100,7 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
             room_id = split_video_path[-2]
             split_filename = split_video_path[-1].split('.')
             filename_datetime = split_filename[0]
+            playlist_id = config[room_id]['playlist_id'] if 'playlist_id' in config[room_id] else ''
 
             logger.info(f'uploading: {video_path}')
             try:
@@ -123,6 +124,10 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
                 continue
 
             logger.info(f'uploaded: {video_path}')
+
+            if playlist_id:
+                youtube.insert_into_playlist(video_id, playlist_id)
+                logger.info(f'inserted_into_playlist: {video_id} -> {playlist_id}')
 
             # move to validate folder and add video_id in filename
             dst_dir = os.path.join(validate_path, source_type, room_id)

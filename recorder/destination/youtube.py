@@ -23,7 +23,8 @@ class Youtube:
     def __init__(self, config):
         scopes = [
             'https://www.googleapis.com/auth/youtube.readonly',
-            'https://www.googleapis.com/auth/youtube.upload'
+            'https://www.googleapis.com/auth/youtube.upload',
+            'https://www.googleapis.com/auth/youtube.force-ssl'
         ]
         api_service_name = 'youtube'
         api_version = 'v3'
@@ -127,10 +128,26 @@ class Youtube:
 
         processing_status = item['processingDetails']['processingStatus']
 
-        if processing_status == 'succeeded':
-            return True
+        return processing_status in ('succeeded', 'terminated')
 
-        return False
+    def insert_into_playlist(self, video_id, playlist_id):
+        try:
+            self.youtube.playlistItems().insert(
+                part='snippet',
+                body={
+                    'snippet': {
+                        'playlistId': playlist_id,
+                        'resourceId': {
+                            'kind': 'youtube#video',
+                            'videoId': video_id
+                        }
+                    }
+                }
+            ).execute()
+        except OSError:
+            return False
+
+        return True
 
 
 if __name__ == '__main__':
