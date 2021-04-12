@@ -1,8 +1,11 @@
 requests==2.25.*
-google-api-python-client==1.12.*
+google-api-python-client==2.1.*
 google-auth-oauthlib==0.4.*
 toml==0.10.*
-tqdm==4.56.*
+tqdm==4.60.*
 pytest==6.2.*
 notifiers==1.2.1
 websockets==8.1
+pandas==1.2.*
+grequests==0.6.*
+pyjwt==2.0.*

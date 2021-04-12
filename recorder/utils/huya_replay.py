@@ -18,8 +18,9 @@ def get_replay_by_time_range(base_url, start, end):
                 return each_res.url
 
 
-print(get_replay_by_time_range(
-    'http://v-replay.cdn.huya.com/record/huyalive/3200269-3200269-13745050693402624-6523994-10057-A-0-1/',
-    ['2020-07-29-00:33:00', '2020-07-29-00:33:59'],
-    ['2020-07-29-01:44:00', '2020-07-29-01:50:59']
-))
+if __name__ == '__main__':
+    print(get_replay_by_time_range(
+        'http://v-replay.cdn.huya.com/record/huyalive/3200269-3200269-13745050693402624-6523994-10057-A-0-1/',
+        ['2020-07-29-00:33:00', '2020-07-29-00:33:59'],
+        ['2020-07-29-01:44:00', '2020-07-29-01:50:59']
+    ))
