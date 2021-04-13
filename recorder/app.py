@@ -54,7 +54,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 
         if not ffmpeg.valid(output_file):
             if not os.path.exists(output_file):
-                logger.warning(f'not valid and output_file not exist: {output_file}')
+                logger.warning(f'output_file does not exist: {output_file}')
                 continue
 
             # unlink that file and save log
