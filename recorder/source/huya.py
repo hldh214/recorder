@@ -14,7 +14,6 @@ import websockets
 REQUEST_TIMEOUT = 5
 WS_API = 'wss://wsapi.huya.com'
 PREFERRED_CDN_TYPE = 'AL'
-DISABLED_CDN_TYPE = 'TX'
 NODE_BINARY = 'node'
 TAF_COMMAND = NODE_BINARY, os.path.join(pathlib.Path(__file__).parent, 'taf.js')
 
@@ -46,9 +45,6 @@ def parse_by_mini_program(sub_sid, preferred_cdn_type):
 
         stream_info = next((item for item in stream_info if item['cdnType'] == preferred_cdn_type), stream_info[0])
 
-        if stream_info['cdnType'] == DISABLED_CDN_TYPE:
-            return False
-
         return stream_info['url']
     except (KeyError, IndexError, ValueError, TypeError):
         return False
@@ -67,9 +63,6 @@ def parse_by_ws(sub_sid, ws_api, preferred_cdn_type):
         return False
 
     stream_info = next((item for item in stream_info if item['sCdnType'] == preferred_cdn_type), stream_info[0])
-
-    if stream_info['sCdnType'] == DISABLED_CDN_TYPE:
-        return False
 
     flv_url = stream_info['sFlvUrl']
     stream_name = stream_info['sStreamName']
