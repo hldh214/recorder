@@ -2,6 +2,10 @@
 client_secrets_file = ""
 credentials_file = ""
 
+[huya]
+app_id = ""
+app_secret = ""
+
 [source]
     [source."668668"]
     enabled = true
