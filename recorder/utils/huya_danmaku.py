@@ -83,7 +83,7 @@ async def consumer_handler(websocket, output_path):
 
 
 def main(room_id, output_path, app_id, app_secret):
-    asyncio.get_event_loop().run_until_complete(subscribe(room_id, output_path, app_id, app_secret))
+    asyncio.run(subscribe(room_id, output_path, app_id, app_secret))
 
 
 if __name__ == '__main__':

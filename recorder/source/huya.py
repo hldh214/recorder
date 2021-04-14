@@ -51,13 +51,7 @@ def parse_by_mini_program(sub_sid, preferred_cdn_type):
 
 
 def parse_by_ws(sub_sid, ws_api, preferred_cdn_type):
-    loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
-        stream_info = loop.run_until_complete(get_stream_ng(sub_sid, ws_api))
-    finally:
-        asyncio.set_event_loop(None)
-        loop.close()
+    stream_info = asyncio.run(get_stream_ng(sub_sid, ws_api))
 
     if not stream_info:
         return False

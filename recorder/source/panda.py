@@ -24,13 +24,7 @@ def get_stream(room_id, **kwargs):
 
     room_id_from_char_code = map(int, str(room_id_from_char_code[0]).split(','))
 
-    loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
-        stream_info = loop.run_until_complete(get_stream_ng(room_id_from_char_code, kwargs['sess_key']))
-    finally:
-        asyncio.set_event_loop(None)
-        loop.close()
+    stream_info = asyncio.run(get_stream_ng(room_id_from_char_code, kwargs['sess_key']))
 
     return stream_info
 
