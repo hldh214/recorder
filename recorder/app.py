@@ -1,4 +1,3 @@
-import datetime
 import glob
 import importlib
 import logging
@@ -17,6 +16,10 @@ import recorder.utils.huya_danmaku as huya_danmaku
 
 video_name_sep = '|'
 video_extension = 'mp4'
+
+datetime_format = '%Y-%m-%d %H:%M:%S'
+if os.name == 'nt':
+    datetime_format = '%Y-%m-%d %H-%M-%S'
 
 base_path = pathlib.Path(os.path.abspath(__file__)).parent.parent
 record_path = os.path.join(base_path, 'videos', 'record')
@@ -46,7 +49,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             continue
 
         folder_path = os.path.join(record_path, source_type, room_id)
-        filename = f'{datetime.datetime.now()}.{video_extension}'
+        filename = f'{time.strftime(datetime_format, time.localtime())}.{video_extension}'
         pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
         output_file = os.path.join(folder_path, filename)
 
