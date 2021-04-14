@@ -216,7 +216,7 @@ def main():
     upload_validator(youtube)
 
     while True:
-        pass
+        time.sleep(1)
 
 
 if __name__ == '__main__':
