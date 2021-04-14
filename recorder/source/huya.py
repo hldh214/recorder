@@ -71,10 +71,12 @@ def parse_by_ws(sub_sid, ws_api, preferred_cdn_type):
 
 async def get_stream_ng(sub_sid, ws_api):
     try:
-        async with websockets.connect(ws_api) as websocket:
-            await websocket.send(array.array('B', get_living_info_request(sub_sid)).tobytes())
+        async with websockets.connect(ws_api, close_timeout=REQUEST_TIMEOUT) as websocket:
+            await asyncio.wait_for(websocket.send(
+                array.array('B', get_living_info_request(sub_sid)).tobytes()
+            ), timeout=REQUEST_TIMEOUT)
 
-            greeting = await asyncio.wait_for(websocket.recv(), timeout=5)
+            greeting = await asyncio.wait_for(websocket.recv(), timeout=REQUEST_TIMEOUT)
         living_info = get_living_info_response([each for each in greeting])
     except (OSError, ValueError, websockets.exceptions.WebSocketException, asyncio.TimeoutError):
         return False
