@@ -2,6 +2,7 @@ import datetime
 import glob
 import importlib
 import logging
+import multiprocessing
 import os
 import pathlib
 import threading
@@ -12,6 +13,7 @@ import toml
 
 import recorder.destination.youtube
 import recorder.ffmpeg as ffmpeg
+import recorder.utils.huya_danmaku as huya_danmaku
 
 video_name_sep = '|'
 video_extension = 'mp4'
@@ -50,7 +52,18 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 
         logger.info(f'recording: {flv_url} -> {output_file}')
 
+        danmaku_process = None
+        if source_type == 'huya':
+            danmaku_process = multiprocessing.Process(
+                target=huya_danmaku.main,
+                args=(room_id, output_file + '.sbv', kwargs['huya']['app_id'], kwargs['huya']['app_secret'])
+            )
+            danmaku_process.start()
+
         exit_code = ffmpeg.record(flv_url, output_file)
+
+        if danmaku_process is not None:
+            danmaku_process.terminate()
 
         if not ffmpeg.valid(output_file):
             if not os.path.exists(output_file):
@@ -79,9 +92,13 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 
 
 def my_recorder(config):
-    for _, conf in config.items():
+    source = config['source']
+
+    for _, conf in source.items():
         if not conf['enabled']:
             continue
+
+        conf.update(config)
 
         threading.Thread(
             target=record_thread,
@@ -183,7 +200,7 @@ def main():
     config = get_config()
     youtube = recorder.destination.youtube.Youtube(config['youtube'])
 
-    my_recorder(config['source'])
+    my_recorder(config)
 
     uploader(config['source'], youtube)
 
