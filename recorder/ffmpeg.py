@@ -4,7 +4,7 @@ import subprocess
 
 TIMEOUT_US = str(60 * 1000000)
 MAX_DURATION = str(10 * 3600 - 300)
-USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.11'
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114'
 FFMPEG_BINARY = 'ffmpeg'
 FFPROBE_BINARY = 'ffprobe'
 
