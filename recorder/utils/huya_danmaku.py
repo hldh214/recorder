@@ -18,6 +18,7 @@ exp = iat + 10 * 60
 timestamp_base = 612892800
 content_ttl = 5
 content_maxsize = 5
+show_mode = 0  # 普通弹幕: 0, 上电视: 2
 message_notice = 'getMessageNotice'
 notice_data = [message_notice]
 subscribe_notice = json.dumps({'command': 'subscribeNotice', 'data': notice_data, 'reqId': iat})
@@ -56,19 +57,27 @@ async def consumer_handler(websocket, output_path):
             if notice != message_notice:
                 continue
 
+            if message['data']['showMode'] != show_mode:
+                continue
+
             content = message['data']['content']
             start_seconds = timestamp_base + time.time() - iat
             milliseconds = str(start_seconds)[-3:]
+
             time_format = f'%{do_not_pad_flag}H:%M:%S.{milliseconds}'
             start = time.strftime(time_format, time.localtime(start_seconds))
             end = time.strftime(time_format, time.localtime(start_seconds + content_ttl))
+
             ts_pair = f'{start},{end}'
             line = f'{ts_pair}\n{content}\n\n'
+
             contents[line] = content
             content_list = list(contents.values())
             line = f'{ts_pair}\n'
+
             for each_content in content_list:
                 line += f'{each_content}\n'
+
             line += '\n'
             fp.write(line)
 
