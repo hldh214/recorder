@@ -97,17 +97,23 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 def my_recorder(config):
     source = config['source']
 
+    tasks = []
     for _, conf in source.items():
         if not conf['enabled']:
             continue
 
         conf.update(config)
 
-        threading.Thread(
+        task = threading.Thread(
             target=record_thread,
             kwargs=conf,
             name=f'Thread-recorder-{conf["source_type"]}-{conf["room_id"]}'
-        ).start()
+        )
+        task.start()
+        tasks.append(task)
+
+    for task in tasks:
+        task.join()
 
 
 def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
@@ -160,11 +166,13 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
 
 
 def uploader(config, youtube):
-    threading.Thread(
+    task = threading.Thread(
         target=upload_thread,
         kwargs={'config': config, 'youtube': youtube},
         name='Thread-uploader'
-    ).start()
+    )
+    task.start()
+    task.join()
 
 
 def validate_thread(youtube, interval=360):
@@ -188,11 +196,13 @@ def validate_thread(youtube, interval=360):
 
 
 def upload_validator(youtube):
-    threading.Thread(
+    task = threading.Thread(
         target=validate_thread,
         kwargs={'youtube': youtube},
         name='Thread-upload-validator'
-    ).start()
+    )
+    task.start()
+    task.join()
 
 
 def get_file_size(path):
