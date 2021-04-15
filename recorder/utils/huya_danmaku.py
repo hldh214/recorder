@@ -13,18 +13,18 @@ if os.name == 'nt':
     do_not_pad_flag = '#'
 
 host = 'ws-apiext.huya.com'
-iat = int(time.time())
-exp = iat + 10 * 60
 timestamp_base = 612892800
 content_ttl = 5
 content_maxsize = 5
 show_mode = 0  # 普通弹幕: 0, 上电视: 2
 message_notice = 'getMessageNotice'
 notice_data = [message_notice]
-subscribe_notice = json.dumps({'command': 'subscribeNotice', 'data': notice_data, 'reqId': iat})
 
 
 async def subscribe(room_id, output_path, app_id, app_secret):
+    iat = int(time.time())
+    exp = iat + 10 * 60
+
     params = urllib.parse.urlencode({
         'iat': iat,
         'exp': exp,
@@ -34,6 +34,8 @@ async def subscribe(room_id, output_path, app_id, app_secret):
         'do': 'comm',
     })
 
+    subscribe_notice = json.dumps({'command': 'subscribeNotice', 'data': notice_data, 'reqId': iat})
+
     # If the corresponding Pong frame isn’t received within ping_timeout seconds,
     # the connection is considered unusable and is closed with code 1011.
     # This ensures that the remote endpoint remains responsive.
@@ -41,10 +43,10 @@ async def subscribe(room_id, output_path, app_id, app_secret):
     # https://websockets.readthedocs.io/en/stable/api.html#websockets.protocol.WebSocketCommonProtocol
     async with websockets.connect(f'wss://{host}/index.html?{params}', ping_timeout=None) as websocket:
         await websocket.send(subscribe_notice)
-        await consumer_handler(websocket, output_path)
+        await consumer_handler(websocket, output_path, iat)
 
 
-async def consumer_handler(websocket, output_path):
+async def consumer_handler(websocket, output_path, iat):
     with open(output_path, 'w', encoding='utf8', buffering=1) as fp:
         contents = cachetools.TTLCache(maxsize=content_maxsize, ttl=content_ttl)
         async for message in websocket:
