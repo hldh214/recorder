@@ -14,6 +14,7 @@ import websockets
 REQUEST_TIMEOUT = 5
 WS_API = 'wss://wsapi.huya.com'
 PREFERRED_CDN_TYPE = 'AL'
+PREFERRED_CDN_URL_PREFIX = 'https://al.flv.huya.com/src'
 NODE_BINARY = 'node'
 TAF_COMMAND = NODE_BINARY, os.path.join(pathlib.Path(__file__).parent, 'taf.js')
 
@@ -41,12 +42,10 @@ def parse_by_mini_program(sub_sid, preferred_cdn_type):
         return False
 
     try:
-        stream_info = res.json()['data']['stream']['flv']['multiLine']
+        stream_info = res.json()['data']['stream']['baseSteamInfoList']
 
-        stream_info = next((item for item in stream_info if item['cdnType'] == preferred_cdn_type), stream_info[0])
-
-        return stream_info['url']
-    except (KeyError, IndexError, ValueError, TypeError):
+        return parse_stream_info(stream_info, preferred_cdn_type)
+    except (LookupError, ValueError, TypeError):
         return False
 
 
@@ -56,17 +55,7 @@ def parse_by_ws(sub_sid, ws_api, preferred_cdn_type):
     if not stream_info:
         return False
 
-    stream_info = next((item for item in stream_info if item['sCdnType'] == preferred_cdn_type), stream_info[0])
-
-    flv_url = stream_info['sFlvUrl']
-    stream_name = stream_info['sStreamName']
-    flv_url_suffix = stream_info['sFlvUrlSuffix']
-    flv_anti_code = html.unescape(stream_info['sFlvAntiCode'])
-
-    result = f'{flv_url}/{stream_name}.{flv_url_suffix}?{flv_anti_code}'
-
-    # on air
-    return result
+    return parse_stream_info(stream_info, preferred_cdn_type)
 
 
 async def get_stream_ng(sub_sid, ws_api):
@@ -138,6 +127,22 @@ def get_stream(room_id, **kwargs):
         return result
 
     return False
+
+
+def parse_stream_info(stream_info, preferred_cdn_type):
+    stream_info = next((item for item in stream_info if item['sCdnType'] == preferred_cdn_type), stream_info[0])
+
+    flv_url = PREFERRED_CDN_URL_PREFIX
+    if stream_info['sCdnType'] == preferred_cdn_type:
+        flv_url = stream_info['sFlvUrl']
+
+    stream_name = stream_info['sStreamName']
+    flv_url_suffix = stream_info['sFlvUrlSuffix']
+    flv_anti_code = html.unescape(stream_info['sFlvAntiCode'])
+
+    result = f'{flv_url}/{stream_name}.{flv_url_suffix}?{flv_anti_code}'
+
+    return result
 
 
 if __name__ == '__main__':
