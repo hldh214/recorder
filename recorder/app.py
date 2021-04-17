@@ -16,6 +16,7 @@ import recorder.utils.huya_danmaku as huya_danmaku
 
 video_name_sep = '|'
 video_extension = 'mp4'
+caption_extension = 'sbv'
 
 datetime_format = '%Y-%m-%d %H:%M:%S'
 if os.name == 'nt':
@@ -59,7 +60,10 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         if source_type == 'huya':
             danmaku_process = multiprocessing.Process(
                 target=huya_danmaku.main,
-                args=(room_id, output_file + '.sbv', kwargs['huya']['app_id'], kwargs['huya']['app_secret'])
+                args=(
+                    room_id, f'{output_file}.{caption_extension}',
+                    kwargs['huya']['app_id'], kwargs['huya']['app_secret']
+                )
             )
             danmaku_process.start()
 
@@ -171,22 +175,33 @@ def uploader(config, youtube):
     task.start()
 
 
-def validate_thread(youtube, interval=360):
+def validate_thread(youtube, interval=3600):
     while True:
         videos = glob.glob(os.path.join(validate_path, '*', '*', f'*.{video_extension}'))
 
         for video_path in videos:
             split_video_path = video_path.split(os.sep)
             video_id = split_video_path[-1].split(video_name_sep)[0]
+            video_filename = split_video_path[-1].split(video_name_sep)[1]
+            room_id = split_video_path[-2]
+            source_type = split_video_path[-3]
+            caption_path = os.path.join(record_path, source_type, room_id, f'{video_filename}.{caption_extension}')
 
             try:
                 uploaded = youtube.check_uploaded(video_id)
             except (googleapiclient.errors.HttpError, BrokenPipeError):
                 continue
 
-            if uploaded:
-                os.unlink(video_path)
-                logger.info(f'uploaded successfully: {video_path}')
+            if not uploaded:
+                continue
+
+            os.unlink(video_path)
+            logger.info(f'uploaded successfully: {video_path}')
+
+            if os.path.exists(caption_path):
+                if youtube.add_caption(video_id, caption_path):
+                    os.unlink(caption_path)
+                    logger.info(f'caption added successfully: {caption_path}')
 
         time.sleep(interval)
 

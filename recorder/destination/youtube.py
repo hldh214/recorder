@@ -22,7 +22,7 @@ class Youtube:
     RETRYABLE_EXCEPTIONS = (IOError, socket.timeout)
 
     DEFAULT_CAPTION_LANGUAGE = 'zh-Hans'
-    DEFAULT_CAPTION_NAME = '中文（简体）'
+    DEFAULT_CAPTION_NAME = 'via_recorder'
 
     def __init__(self, config):
         scopes = [
