@@ -3,8 +3,9 @@ import pathlib
 import pickle
 import socket
 
-import apiclient
 import google_auth_oauthlib.flow
+import googleapiclient
+import googleapiclient.http
 import googleapiclient.discovery
 import googleapiclient.errors
 import google.auth.transport.requests
@@ -13,12 +14,15 @@ import tqdm
 
 
 class Youtube:
-    # Always retry when an apiclient.errors.HttpError with one of these status
+    # Always retry when an googleapiclient.errors.HttpError with one of these status
     # codes is raised.
     RETRYABLE_STATUS_CODES = [500, 502, 503, 504]
 
     # Always retry when these exceptions are raised.
     RETRYABLE_EXCEPTIONS = (IOError, socket.timeout)
+
+    DEFAULT_CAPTION_LANGUAGE = 'zh-Hans'
+    DEFAULT_CAPTION_NAME = '中文（简体）'
 
     def __init__(self, config):
         scopes = [
@@ -68,7 +72,7 @@ class Youtube:
         insert_request = self.youtube.videos().insert(
             part=','.join(body.keys()),
             body=body,
-            media_body=apiclient.http.MediaFileUpload(
+            media_body=googleapiclient.http.MediaFileUpload(
                 video_path, chunksize=chunk_size, resumable=True,
                 mimetype='application/octet-stream'
             )
@@ -143,6 +147,24 @@ class Youtube:
                         }
                     }
                 }
+            ).execute()
+        except OSError:
+            return False
+
+        return True
+
+    def add_caption(self, video_id, caption_path):
+        try:
+            self.youtube.captions().insert(
+                part='snippet',
+                body={
+                    'snippet': {
+                        'language': self.DEFAULT_CAPTION_LANGUAGE,
+                        'name': self.DEFAULT_CAPTION_NAME,
+                        'videoId': video_id
+                    }
+                },
+                media_body=googleapiclient.http.MediaFileUpload(caption_path)
             ).execute()
         except OSError:
             return False
