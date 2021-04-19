@@ -2,8 +2,8 @@ import asyncio
 import json
 import os
 import re
-import time
 import urllib.parse
+import arrow
 import cachetools
 import jwt
 import websockets
@@ -14,10 +14,11 @@ if os.name == 'nt':
     do_not_pad_flag = '#'
 
 host = 'ws-apiext.huya.com'
-timestamp_base = 612892800
 content_ttl = 4
 content_maxsize = 6
 show_mode = 0  # 普通弹幕: 0, 上电视: 2
+subtitle_interval = 0.5  # 两条字幕至少间隔 0.5 秒
+sbv_time_format = 'H:mm:ss.SSS'  # sbv 格式的时间轴的格式 (https://arrow.readthedocs.io/en/latest/#supported-tokens)
 message_notice = 'getMessageNotice'
 notice_data = [message_notice]
 filter_patterns = [
@@ -34,7 +35,7 @@ def is_spam(content):
 
 
 async def subscribe(room_id, output_path, app_id, app_secret):
-    iat = int(time.time())
+    iat = arrow.now().int_timestamp
     exp = iat + 10 * 60
 
     params = urllib.parse.urlencode({
@@ -80,22 +81,21 @@ async def consumer_handler(websocket, output_path, iat):
             if is_spam(content):
                 continue
 
-            start_seconds = timestamp_base + time.time() - iat
-            milliseconds = '{:.3f}'.format(start_seconds).split('.')[1]
+            start_seconds = arrow.now().timestamp() - iat
 
-            time_format = f'%{do_not_pad_flag}H:%M:%S.{milliseconds}'
-            start = time.strftime(time_format, time.localtime(start_seconds))
-            end = time.strftime(time_format, time.localtime(start_seconds + content_ttl))
+            start = arrow.get(start_seconds)
+            end = start.shift(seconds=content_ttl)
+
+            ts_pair = f'{start.format(sbv_time_format)},{end.format(sbv_time_format)}'
+            line = f'{ts_pair}\n{content}\n\n'
+
+            contents[line] = content
 
             if last_start is not None and last_start >= start:
                 continue
 
-            last_start = start
+            last_start = start.shift(seconds=subtitle_interval)
 
-            ts_pair = f'{start},{end}'
-            line = f'{ts_pair}\n{content}\n\n'
-
-            contents[line] = content
             content_list = list(contents.values())
             line = f'{ts_pair}\n'
 
@@ -114,9 +114,9 @@ if __name__ == '__main__':
     import sys
     import toml
 
-    room_id = '11342412'
+    my_room_id = '11342412'
     if len(sys.argv) > 1:
-        room_id = sys.argv[1]
+        my_room_id = sys.argv[1]
 
     config = toml.load('../../config.toml')
-    main(room_id, f'./{room_id}.sbv', config['huya']['app_id'], config['huya']['app_secret'])
+    main(my_room_id, f'./{my_room_id}.sbv', config['huya']['app_id'], config['huya']['app_secret'])

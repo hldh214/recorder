@@ -10,3 +10,4 @@ pandas==1.2.*
 grequests==0.6.*
 pyjwt==2.0.*
 cachetools==4.2.*
+arrow==1.0.*
