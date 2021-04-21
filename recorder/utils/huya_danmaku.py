@@ -17,7 +17,6 @@ host = 'ws-apiext.huya.com'
 content_ttl = 4
 content_maxsize = 6
 show_mode = 0  # 普通弹幕: 0, 上电视: 2
-subtitle_interval = 0.5  # 两条字幕至少间隔 0.5 秒
 sbv_time_format = 'H:mm:ss.SSS'  # sbv 格式的时间轴的格式 (https://arrow.readthedocs.io/en/latest/#supported-tokens)
 message_notice = 'getMessageNotice'
 notice_data = [message_notice]
@@ -62,7 +61,9 @@ async def subscribe(room_id, output_path, app_id, app_secret):
 async def consumer_handler(websocket, output_path, iat):
     with open(output_path, 'w', encoding='utf8', buffering=1) as fp:
         contents = cachetools.TTLCache(maxsize=content_maxsize, ttl=content_ttl)
-        last_start = None
+        last_context = {
+            'start': None, 'end': None, 'contents': []
+        }
         async for message in websocket:
             try:
                 message = json.loads(message)
@@ -84,26 +85,29 @@ async def consumer_handler(websocket, output_path, iat):
             start_seconds = arrow.now().timestamp() - iat
 
             start = arrow.get(start_seconds)
-            end = start.shift(seconds=content_ttl)
 
-            ts_pair = f'{start.format(sbv_time_format)},{end.format(sbv_time_format)}'
-            line = f'{ts_pair}\n{content}\n\n'
+            content_key = f'{start.format(sbv_time_format)}\n{content}\n\n'
+            contents[content_key] = content
+            content_list = list(contents.values())
 
-            contents[line] = content
-
-            if last_start is not None and last_start >= start:
+            if not last_context['contents']:
+                last_context['start'] = start
+                last_context['contents'] = content_list
                 continue
 
-            last_start = start.shift(seconds=subtitle_interval)
+            last_start = last_context['start']
+            last_end = start
 
-            content_list = list(contents.values())
-            line = f'{ts_pair}\n'
+            line = f'{last_start.format(sbv_time_format)},{last_end.format(sbv_time_format)}\n'
 
-            for each_content in content_list:
+            for each_content in last_context['contents']:
                 line += f'{each_content}\n'
 
             line += '\n'
             fp.write(line)
+
+            last_context['start'] = start
+            last_context['contents'] = content_list
 
 
 def main(room_id, output_path, app_id, app_secret):
