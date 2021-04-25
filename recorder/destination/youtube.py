@@ -2,6 +2,7 @@ import os
 import pathlib
 import pickle
 import socket
+import traceback
 
 import google_auth_oauthlib.flow
 import googleapiclient
@@ -122,7 +123,8 @@ class Youtube:
                 part='processingDetails',
                 id=video_id
             ).execute()
-        except OSError:
+        except (OSError, googleapiclient.errors.Error):
+            traceback.print_exc()
             return False
 
         if not response['items']:
@@ -148,7 +150,8 @@ class Youtube:
                     }
                 }
             ).execute()
-        except OSError:
+        except (OSError, googleapiclient.errors.Error):
+            traceback.print_exc()
             return False
 
         return True
@@ -166,7 +169,8 @@ class Youtube:
                 },
                 media_body=googleapiclient.http.MediaFileUpload(caption_path)
             ).execute()
-        except OSError:
+        except (OSError, googleapiclient.errors.Error):
+            traceback.print_exc()
             return False
 
         return True
