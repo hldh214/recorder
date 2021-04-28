@@ -2,7 +2,6 @@ import asyncio
 import json
 import os
 import re
-import signal
 import urllib.parse
 import arrow
 import cachetools
@@ -24,16 +23,6 @@ notice_data = [message_notice]
 filter_patterns = [
     r'^/\{',  # 过滤表情开头的弹幕(通常全是表情)
 ]
-
-
-class GracefulKiller:
-    kill_now = False
-
-    def __init__(self):
-        signal.signal(signal.SIGTERM, self.exit_gracefully)
-
-    def exit_gracefully(self, signum, frame):
-        self.kill_now = True
 
 
 def is_spam(content):
@@ -70,17 +59,12 @@ async def subscribe(room_id, output_path, app_id, app_secret):
 
 
 async def consumer_handler(websocket, output_path, iat):
-    killer = GracefulKiller()
-
     with open(output_path, 'w', encoding='utf8', buffering=1) as fp:
         contents = cachetools.TTLCache(maxsize=content_maxsize, ttl=content_ttl)
         last_context = {
             'start': None, 'end': None, 'contents': []
         }
         async for message in websocket:
-            if killer.kill_now:
-                break
-
             try:
                 message = json.loads(message)
                 notice = message['notice']
