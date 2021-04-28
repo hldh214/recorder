@@ -71,6 +71,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 
         if danmaku_process is not None:
             danmaku_process.terminate()
+            danmaku_process.join()
 
         if not ffmpeg.valid(output_file):
             if not os.path.exists(output_file):
