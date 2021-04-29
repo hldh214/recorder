@@ -6,6 +6,7 @@ import urllib.parse
 import arrow
 import cachetools
 import jwt
+import tenacity
 import websockets
 
 do_not_pad_flag = '-'
@@ -110,6 +111,7 @@ async def consumer_handler(websocket, output_path, iat):
             last_context['contents'] = content_list
 
 
+@tenacity.retry(stop=tenacity.stop_after_attempt(3), wait=tenacity.wait_fixed(3))
 def main(room_id, output_path, app_id, app_secret):
     asyncio.run(subscribe(room_id, output_path, app_id, app_secret))
 
