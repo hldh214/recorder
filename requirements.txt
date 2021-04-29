@@ -8,6 +8,7 @@ notifiers==1.2.1
 websockets==8.1
 pandas==1.2.*
 grequests==0.6.*
-pyjwt==2.0.*
+pyjwt==2.1.*
 cachetools==4.2.*
-arrow==1.0.*
+arrow==1.1.*
+tenacity==7.0.*
