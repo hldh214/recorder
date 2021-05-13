@@ -60,6 +60,13 @@ async def subscribe(room_id, output_path, app_id, app_secret):
 
 
 async def consumer_handler(websocket, output_path, iat):
+    if os.path.exists(output_path):
+        # resume recording danmaku according to last message's timestamp (#4)
+        last_end = get_previous_end_time(output_path)
+
+        if last_end is not None:
+            iat -= last_end
+
     with open(output_path, 'w', encoding='utf8', buffering=1) as fp:
         contents = cachetools.TTLCache(maxsize=content_maxsize, ttl=content_ttl)
         last_context = {
@@ -109,6 +116,19 @@ async def consumer_handler(websocket, output_path, iat):
 
             last_context['start'] = start
             last_context['contents'] = content_list
+
+
+def get_previous_end_time(output_path):
+    with open(output_path) as fp:
+        for line in reversed(fp.readlines()):
+            try:
+                last_end_time = arrow.get(line.split(',')[1], sbv_time_format)
+            except arrow.parser.ParserError:
+                continue
+            ts = last_end_time.replace(year=1970).int_timestamp  # start year of the timestamp
+
+            return ts
+    return None
 
 
 @tenacity.retry(stop=tenacity.stop_after_attempt(3), wait=tenacity.wait_fixed(3))
