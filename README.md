@@ -37,6 +37,11 @@ python -m recorder
 * [google-api](https://github.com/googleapis/google-api-python-client) - Brilliant api client
 * [toml](https://github.com/toml-lang/toml) - Tom's Obvious, Minimal Language for configure
 * [tqdm](https://github.com/tqdm/tqdm) - Progress Bar with <3
+* [pyjwt](https://github.com/jpadilla/pyjwt) - JSON Web Token implementation in Python
+* [cachetools](https://github.com/tkem/cachetools) - Extensible memoizing collections and decorators
+* [arrow](https://github.com/arrow-py/arrow) - Better dates & times for Python
+* [tenacity](https://github.com/jd/tenacity) - Retrying library for Python
+
 
 ## Contribution
 
