@@ -17,7 +17,7 @@ if os.name == 'nt':
 host = 'ws-apiext.huya.com'
 content_ttl = 4
 content_maxsize = 6
-show_mode = 0  # 普通弹幕: 0, 上电视: 2
+msg_type = 0  # 弹幕类型，0-常规弹幕，1-功能性弹幕(诸如部分投票/战队支持等相关弹幕)，2-上电视弹幕
 sbv_time_format = 'H:mm:ss.SSS'  # sbv 格式的时间轴的格式 (https://arrow.readthedocs.io/en/latest/#supported-tokens)
 message_notice = 'getMessageNotice'
 notice_data = [message_notice]
@@ -82,7 +82,7 @@ async def consumer_handler(websocket, output_path, iat):
             if notice != message_notice:
                 continue
 
-            if message['data']['showMode'] != show_mode:
+            if message['data']['msgType'] != msg_type:
                 continue
 
             content = message['data']['content']
