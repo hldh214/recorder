@@ -46,7 +46,9 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             time.sleep(interval)
             continue
 
-        folder_path = os.path.join(os.path.abspath(kwargs['app']['video_path']), 'record', source_type, room_id)
+        folder_path = os.path.join(
+            os.path.abspath(kwargs['app']['video_path']), 'record', source_type, kwargs['source_name']
+        )
         filename = f'{time.strftime(datetime_format, time.localtime())}.{video_extension}'
         pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
         output_file = os.path.join(folder_path, filename)
@@ -90,7 +92,9 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             continue
 
         # move to upload folder
-        dst_dir = os.path.join(os.path.abspath(kwargs['app']['video_path']), 'upload', source_type, room_id)
+        dst_dir = os.path.join(
+            os.path.abspath(kwargs['app']['video_path']), 'upload', source_type, kwargs['source_name']
+        )
         pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
         dst_path = os.path.join(dst_dir, filename)
         os.rename(output_file, dst_path)
@@ -99,11 +103,12 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 def my_recorder(config):
     source = config['source']
 
-    for _, conf in source.items():
+    for source_name, conf in source.items():
         if not conf['enabled']:
             continue
 
         conf.update(config)
+        conf['source_name'] = source_name
 
         task = threading.Thread(
             target=record_thread,
@@ -123,11 +128,11 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
         for video_path in videos:
             split_video_path = video_path.split(os.sep)
             source_type = split_video_path[-3]
-            room_id = split_video_path[-2]
+            source_name = split_video_path[-2]
             split_filename = split_video_path[-1].split('.')
             filename_datetime = split_filename[0]
 
-            current_config = config['source'].get(room_id)
+            current_config = config['source'].get(source_name)
 
             if not current_config:
                 continue
@@ -162,7 +167,7 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
                 logger.info(f'inserted_into_playlist: {video_id} -> {playlist_id}')
 
             # move to validate folder and add video_id in filename
-            dst_dir = os.path.join(os.path.abspath(config['app']['video_path']), 'validate', source_type, room_id)
+            dst_dir = os.path.join(os.path.abspath(config['app']['video_path']), 'validate', source_type, source_name)
 
             pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
 
@@ -191,11 +196,11 @@ def validate_thread(config, youtube, interval=3600):
             split_video_path = video_path.split(os.sep)
             video_id = split_video_path[-1].split(video_name_sep)[0]
             video_filename = split_video_path[-1].split(video_name_sep)[1]
-            room_id = split_video_path[-2]
+            source_name = split_video_path[-2]
             source_type = split_video_path[-3]
             caption_path = os.path.join(
                 os.path.abspath(config['app']['video_path']), 'record',
-                source_type, room_id, f'{video_filename}.{caption_extension}'
+                source_type, source_name, f'{video_filename}.{caption_extension}'
             )
 
             if config['app']['upload_validate']:
