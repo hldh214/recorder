@@ -1,3 +1,7 @@
+[app]
+video_path = "./videos"
+upload_validate = true
+
 [youtube]
 client_secrets_file = ""
 credentials_file = ""
@@ -7,43 +11,43 @@ app_id = ""
 app_secret = ""
 
 [source]
-    [source."668668"]
-    enabled = true
-    auto_upload = true
-    auto_upload_minimal_size = 1024
-    interval = 5
-    source_type = "huya"
-    room_id = "668668"
-    title = "风行云 - {datetime} - 录像"
-    description = "直播地址：https://www.huya.com/668668"
-    playlist_id = "PLlph9D7YplcHhxNmhBGsgzTgLSlpk4B5-"
-    ws_apis = [ "wss://0dfbdba8-ws.va.huya.com", "wss://128a4d17-ws.va.huya.com", "wss://128a9862-ws.va.huya.com" ]
-    preferred_cdn_type = "AL"
+[source."668668"]
+enabled = true
+auto_upload = true
+auto_upload_minimal_size = 1024
+interval = 5
+source_type = "huya"
+room_id = "668668"
+title = "风行云 - {datetime} - 录像"
+description = "直播地址：https://www.huya.com/668668"
+playlist_id = "PLlph9D7YplcHhxNmhBGsgzTgLSlpk4B5-"
+ws_apis = ["wss://0dfbdba8-ws.va.huya.com", "wss://128a4d17-ws.va.huya.com", "wss://128a9862-ws.va.huya.com"]
+preferred_cdn_type = "AL"
 
-    [source."18053596"]
-    enabled = true
-    auto_upload = true
-    auto_upload_minimal_size = 1024
-    interval = 60
-    source_type = "huya"
-    room_id = "18053596"
-    title = "填坑小子668 - {datetime} - 录像"
-    description = "直播地址：https://www.huya.com/18053596"
-    playlist_id = "PLlph9D7YplcEZkvv6_PByv_S7TffhhP96"
-    ws_apis = [ "wss://0dfbdba8-ws.va.huya.com", "wss://128a4d17-ws.va.huya.com", "wss://128a9862-ws.va.huya.com" ]
-    preferred_cdn_type = "AL"
+[source."18053596"]
+enabled = true
+auto_upload = true
+auto_upload_minimal_size = 1024
+interval = 60
+source_type = "huya"
+room_id = "18053596"
+title = "填坑小子668 - {datetime} - 录像"
+description = "直播地址：https://www.huya.com/18053596"
+playlist_id = "PLlph9D7YplcEZkvv6_PByv_S7TffhhP96"
+ws_apis = ["wss://0dfbdba8-ws.va.huya.com", "wss://128a4d17-ws.va.huya.com", "wss://128a9862-ws.va.huya.com"]
+preferred_cdn_type = "AL"
 
-    [source."deer98"]
-    enabled = true
-    auto_upload = false
-    auto_upload_minimal_size = 1024
-    interval = 60
-    source_type = "panda"
-    room_id = "10535725"
-    sess_key = "018c6d30a09720dd7aba6a9113fa5227bc9c78e033eb1a2be5fec88af599e3c6"
+[source."deer98"]
+enabled = true
+auto_upload = false
+auto_upload_minimal_size = 1024
+interval = 60
+source_type = "panda"
+room_id = "10535725"
+sess_key = "018c6d30a09720dd7aba6a9113fa5227bc9c78e033eb1a2be5fec88af599e3c6"
 
 [notifiers]
-    [notifiers.telegram]
-        chat_id = ""
-        enabled = true
-        token = ""
+[notifiers.telegram]
+chat_id = ""
+enabled = true
+token = ""

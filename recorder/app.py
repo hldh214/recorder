@@ -23,9 +23,6 @@ if os.name == 'nt':
     datetime_format = '%Y-%m-%d %H-%M-%S'
 
 base_path = pathlib.Path(os.path.abspath(__file__)).parent.parent
-record_path = os.path.join(base_path, 'videos', 'record')
-upload_path = os.path.join(base_path, 'videos', 'upload')
-validate_path = os.path.join(base_path, 'videos', 'validate')
 
 logger = logging.getLogger(__name__)
 handler = logging.FileHandler(filename=os.path.join(base_path, 'recorder.log'))
@@ -49,7 +46,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             time.sleep(interval)
             continue
 
-        folder_path = os.path.join(record_path, source_type, room_id)
+        folder_path = os.path.join(os.path.abspath(kwargs['app']['video_path']), 'record', source_type, room_id)
         filename = f'{time.strftime(datetime_format, time.localtime())}.{video_extension}'
         pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
         output_file = os.path.join(folder_path, filename)
@@ -93,7 +90,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             continue
 
         # move to upload folder
-        dst_dir = os.path.join(upload_path, source_type, room_id)
+        dst_dir = os.path.join(os.path.abspath(kwargs['app']['video_path']), 'upload', source_type, room_id)
         pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
         dst_path = os.path.join(dst_dir, filename)
         os.rename(output_file, dst_path)
@@ -119,7 +116,9 @@ def my_recorder(config):
 
 def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
     while True:
-        videos = glob.glob(os.path.join(upload_path, '*', '*', f'*.{video_extension}'))
+        videos = glob.glob(os.path.join(
+            os.path.abspath(config['app']['video_path']), 'upload', '*', '*', f'*.{video_extension}'
+        ))
 
         for video_path in videos:
             split_video_path = video_path.split(os.sep)
@@ -127,14 +126,20 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
             room_id = split_video_path[-2]
             split_filename = split_video_path[-1].split('.')
             filename_datetime = split_filename[0]
-            playlist_id = config[room_id]['playlist_id'] if 'playlist_id' in config[room_id] else ''
+
+            current_config = config['source'].get(room_id)
+
+            if not current_config:
+                continue
+
+            playlist_id = current_config.get('playlist_id')
 
             logger.info(f'uploading: {video_path}')
             try:
                 video_id = youtube.upload(
                     video_path,
-                    config[room_id]['title'].format(datetime=filename_datetime),
-                    config[room_id]['description'] if 'description' in config[room_id] else ''
+                    current_config['title'].format(datetime=filename_datetime),
+                    current_config.get('description', '')
                 )
             except googleapiclient.errors.HttpError as exception:
                 time.sleep(interval)
@@ -157,7 +162,7 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
                 logger.info(f'inserted_into_playlist: {video_id} -> {playlist_id}')
 
             # move to validate folder and add video_id in filename
-            dst_dir = os.path.join(validate_path, source_type, room_id)
+            dst_dir = os.path.join(os.path.abspath(config['app']['video_path']), 'validate', source_type, room_id)
 
             pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
 
@@ -176,9 +181,11 @@ def uploader(config, youtube):
     task.start()
 
 
-def validate_thread(youtube, interval=3600):
+def validate_thread(config, youtube, interval=3600):
     while True:
-        videos = glob.glob(os.path.join(validate_path, '*', '*', f'*.{video_extension}'))
+        videos = glob.glob(os.path.join(
+            os.path.abspath(config['app']['video_path']), 'validate', '*', '*', f'*.{video_extension}'
+        ))
 
         for video_path in videos:
             split_video_path = video_path.split(os.sep)
@@ -186,15 +193,19 @@ def validate_thread(youtube, interval=3600):
             video_filename = split_video_path[-1].split(video_name_sep)[1]
             room_id = split_video_path[-2]
             source_type = split_video_path[-3]
-            caption_path = os.path.join(record_path, source_type, room_id, f'{video_filename}.{caption_extension}')
+            caption_path = os.path.join(
+                os.path.abspath(config['app']['video_path']), 'record',
+                source_type, room_id, f'{video_filename}.{caption_extension}'
+            )
 
-            try:
-                uploaded = youtube.check_uploaded(video_id)
-            except (googleapiclient.errors.HttpError, BrokenPipeError):
-                continue
+            if config['app']['upload_validate']:
+                try:
+                    uploaded = youtube.check_uploaded(video_id)
+                except (googleapiclient.errors.HttpError, BrokenPipeError):
+                    continue
 
-            if not uploaded:
-                continue
+                if not uploaded:
+                    continue
 
             os.unlink(video_path)
             logger.info(f'uploaded successfully: {video_path}')
@@ -207,10 +218,10 @@ def validate_thread(youtube, interval=3600):
         time.sleep(interval)
 
 
-def upload_validator(youtube):
+def upload_validator(config, youtube):
     task = threading.Thread(
         target=validate_thread,
-        kwargs={'youtube': youtube},
+        kwargs={'config': config, 'youtube': youtube},
         name='Thread-upload-validator'
     )
     task.setDaemon(True)
@@ -227,9 +238,9 @@ def main():
 
     my_recorder(config)
 
-    uploader(config['source'], youtube)
+    uploader(config, youtube)
 
-    upload_validator(youtube)
+    upload_validator(config, youtube)
 
     while True:
         time.sleep(1)
