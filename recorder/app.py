@@ -52,10 +52,12 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         filename = f'{time.strftime(datetime_format, time.localtime())}.{video_extension}'
         pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
         output_file = os.path.join(folder_path, filename)
-        caption_path = os.path.join(
-            os.path.abspath(kwargs['app']['danmaku_path']),
-            source_type, kwargs['source_name'], f'{filename}.{caption_extension}'
+
+        caption_folder_path = os.path.join(
+            os.path.abspath(kwargs['app']['danmaku_path']), source_type, kwargs['source_name']
         )
+        pathlib.Path(caption_folder_path).mkdir(parents=True, exist_ok=True)
+        caption_path = os.path.join(caption_folder_path, f'{filename}.{caption_extension}')
 
         logger.info(f'recording: {flv_url} -> {output_file}')
 
