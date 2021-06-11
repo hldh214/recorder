@@ -1,5 +1,6 @@
 [app]
 video_path = "./videos"
+danmaku_path = "./videos"
 upload_validate = true
 
 [youtube]

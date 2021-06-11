@@ -52,6 +52,10 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         filename = f'{time.strftime(datetime_format, time.localtime())}.{video_extension}'
         pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
         output_file = os.path.join(folder_path, filename)
+        caption_path = os.path.join(
+            os.path.abspath(kwargs['app']['danmaku_path']),
+            source_type, kwargs['source_name'], f'{filename}.{caption_extension}'
+        )
 
         logger.info(f'recording: {flv_url} -> {output_file}')
 
@@ -59,10 +63,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         if source_type == 'huya':
             danmaku_process = multiprocessing.Process(
                 target=huya_danmaku.main,
-                args=(
-                    room_id, f'{output_file}.{caption_extension}',
-                    kwargs['huya']['app_id'], kwargs['huya']['app_secret']
-                )
+                args=(room_id, caption_path, kwargs['huya']['app_id'], kwargs['huya']['app_secret'])
             )
             danmaku_process.start()
 
@@ -199,7 +200,7 @@ def validate_thread(config, youtube, interval=3600):
             source_name = split_video_path[-2]
             source_type = split_video_path[-3]
             caption_path = os.path.join(
-                os.path.abspath(config['app']['video_path']), 'record',
+                os.path.abspath(config['app']['danmaku_path']),
                 source_type, source_name, f'{video_filename}.{caption_extension}'
             )
 
