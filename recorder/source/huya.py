@@ -136,6 +136,8 @@ def parse_stream_info(stream_info, preferred_cdn_type):
     if stream_info['sCdnType'] == preferred_cdn_type:
         flv_url = stream_info['sFlvUrl']
 
+    flv_url = flv_url.replace('https://', 'http://')
+
     stream_name = stream_info['sStreamName']
     flv_url_suffix = stream_info['sFlvUrlSuffix']
     flv_anti_code = html.unescape(stream_info['sFlvAntiCode'])
