@@ -18,7 +18,7 @@ PREFERRED_CDN_URL_PREFIX = 'https://al.flv.huya.com/src'
 NODE_BINARY = 'node'
 TAF_COMMAND = NODE_BINARY, os.path.join(pathlib.Path(__file__).parent, 'taf.js')
 
-sub_sid_pattern = re.compile(r"ayyuid:\s*'(\d+)'")
+sub_sid_pattern = re.compile(r'"lUid"\s*:\s*(\d+)')
 m3u8_pattern = re.compile(r"hasvedio\s*:\s*'(\S+)'")
 is_live_false_pattern = re.compile(r"var\s*ISLIVE\s*=\s*false")
 
