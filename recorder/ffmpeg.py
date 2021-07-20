@@ -3,7 +3,7 @@ import json
 import random
 import subprocess
 
-TIMEOUT_US = str(60 * 1000000)
+TIMEOUT_US = str(20 * 1000000)  # 20s
 MAX_DURATION = str(10 * 3600 - 300)
 USER_AGENTS = (
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114',
@@ -16,7 +16,8 @@ FFPROBE_BINARY = 'ffprobe'
 
 def record(input_url, output_file, args=None):
     popen_args = [
-        FFMPEG_BINARY, '-re', '-user_agent', random.choice(USER_AGENTS), '-hide_banner',
+        FFMPEG_BINARY, '-y', '-user_agent', random.choice(USER_AGENTS), '-hide_banner',
+        '-reconnect_streamed', '1', '-reconnect_delay_max', '20',
         '-rw_timeout', TIMEOUT_US, '-timeout', TIMEOUT_US,
         '-i', input_url, '-c', 'copy', '-t', MAX_DURATION
     ]
@@ -42,7 +43,7 @@ def show_format(input_file):
     args = [FFPROBE_BINARY]
 
     if str(input_file).startswith('http'):
-        args.extend(['-user_agent', USER_AGENT])
+        args.extend(['-user_agent', random.choice(USER_AGENTS)])
 
     args.extend(['-print_format', 'json', '-rw_timeout', TIMEOUT_US, '-show_format', '-i', input_file])
 
