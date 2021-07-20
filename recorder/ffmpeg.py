@@ -1,17 +1,22 @@
 import datetime
 import json
+import random
 import subprocess
 
 TIMEOUT_US = str(60 * 1000000)
 MAX_DURATION = str(10 * 3600 - 300)
-USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114'
+USER_AGENTS = (
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114',
+    'Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0 Iceweasel/38.2.1',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Safari/605.1.15'
+)
 FFMPEG_BINARY = 'ffmpeg'
 FFPROBE_BINARY = 'ffprobe'
 
 
 def record(input_url, output_file, args=None):
     popen_args = [
-        FFMPEG_BINARY, '-re', '-user_agent', USER_AGENT, '-hide_banner',
+        FFMPEG_BINARY, '-re', '-user_agent', random.choice(USER_AGENTS), '-hide_banner',
         '-rw_timeout', TIMEOUT_US, '-timeout', TIMEOUT_US,
         '-i', input_url, '-c', 'copy', '-t', MAX_DURATION
     ]
