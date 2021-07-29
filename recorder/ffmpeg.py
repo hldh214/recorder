@@ -35,7 +35,7 @@ def record(input_url, output_file, args=None):
     return ff.wait()
 
 
-def show_format(input_file):
+def ffprobe(input_file):
     """
     :param input_file: video's path or stream url
     :return: video's format information in json dictionary, None if video is not valid
@@ -45,11 +45,18 @@ def show_format(input_file):
     if str(input_file).startswith('http'):
         args.extend(['-user_agent', random.choice(USER_AGENTS)])
 
-    args.extend(['-print_format', 'json', '-rw_timeout', TIMEOUT_US, '-show_format', '-i', input_file])
+    args.extend([
+        '-hide_banner', '-print_format', 'json', '-rw_timeout', TIMEOUT_US,
+        '-show_format', '-show_streams', '-select_streams', 'a',
+        '-i', input_file
+    ])
 
     proc = subprocess.run(args, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
-    res = json.loads(proc.stdout)
+    try:
+        res = json.loads(proc.stdout)
+    except ValueError:
+        return None
 
     if not res:
         return None
@@ -62,7 +69,7 @@ def duration(input_file):
     :param input_file: video's path
     :return: video's duration in seconds, False if video is not valid
     """
-    res = show_format(input_file)
+    res = ffprobe(input_file)
 
     return int(float(res['format']['duration'])) if res else False
 
@@ -72,7 +79,9 @@ def valid(input_file):
     :param input_file: video's path or stream url
     :return: True if video is valid, False if not
     """
-    return True if show_format(input_file) else False
+    res = ffprobe(input_file)
+
+    return len(res['streams']) != 0 if res else False
 
 
 def in_use(input_file):
