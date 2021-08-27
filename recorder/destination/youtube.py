@@ -117,10 +117,10 @@ class Youtube:
                     progress_bar.close()
                 return response['id']
 
-    def check_uploaded(self, video_id):
+    def check_processed(self, video_id):
         try:
             response = self.youtube.videos().list(
-                part='processingDetails',
+                part='status',
                 id=video_id
             ).execute()
         except (OSError, googleapiclient.errors.Error):
@@ -132,9 +132,9 @@ class Youtube:
 
         item = response['items'][0]
 
-        processing_status = item['processingDetails']['processingStatus']
+        upload_status = item['status']['uploadStatus']
 
-        return processing_status in ('succeeded', 'terminated')
+        return upload_status == 'processed'
 
     def insert_into_playlist(self, video_id, playlist_id):
         try:
@@ -177,7 +177,17 @@ class Youtube:
 
 
 if __name__ == '__main__':
+    import sys
+
     youtube = Youtube(toml.load(os.path.join(
         pathlib.Path(os.path.abspath(__file__)).parent.parent.parent, 'config.toml'
     ))['youtube'])
-    print(youtube.check_uploaded('EkYec3Vwico'))
+
+    if len(sys.argv) == 1:
+        print('Usage: python3 youtube.py <video_id> <caption_path>')
+
+    if len(sys.argv) == 2:
+        print(youtube.check_processed(sys.argv[1]))
+
+    if len(sys.argv) == 3:
+        print(youtube.add_caption(sys.argv[1], sys.argv[2]))

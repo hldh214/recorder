@@ -208,7 +208,7 @@ def validate_thread(config, youtube, interval=3600):
 
             if config['app']['upload_validate']:
                 try:
-                    uploaded = youtube.check_uploaded(video_id)
+                    uploaded = youtube.check_processed(video_id)
                 except (googleapiclient.errors.HttpError, BrokenPipeError):
                     continue
 
