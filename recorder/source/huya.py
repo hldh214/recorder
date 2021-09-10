@@ -1,6 +1,5 @@
 import array
 import asyncio
-import html
 import json
 import os
 import pathlib
@@ -14,7 +13,7 @@ import websockets
 REQUEST_TIMEOUT = 5
 WS_API = 'wss://wsapi.huya.com'
 PREFERRED_CDN_TYPE = 'AL'
-PREFERRED_CDN_URL_PREFIX = 'https://al.flv.huya.com/src'
+PREFERRED_FORMAT = 'hls'
 NODE_BINARY = 'node'
 TAF_COMMAND = NODE_BINARY, os.path.join(pathlib.Path(__file__).parent, 'taf.js')
 
@@ -23,7 +22,7 @@ m3u8_pattern = re.compile(r"hasvedio\s*:\s*'(\S+)'")
 is_live_false_pattern = re.compile(r"var\s*ISLIVE\s*=\s*false")
 
 
-def parse_by_mini_program(sub_sid, preferred_cdn_type):
+def parse_by_mini_program(sub_sid, preferred_cdn_type, preferred_format):
     try:
         res = requests.get('https://mp.huya.com/cache.php', params={
             'm': 'Live',
@@ -44,18 +43,18 @@ def parse_by_mini_program(sub_sid, preferred_cdn_type):
     try:
         stream_info = res.json()['data']['stream']['baseSteamInfoList']
 
-        return parse_stream_info(stream_info, preferred_cdn_type)
+        return parse_stream_info(stream_info, preferred_cdn_type, preferred_format)
     except (LookupError, ValueError, TypeError):
         return False
 
 
-def parse_by_ws(sub_sid, ws_api, preferred_cdn_type):
+def parse_by_ws(sub_sid, ws_api, preferred_cdn_type, preferred_format):
     stream_info = asyncio.run(get_stream_ng(sub_sid, ws_api))
 
     if not stream_info:
         return False
 
-    return parse_stream_info(stream_info, preferred_cdn_type)
+    return parse_stream_info(stream_info, preferred_cdn_type, preferred_format)
 
 
 async def get_stream_ng(sub_sid, ws_api):
@@ -115,13 +114,14 @@ def get_stream(room_id, **kwargs):
 
     ws_api = random.choice(kwargs['ws_apis']) if 'ws_apis' in kwargs else WS_API
     preferred_cdn_type = kwargs['preferred_cdn_type'] if 'preferred_cdn_type' in kwargs else PREFERRED_CDN_TYPE
+    preferred_format = kwargs['preferred_format'] if 'preferred_format' in kwargs else PREFERRED_FORMAT
 
-    result = parse_by_mini_program(sub_sid, preferred_cdn_type)
+    result = parse_by_mini_program(sub_sid, preferred_cdn_type, preferred_format)
 
     if result:
         return result
 
-    result = parse_by_ws(sub_sid, ws_api, preferred_cdn_type)
+    result = parse_by_ws(sub_sid, ws_api, preferred_cdn_type, preferred_format)
 
     if result:
         return result
@@ -129,22 +129,26 @@ def get_stream(room_id, **kwargs):
     return False
 
 
-def parse_stream_info(stream_info, preferred_cdn_type):
-    stream_info = next((item for item in stream_info if item['sCdnType'] == preferred_cdn_type), stream_info[0])
+def parse_stream_info(stream_info, preferred_cdn_type, preferred_format):
+    current_stream_info = next(
+        (item for item in stream_info if item['sCdnType'] == preferred_cdn_type),
+        stream_info[0]
+    )
 
-    flv_url = PREFERRED_CDN_URL_PREFIX
-    if stream_info['sCdnType'] == preferred_cdn_type:
-        flv_url = stream_info['sFlvUrl']
+    stream_name = current_stream_info['sStreamName']
 
-    flv_url = flv_url.replace('https://', 'http://')
+    if preferred_format == 'hls':
+        url = current_stream_info['sHlsUrl']
+        url_suffix = current_stream_info['sHlsUrlSuffix']
+        anti_code = current_stream_info['sHlsAntiCode']
+    elif preferred_format == 'flv':
+        url = current_stream_info['sFlvUrl']
+        url_suffix = current_stream_info['sFlvUrlSuffix']
+        anti_code = current_stream_info['sFlvAntiCode']
+    else:
+        return ''
 
-    stream_name = stream_info['sStreamName']
-    flv_url_suffix = stream_info['sFlvUrlSuffix']
-    flv_anti_code = html.unescape(stream_info['sFlvAntiCode'])
-
-    result = f'{flv_url}/{stream_name}.{flv_url_suffix}?{flv_anti_code}'
-
-    return result
+    return f'{url}/{stream_name}.{url_suffix}?{anti_code}'
 
 
 if __name__ == '__main__':
