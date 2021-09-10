@@ -9,6 +9,7 @@ import subprocess
 
 import requests
 import websockets
+import websockets.exceptions
 
 REQUEST_TIMEOUT = 5
 WS_API = 'wss://wsapi.huya.com'
