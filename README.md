@@ -21,6 +21,7 @@ $ docker run -d --name recorder --restart always -v /path/to/your/config.toml:/a
 ```
 python >= 3.7
 [node](https://github.com/nvm-sh/nvm)
+[mongodb](https://www.mongodb.com/)
 ```
 
 ### Installing
@@ -41,7 +42,7 @@ python -m recorder
 * [cachetools](https://github.com/tkem/cachetools) - Extensible memoizing collections and decorators
 * [arrow](https://github.com/arrow-py/arrow) - Better dates & times for Python
 * [tenacity](https://github.com/jd/tenacity) - Retrying library for Python
-
+* [pymongo](https://github.com/mongodb/mongo-python-driver) - The Python driver for MongoDB
 
 ## Contribution
 

@@ -12,3 +12,4 @@ pyjwt==2.1.*
 cachetools==4.2.*
 arrow==1.1.*
 tenacity==8.*
+pymongo~=3.*
