@@ -45,11 +45,12 @@ UNION_ID_FILTER_LIST = (
     'un8RvnUOwsr6J3xq8uAXTzmtxs00GClkrY',  # 668668 直播间的 [你猜]
 )
 
-VTT_TIME_FORMAT = 'H:mm:ss.SSS'
+VTT_TIME_FORMAT = 'HH:mm:ss.SSS'
 VTT_HEADERS = '''\
 WEBVTT
 Kind: captions
 Language: zh-Hans
+
 '''
 
 mongo_collection = pymongo.MongoClient()['recorder']['huya_danmaku']
@@ -104,6 +105,18 @@ def find_danmaku_by_time_range(room_id, start, end):
     })
 
 
+class Timer:
+    """
+    custom timer for `TTLCache`
+    """
+
+    def __init__(self, ts):
+        self.ts = ts
+
+    def timer(self):
+        return self.ts
+
+
 class Caption:
     def __init__(self, iterator: pymongo.cursor.Cursor, started_at):
         self.iterator = iterator
@@ -118,10 +131,13 @@ class Caption:
 
     def to_vtt(self, output_path):
         last_modified_at = self.started_at
-        ttl_cache = cachetools.TTLCache(maxsize=CONTENT_MAXSIZE, ttl=CONTENT_TTL)
+        timer = Timer(self.started_at.timestamp())
+        ttl_cache = cachetools.TTLCache(maxsize=CONTENT_MAXSIZE, ttl=CONTENT_TTL, timer=timer.timer)
         last_context = {'start': None, 'end': None, 'contents': []}
 
         with open(output_path, 'w', encoding='utf8') as fp:
+            fp.write(VTT_HEADERS)
+
             for each in self.iterator:
                 content = each['data']['content']
 
@@ -132,6 +148,7 @@ class Caption:
                 start_seconds = current_time.timestamp() - self.started_at.timestamp()
                 start = arrow.get(start_seconds)
 
+                timer.ts = current_time.timestamp()
                 cache_key = f'{start.format(VTT_TIME_FORMAT)}\n{content}'
                 ttl_cache[cache_key] = content
                 content_list = list(ttl_cache.values())  # 获取当前字幕需要展示的所有弹幕
@@ -156,6 +173,7 @@ class Caption:
                 for each_content in last_context['contents']:
                     line += f'{each_content}\n'
 
+                line += '\n'
                 fp.write(line)
 
                 last_context['start'] = start
