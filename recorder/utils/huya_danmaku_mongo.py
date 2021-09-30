@@ -59,6 +59,13 @@ mongo_collection = pymongo.MongoClient()['recorder']['huya_danmaku']
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 
+async def gather_sub(room_ids, config):
+    return await asyncio.gather(*[
+        subscribe(room_id, config['huya']['app_id'], config['huya']['app_secret'])
+        for room_id in room_ids
+    ])
+
+
 async def subscribe(room_id, app_id, app_secret):
     iat = arrow.now().int_timestamp
     exp = iat + 10 * 60
@@ -214,13 +221,13 @@ def cli():
 
 
 @cli.command()
-@click.option('--room_id', '-r', default='11342412')
-def sub(room_id):
+@click.option('--room_ids', '-r', default=['11342412'], multiple=True)
+def sub(room_ids):
     config = toml.load(os.path.join(
         pathlib.Path(os.path.abspath(__file__)).parent.parent.parent, 'config.toml'
     ))
 
-    asyncio.run(subscribe(room_id, config['huya']['app_id'], config['huya']['app_secret']))
+    asyncio.run(gather_sub(room_ids, config))
 
 
 @cli.command()
