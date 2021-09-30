@@ -221,17 +221,20 @@ def cli():
 
 
 @cli.command()
-@click.option('--room_ids', '-r', default=['11342412'], multiple=True)
+@click.option('--room_ids', '-r', default=[], multiple=True)
 def sub(room_ids):
     config = toml.load(os.path.join(
         pathlib.Path(os.path.abspath(__file__)).parent.parent.parent, 'config.toml'
     ))
 
+    if not room_ids:
+        room_ids = [each['room_id'] for each in config['source'].values() if each['enabled']]
+
     asyncio.run(gather_sub(room_ids, config))
 
 
 @cli.command()
-@click.option('--room_id', '-r', default='11342412')
+@click.option('--room_id', '-r', required=True)
 @click.option('--start', '-s', type=click.DateTime(), required=True)
 @click.option('--end', '-e', type=click.DateTime(), required=True)
 def gen(room_id, start, end):
