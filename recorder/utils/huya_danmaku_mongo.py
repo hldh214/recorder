@@ -87,8 +87,7 @@ async def subscribe(room_id, app_id, app_secret):
             await websocket.send(subscribe_notice)
             await consumer_handler(websocket)
         except websockets.WebSocketException:
-            logging.warning('WebSocketException excepted')
-            traceback.print_exc()
+            logging.warning('WebSocketException excepted: ' + traceback.format_exc())
             continue
 
 

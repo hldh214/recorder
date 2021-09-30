@@ -23,7 +23,6 @@ class Youtube:
     RETRYABLE_EXCEPTIONS = (IOError, socket.timeout)
 
     DEFAULT_CAPTION_LANGUAGE = 'zh-Hans'
-    DEFAULT_CAPTION_NAME = 'via_recorder'
 
     def __init__(self, config):
         scopes = [
@@ -156,14 +155,14 @@ class Youtube:
 
         return True
 
-    def add_caption(self, video_id, caption_path):
+    def add_caption(self, video_id, caption_path, caption_name='via_recorder'):
         try:
             self.youtube.captions().insert(
                 part='snippet',
                 body={
                     'snippet': {
                         'language': self.DEFAULT_CAPTION_LANGUAGE,
-                        'name': self.DEFAULT_CAPTION_NAME,
+                        'name': caption_name,
                         'videoId': video_id
                     }
                 },

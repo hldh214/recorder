@@ -6,17 +6,21 @@ import os
 import pathlib
 import threading
 import time
+import traceback
 
 import googleapiclient.errors
+import pymongo
 import toml
 
 import recorder.destination.youtube
 import recorder.ffmpeg as ffmpeg
 import recorder.utils.huya_danmaku as huya_danmaku
+import recorder.utils.huya_danmaku_mongo as huya_danmaku_mongo
 
 video_name_sep = '|'
 video_extension = 'mp4'
-caption_extension = 'sbv'
+sbv_caption_extension = 'sbv'
+vtt_caption_extension = 'vtt'
 
 datetime_format = '%Y-%m-%d %H:%M:%S'
 if os.name == 'nt':
@@ -49,7 +53,8 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         folder_path = os.path.join(
             os.path.abspath(kwargs['app']['video_path']), 'record', source_type, kwargs['source_name']
         )
-        filename = f'{time.strftime(datetime_format, time.localtime())}.{video_extension}'
+        start = time.strftime(datetime_format, time.localtime())
+        filename = f'{start}.{video_extension}'
         pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
         output_file = os.path.join(folder_path, filename)
 
@@ -57,7 +62,8 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             os.path.abspath(kwargs['app']['danmaku_path']), source_type, kwargs['source_name']
         )
         pathlib.Path(caption_folder_path).mkdir(parents=True, exist_ok=True)
-        caption_path = os.path.join(caption_folder_path, f'{filename}.{caption_extension}')
+        sbv_caption_path = os.path.join(caption_folder_path, f'{filename}.{sbv_caption_extension}')
+        vtt_caption_path = os.path.join(caption_folder_path, f'{filename}.{vtt_caption_extension}')
 
         logger.info(f'recording: {flv_url} -> {output_file}')
 
@@ -65,7 +71,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         if source_type == 'huya':
             danmaku_process = multiprocessing.Process(
                 target=huya_danmaku.main,
-                args=(room_id, caption_path, kwargs['huya']['app_id'], kwargs['huya']['app_secret'])
+                args=(room_id, sbv_caption_path, kwargs['huya']['app_id'], kwargs['huya']['app_secret'])
             )
             danmaku_process.start()
 
@@ -86,6 +92,12 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             continue
 
         logger.info(f'recorded with exit_code {exit_code}: {flv_url}')
+        end = time.strftime(datetime_format, time.localtime())
+
+        try:
+            huya_danmaku_mongo.generate(room_id, vtt_caption_path, start, end)
+        except Exception:
+            logger.warning('huya_danmaku_mongo.generate raise exception: ' + traceback.format_exc())
 
         if not kwargs['auto_upload']:
             continue
@@ -201,9 +213,13 @@ def validate_thread(config, youtube, interval=3600):
             video_filename = split_video_path[-1].split(video_name_sep)[1]
             source_name = split_video_path[-2]
             source_type = split_video_path[-3]
-            caption_path = os.path.join(
+            sbv_caption_path = os.path.join(
                 os.path.abspath(config['app']['danmaku_path']),
-                source_type, source_name, f'{video_filename}.{caption_extension}'
+                source_type, source_name, f'{video_filename}.{sbv_caption_extension}'
+            )
+            vtt_caption_path = os.path.join(
+                os.path.abspath(config['app']['danmaku_path']),
+                source_type, source_name, f'{video_filename}.{vtt_caption_extension}'
             )
 
             if config['app']['upload_validate']:
@@ -218,10 +234,15 @@ def validate_thread(config, youtube, interval=3600):
             os.unlink(video_path)
             logger.info(f'uploaded successfully: {video_path}')
 
-            if os.path.exists(caption_path):
-                if youtube.add_caption(video_id, caption_path):
-                    os.unlink(caption_path)
-                    logger.info(f'caption added successfully: {caption_path}')
+            if os.path.exists(vtt_caption_path):
+                if youtube.add_caption(video_id, vtt_caption_path, 'via_recorder_vtt'):
+                    os.unlink(vtt_caption_path)
+                    logger.info(f'caption added successfully: {vtt_caption_path}')
+
+            if os.path.exists(sbv_caption_path):
+                if youtube.add_caption(video_id, sbv_caption_path, 'via_recorder_sbv'):
+                    os.unlink(sbv_caption_path)
+                    logger.info(f'caption added successfully: {sbv_caption_path}')
 
         time.sleep(interval)
 
