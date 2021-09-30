@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import traceback
 import urllib.parse
 import os
@@ -55,6 +56,8 @@ Language: zh-Hans
 
 mongo_collection = pymongo.MongoClient()['recorder']['huya_danmaku']
 
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+
 
 async def subscribe(room_id, app_id, app_secret):
     iat = arrow.now().int_timestamp
@@ -77,13 +80,14 @@ async def subscribe(room_id, app_id, app_secret):
             await websocket.send(subscribe_notice)
             await consumer_handler(websocket)
         except websockets.WebSocketException:
+            logging.warning('WebSocketException excepted')
             traceback.print_exc()
             continue
 
 
 async def consumer_handler(websocket):
     async for message in websocket:
-        print(message)
+        logging.info(message)
         mongo_collection.insert_one(json.loads(message))
 
 
@@ -91,7 +95,7 @@ def find_danmaku_by_time_range(room_id, start, end):
     dummy_start_id = bson.objectid.ObjectId.from_datetime(start)
     dummy_end_id = bson.objectid.ObjectId.from_datetime(end)
 
-    return mongo_collection.find({
+    where_clause = {
         'notice': DANMAKU_NOTICE,
         'data.msgType': DANMAKU_MSG_TYPE,
         'data.roomId': int(room_id),
@@ -102,7 +106,13 @@ def find_danmaku_by_time_range(room_id, start, end):
             '$gt': dummy_start_id,
             '$lt': dummy_end_id,
         }
-    })
+    }
+
+    if not mongo_collection.count_documents(where_clause):
+        logging.critical(f'Mongo_collection empty, room_id: {room_id}, start: {start}, end: {end}')
+        return False
+
+    return mongo_collection.find(where_clause)
 
 
 class Timer:
@@ -189,8 +199,13 @@ def generate(room_id, output_path, start, end):
         room_id, arrow.get(start), arrow.get(end)
     )
 
+    if not danmaku:
+        return False
+
     caption = Caption(danmaku, arrow.get(start))
     caption.to_vtt(output_path)
+
+    return True
 
 
 @click.group()
