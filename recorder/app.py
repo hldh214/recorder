@@ -1,7 +1,6 @@
 import glob
 import importlib
 import logging
-import multiprocessing
 import os
 import pathlib
 import threading
@@ -9,17 +8,14 @@ import time
 import traceback
 
 import googleapiclient.errors
-import pymongo
 import toml
 
 import recorder.destination.youtube
 import recorder.ffmpeg as ffmpeg
-import recorder.utils.huya_danmaku as huya_danmaku
 import recorder.utils.huya_danmaku_mongo as huya_danmaku_mongo
 
 video_name_sep = '|'
 video_extension = 'mp4'
-sbv_caption_extension = 'sbv'
 vtt_caption_extension = 'vtt'
 
 datetime_format = '%Y-%m-%d %H:%M:%S'
@@ -62,24 +58,11 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             os.path.abspath(kwargs['app']['danmaku_path']), source_type, kwargs['source_name']
         )
         pathlib.Path(caption_folder_path).mkdir(parents=True, exist_ok=True)
-        sbv_caption_path = os.path.join(caption_folder_path, f'{filename}.{sbv_caption_extension}')
         vtt_caption_path = os.path.join(caption_folder_path, f'{filename}.{vtt_caption_extension}')
 
         logger.info(f'recording: {flv_url} -> {output_file}')
 
-        danmaku_process = None
-        if source_type == 'huya':
-            danmaku_process = multiprocessing.Process(
-                target=huya_danmaku.main,
-                args=(room_id, sbv_caption_path, kwargs['huya']['app_id'], kwargs['huya']['app_secret'])
-            )
-            danmaku_process.start()
-
         exit_code = ffmpeg.record(flv_url, output_file)
-
-        if danmaku_process is not None:
-            danmaku_process.terminate()
-            danmaku_process.join()  # prevent zombie process
 
         if not ffmpeg.valid(output_file):
             if not os.path.exists(output_file):
@@ -213,10 +196,6 @@ def validate_thread(config, youtube, interval=3600):
             video_filename = split_video_path[-1].split(video_name_sep)[1]
             source_name = split_video_path[-2]
             source_type = split_video_path[-3]
-            sbv_caption_path = os.path.join(
-                os.path.abspath(config['app']['danmaku_path']),
-                source_type, source_name, f'{video_filename}.{sbv_caption_extension}'
-            )
             vtt_caption_path = os.path.join(
                 os.path.abspath(config['app']['danmaku_path']),
                 source_type, source_name, f'{video_filename}.{vtt_caption_extension}'
@@ -238,11 +217,6 @@ def validate_thread(config, youtube, interval=3600):
                 if youtube.add_caption(video_id, vtt_caption_path, 'via_recorder_vtt'):
                     os.unlink(vtt_caption_path)
                     logger.info(f'caption added successfully: {vtt_caption_path}')
-
-            if os.path.exists(sbv_caption_path):
-                if youtube.add_caption(video_id, sbv_caption_path, 'via_recorder_sbv'):
-                    os.unlink(sbv_caption_path)
-                    logger.info(f'caption added successfully: {sbv_caption_path}')
 
         time.sleep(interval)
 
