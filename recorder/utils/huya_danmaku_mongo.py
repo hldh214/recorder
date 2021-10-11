@@ -6,13 +6,14 @@ import urllib.parse
 import os
 import pathlib
 import re
+import time
 
 import arrow
 import bson
 import cachetools
 import click
 import jwt
-import pymongo
+import pymongo.errors
 import toml
 import websockets
 
@@ -54,7 +55,8 @@ Language: zh-Hans
 
 '''
 
-mongo_collection = pymongo.MongoClient()['recorder']['huya_danmaku']
+mongo_client = pymongo.MongoClient()
+mongo_collection = mongo_client['recorder']['huya_danmaku']
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -220,7 +222,7 @@ def cli():
 
 
 @cli.command()
-@click.option('--room_ids', '-r', default=[], multiple=True)
+@click.option('--room_ids', '-r', default=[], multiple=True, type=int)
 def sub(room_ids):
     config = toml.load(os.path.join(
         pathlib.Path(os.path.abspath(__file__)).parent.parent.parent, 'config.toml'
@@ -233,11 +235,46 @@ def sub(room_ids):
 
 
 @cli.command()
-@click.option('--room_id', '-r', required=True)
+@click.option('--room_id', '-r', required=True, type=int)
 @click.option('--start', '-s', type=click.DateTime(), required=True)
 @click.option('--end', '-e', type=click.DateTime(), required=True)
 def gen(room_id, start, end):
     generate(room_id, f'./{room_id}.vtt', start, end)
+
+
+@cli.command()
+@click.option('--room_ids', '-r', default=[], multiple=True, type=int)
+def watch(room_ids):
+    start_id = bson.objectid.ObjectId.from_datetime(arrow.now())
+
+    while True:
+        where_clause = {
+            'notice': DANMAKU_NOTICE,
+            'data.msgType': DANMAKU_MSG_TYPE,
+            '_id': {'$gt': start_id}
+        }
+
+        if room_ids:
+            where_clause.update({'data.roomId': {'$in': room_ids}})
+
+        cursor = mongo_collection.find(where_clause)
+
+        while cursor.alive:
+            for doc in cursor:
+                start_id = doc.get('_id')
+
+                generation_time = arrow.get(doc.get('_id').generation_time) \
+                    .to('Asia/Hong_Kong') \
+                    .format('YYYY-MM-DD HH:mm:ss')
+                data = doc.get('data')
+                room_id = data.get('roomId')
+                sender_nick = data.get('sendNick')
+                sender_level = data.get('senderLevel')
+                badge_name = data.get('badgeName')
+                content = data.get('content')
+                print(f'{generation_time}: {room_id}: [({sender_level}){badge_name}]{sender_nick}: {content}')
+
+        time.sleep(1)
 
 
 if __name__ == '__main__':
