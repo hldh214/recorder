@@ -54,12 +54,6 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
         output_file = os.path.join(folder_path, filename)
 
-        caption_folder_path = os.path.join(
-            os.path.abspath(kwargs['app']['danmaku_path']), source_type, kwargs['source_name']
-        )
-        pathlib.Path(caption_folder_path).mkdir(parents=True, exist_ok=True)
-        vtt_caption_path = os.path.join(caption_folder_path, f'{filename}.{vtt_caption_extension}')
-
         logger.info(f'recording: {flv_url} -> {output_file}')
 
         exit_code = ffmpeg.record(flv_url, output_file)
@@ -75,12 +69,6 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             continue
 
         logger.info(f'recorded with exit_code {exit_code}: {flv_url}')
-        end = time.strftime(datetime_format, time.localtime())
-
-        try:
-            huya_danmaku_mongo.generate(room_id, vtt_caption_path, start, end)
-        except Exception:
-            logger.warning('huya_danmaku_mongo.generate raise exception: ' + traceback.format_exc())
 
         if not kwargs['auto_upload']:
             continue
@@ -196,10 +184,16 @@ def validate_thread(config, youtube, interval=3600):
             video_filename = split_video_path[-1].split(video_name_sep)[1]
             source_name = split_video_path[-2]
             source_type = split_video_path[-3]
-            vtt_caption_path = os.path.join(
-                os.path.abspath(config['app']['danmaku_path']),
-                source_type, source_name, f'{video_filename}.{vtt_caption_extension}'
+
+            caption_folder_path = os.path.join(
+                os.path.abspath(config['app']['danmaku_path']), source_type, source_name
             )
+            pathlib.Path(caption_folder_path).mkdir(parents=True, exist_ok=True)
+
+            vtt_caption_path = os.path.join(caption_folder_path, f'{video_filename}.{vtt_caption_extension}')
+            room_id = config['source'].get(source_name).get('room_id')
+            start = video_filename.split('.')[0]
+            end = time.strftime(datetime_format, time.localtime(os.path.getmtime(video_path)))
 
             if config['app']['upload_validate']:
                 try:
@@ -212,6 +206,11 @@ def validate_thread(config, youtube, interval=3600):
 
             os.unlink(video_path)
             logger.info(f'uploaded successfully: {video_path}')
+
+            try:
+                huya_danmaku_mongo.generate(room_id, vtt_caption_path, start, end)
+            except Exception:
+                logger.warning('huya_danmaku_mongo.generate raise exception: ' + traceback.format_exc())
 
             if os.path.exists(vtt_caption_path):
                 if youtube.add_caption(video_id, vtt_caption_path, 'via_recorder_vtt'):
