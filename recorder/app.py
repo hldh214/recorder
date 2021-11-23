@@ -101,7 +101,7 @@ def my_recorder(config):
             kwargs=conf,
             name=f'Thread-recorder-{conf["source_type"]}-{conf["room_id"]}'
         )
-        task.setDaemon(True)
+        task.daemon = True
         task.start()
 
 
@@ -168,7 +168,7 @@ def uploader(config, youtube):
         kwargs={'config': config, 'youtube': youtube},
         name='Thread-uploader'
     )
-    task.setDaemon(True)
+    task.daemon = True
     task.start()
 
 
@@ -226,7 +226,7 @@ def upload_validator(config, youtube):
         kwargs={'config': config, 'youtube': youtube},
         name='Thread-upload-validator'
     )
-    task.setDaemon(True)
+    task.daemon = True
     task.start()
 
 
