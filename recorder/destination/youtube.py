@@ -59,10 +59,7 @@ class Youtube:
             api_service_name, api_version, credentials=credentials
         )
 
-    def upload(
-            self, video_path, title, description='',
-            chunk_size=4 * 1024 * 1024
-    ):
+    def upload(self, video_path, title, description='', chunk_size=googleapiclient.http.DEFAULT_CHUNK_SIZE):
         body = {
             'snippet': {
                 'title': title, 'description': description
