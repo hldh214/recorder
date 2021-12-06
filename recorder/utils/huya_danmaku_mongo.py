@@ -57,9 +57,11 @@ Language: zh-Hans
 '''
 
 TZ_INFO = 'Asia/Shanghai'
+MONGODB_DATABASE = 'recorder'
+MONGODB_COLLECTION = 'huya_danmaku'
 
 mongo_client = pymongo.MongoClient()
-mongo_collection = mongo_client['recorder']['huya_danmaku']
+mongo_collection = mongo_client[MONGODB_DATABASE][MONGODB_COLLECTION]
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -294,7 +296,7 @@ def backup(start, end):
     query = json.dumps({'_id': {'$gt': str(dummy_start_id), '$lt': str(dummy_end_id)}})
 
     cmd = [
-        'mongodump', '-d', 'recorder', '-q', query, '--gzip',
+        'mongodump', '-d', MONGODB_DATABASE, '-c', MONGODB_COLLECTION, '-q', query, '--gzip',
         '-o', f'./mongodump_{start.format("YYYYMMDD")}_{end.format("YYYYMMDD")}'
     ]
 
