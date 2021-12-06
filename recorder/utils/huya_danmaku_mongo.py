@@ -6,6 +6,7 @@ import urllib.parse
 import os
 import pathlib
 import re
+import subprocess
 import time
 
 import arrow
@@ -54,6 +55,8 @@ Kind: captions
 Language: zh-Hans
 
 '''
+
+TZ_INFO = 'Asia/Shanghai'
 
 mongo_client = pymongo.MongoClient()
 mongo_collection = mongo_client['recorder']['huya_danmaku']
@@ -123,6 +126,14 @@ def find_danmaku_by_time_range(room_id, start, end):
     return mongo_collection.find(where_clause)
 
 
+def is_spam(content):
+    for pattern in CONTENT_FILTER_PATTERNS:
+        if pattern.match(content) is not None:
+            return True
+
+    return False
+
+
 class Timer:
     """
     custom timer for `TTLCache`
@@ -136,16 +147,9 @@ class Timer:
 
 
 class Caption:
-    def __init__(self, iterator: pymongo.cursor.Cursor, started_at):
+    def __init__(self, iterator, started_at):
         self.iterator = iterator
         self.started_at = started_at
-
-    def is_spam(self, content):
-        for pattern in CONTENT_FILTER_PATTERNS:
-            if pattern.match(content) is not None:
-                return True
-
-        return False
 
     def to_vtt(self, output_path):
         last_modified_at = self.started_at
@@ -159,7 +163,7 @@ class Caption:
             for each in self.iterator:
                 content = each['data']['content']
 
-                if self.is_spam(content):
+                if is_spam(content):
                     continue
 
                 current_time = arrow.get(each['_id'].generation_time)
@@ -200,8 +204,8 @@ class Caption:
 
 
 def generate(room_id, output_path, start, end):
-    start = arrow.get(start).replace(tzinfo='Asia/Shanghai').shift(seconds=DANMAKU_DELAY)
-    end = arrow.get(end).replace(tzinfo='Asia/Shanghai').shift(seconds=DANMAKU_DELAY)
+    start = arrow.get(start).replace(tzinfo=TZ_INFO).shift(seconds=DANMAKU_DELAY)
+    end = arrow.get(end).replace(tzinfo=TZ_INFO).shift(seconds=DANMAKU_DELAY)
 
     danmaku = find_danmaku_by_time_range(
         room_id, arrow.get(start), arrow.get(end)
@@ -275,6 +279,31 @@ def watch(room_ids):
                 print(f'{generation_time}: {room_id}: [({sender_level}){badge_name}]{sender_nick}: {content}')
 
         time.sleep(1)
+
+
+@cli.command()
+@click.option('--start', '-s', type=click.DateTime(), required=True)
+@click.option('--end', '-e', type=click.DateTime(), required=True)
+def backup(start, end):
+    start = arrow.get(start).replace(tzinfo=TZ_INFO, hour=0, minute=0, second=0)
+    end = arrow.get(end).replace(tzinfo=TZ_INFO, hour=23, minute=59, second=59)
+
+    dummy_start_id = bson.objectid.ObjectId.from_datetime(arrow.get(start))
+    dummy_end_id = bson.objectid.ObjectId.from_datetime(arrow.get(end))
+
+    query = json.dumps({'_id': {'$gt': dummy_start_id, '$lt': dummy_end_id}})
+
+    cmd = [
+        'mongodump', '-d', 'recorder', '-q', query, '--gzip',
+        '-o', f'./mongodump_{start.format("YYYYMMDD")}_{end.format("YYYYMMDD")}'
+    ]
+
+    dump_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    with dump_process.stdout as stdout:
+        for line in stdout:
+            logging.info(line.decode().strip())
+
+    return dump_process.wait()
 
 
 if __name__ == '__main__':
