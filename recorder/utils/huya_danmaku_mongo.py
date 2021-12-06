@@ -303,7 +303,7 @@ def backup(start, end):
     dump_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     with dump_process.stdout as stdout:
         for line in stdout:
-            logging.info(line.decode().strip())
+            print(line.decode().strip())
 
     return dump_process.wait()
 
