@@ -293,7 +293,7 @@ def backup(start, end):
     dummy_start_id = bson.objectid.ObjectId.from_datetime(arrow.get(start))
     dummy_end_id = bson.objectid.ObjectId.from_datetime(arrow.get(end))
 
-    query = json.dumps({'_id': {'$gt': str(dummy_start_id), '$lt': str(dummy_end_id)}})
+    query = json.dumps({'_id': {'$gte': {'$oid': str(dummy_start_id)}, '$lte': {'$oid': str(dummy_end_id)}}})
 
     cmd = [
         'mongodump', '-d', MONGODB_DATABASE, '-c', MONGODB_COLLECTION, '-q', query, '--gzip',
