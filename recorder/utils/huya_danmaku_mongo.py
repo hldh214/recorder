@@ -287,17 +287,17 @@ def watch(room_ids):
 @click.option('--start', '-s', type=click.DateTime(), required=True)
 @click.option('--end', '-e', type=click.DateTime(), required=True)
 def backup(start, end):
-    start = arrow.get(start).replace(tzinfo=TZ_INFO, hour=0, minute=0, second=0)
-    end = arrow.get(end).replace(tzinfo=TZ_INFO, hour=23, minute=59, second=59)
+    start = arrow.get(start).replace(tzinfo=TZ_INFO)
+    end = arrow.get(end).replace(tzinfo=TZ_INFO)
 
     dummy_start_id = bson.objectid.ObjectId.from_datetime(arrow.get(start))
     dummy_end_id = bson.objectid.ObjectId.from_datetime(arrow.get(end))
 
-    query = json.dumps({'_id': {'$gte': {'$oid': str(dummy_start_id)}, '$lte': {'$oid': str(dummy_end_id)}}})
+    query = json.dumps({'_id': {'$gte': {'$oid': str(dummy_start_id)}, '$lt': {'$oid': str(dummy_end_id)}}})
 
     cmd = [
         'mongodump', '-d', MONGODB_DATABASE, '-c', MONGODB_COLLECTION, '-q', query, '--gzip',
-        '-o', f'./mongodump_{start.format("YYYYMMDD")}_{end.format("YYYYMMDD")}'
+        '-o', f'./mongodump_{start.format("YYYYMMDDHHmmss")}_{end.format("YYYYMMDDHHmmss")}'
     ]
 
     dump_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
