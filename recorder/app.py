@@ -8,11 +8,11 @@ import time
 import traceback
 
 import googleapiclient.errors
-import toml
 
 import recorder.destination.youtube
 import recorder.ffmpeg as ffmpeg
 import recorder.utils.huya_danmaku_mongo as huya_danmaku_mongo
+import recorder.utils
 
 video_name_sep = '|'
 video_extension = 'mp4'
@@ -30,10 +30,6 @@ logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
-
-
-def get_config(filename='config.toml'):
-    return toml.load(os.path.join(base_path, filename))
 
 
 def record_thread(source_type, room_id, interval=5, **kwargs):
@@ -235,7 +231,7 @@ def get_file_size(path):
 
 
 def main():
-    config = get_config()
+    config = recorder.utils.get_config()
     youtube = recorder.destination.youtube.Youtube(config['youtube'])
 
     my_recorder(config)

@@ -3,8 +3,6 @@ import json
 import logging
 import traceback
 import urllib.parse
-import os
-import pathlib
 import re
 import subprocess
 import time
@@ -15,8 +13,9 @@ import cachetools
 import click
 import jwt
 import pymongo.errors
-import toml
 import websockets
+
+import recorder.utils
 
 WS_HOST = 'ws-apiext.huya.com'
 NOTICE_MAP = {
@@ -230,9 +229,7 @@ def cli():
 @cli.command()
 @click.option('--room_ids', '-r', default=[], multiple=True, type=int)
 def sub(room_ids):
-    config = toml.load(os.path.join(
-        pathlib.Path(os.path.abspath(__file__)).parent.parent.parent, 'config.toml'
-    ))
+    config = recorder.utils.get_config()
 
     if not room_ids:
         room_ids = [each['room_id'] for each in config['source'].values() if each['enabled']]

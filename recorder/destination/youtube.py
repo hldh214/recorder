@@ -1,5 +1,4 @@
 import os
-import pathlib
 import pickle
 import socket
 import traceback
@@ -10,8 +9,9 @@ import googleapiclient.http
 import googleapiclient.discovery
 import googleapiclient.errors
 import google.auth.transport.requests
-import toml
 import tqdm
+
+import recorder.utils
 
 
 class Youtube:
@@ -175,9 +175,7 @@ class Youtube:
 if __name__ == '__main__':
     import sys
 
-    youtube = Youtube(toml.load(os.path.join(
-        pathlib.Path(os.path.abspath(__file__)).parent.parent.parent, 'config.toml'
-    ))['youtube'])
+    youtube = Youtube(recorder.utils.get_config().get('youtube'))
 
     if len(sys.argv) == 1:
         print('Usage: python3 youtube.py <video_id> <caption_path>')

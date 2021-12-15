@@ -138,11 +138,11 @@ def main(room_id, output_path, app_id, app_secret):
 
 if __name__ == '__main__':
     import sys
-    import toml
+    import recorder.utils
 
     my_room_id = '11342412'
     if len(sys.argv) > 1:
         my_room_id = sys.argv[1]
 
-    config = toml.load('../../config.toml')
+    config = recorder.utils.get_config()
     main(my_room_id, f'./{my_room_id}.sbv', config['huya']['app_id'], config['huya']['app_secret'])
