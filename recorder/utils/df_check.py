@@ -17,8 +17,9 @@ def get_disk_usage_percent(path):
 
 @click.group()
 @click.option('--limit', '-l', default=90, type=int)
+@click.option('--ignore_keywords', '-i', default=[], multiple=True, type=str)
 @click.pass_context
-def cli(ctx, limit):
+def cli(ctx, limit, ignore_keywords):
     # ensure that ctx.obj exists and is a dict (in case `cli()` is called
     # by means other than the `if` block below)
     ctx.ensure_object(dict)
@@ -28,21 +29,21 @@ def cli(ctx, limit):
     df_current = get_disk_usage_percent(video_path)
 
     if df_current < limit:
-        exit()
+        ctx.exit()
 
     ctx.obj['video_path'] = video_path
+    ctx.obj['ignore_keywords'] = ignore_keywords
 
 
 @cli.command()
-@click.option('--ignore_keywords', '-i', default=[], multiple=True, type=str)
 @click.pass_context
-def unlink_oldest(ctx, ignore_keywords):
+def unlink_oldest(ctx):
     # find all videos
     file_list = pathlib.Path(ctx.obj['video_path']).rglob('*.mp4')
     # sort by mtime
     file_list = sorted(file_list, key=lambda x: x.stat().st_mtime)
     # filter out videos with keywords
-    file_list = [x for x in file_list if not any(keyword in str(x) for keyword in ignore_keywords)]
+    file_list = [x for x in file_list if not any(keyword in str(x) for keyword in ctx.obj['ignore_keywords'])]
 
     if not file_list:
         logging.warning('No files to unlink')
