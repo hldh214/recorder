@@ -34,10 +34,15 @@ def cli(ctx, limit):
 
 
 @cli.command()
+@click.option('--ignore_keywords', '-i', default=[], multiple=True, type=str)
 @click.pass_context
-def unlink_oldest(ctx):
+def unlink_oldest(ctx, ignore_keywords):
+    # find all videos
     file_list = pathlib.Path(ctx.obj['video_path']).rglob('*.mp4')
+    # sort by mtime
     file_list = sorted(file_list, key=lambda x: x.stat().st_mtime)
+    # filter out videos with keywords
+    file_list = [x for x in file_list if not any(keyword in str(x) for keyword in ignore_keywords)]
 
     if not file_list:
         logging.warning('No files to unlink')
