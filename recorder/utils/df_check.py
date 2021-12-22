@@ -33,6 +33,7 @@ def cli(ctx, limit, ignore_keywords):
 
     ctx.obj['video_path'] = video_path
     ctx.obj['ignore_keywords'] = ignore_keywords
+    ctx.obj['df_current'] = df_current
 
 
 @cli.command()
@@ -46,7 +47,7 @@ def unlink_oldest(ctx):
     file_list = [x for x in file_list if not any(keyword in str(x) for keyword in ctx.obj['ignore_keywords'])]
 
     if not file_list:
-        logging.warning('No files to unlink')
+        logging.warning(f'No files to unlink, df_current: {ctx.obj["df_current"]}')
         return
 
     file_list[0].unlink(missing_ok=True)
