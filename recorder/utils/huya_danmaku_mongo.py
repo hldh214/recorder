@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import pathlib
 import traceback
 import urllib.parse
 import re
@@ -16,6 +17,7 @@ import pymongo.errors
 import websockets
 
 import recorder.utils
+from recorder.destination.youtube import Youtube
 
 WS_HOST = 'ws-apiext.huya.com'
 NOTICE_MAP = {
@@ -221,6 +223,25 @@ def generate(room_id, output_path, start, end):
     return True
 
 
+def generate_from_video(path, video_id):
+    config = recorder.utils.get_config()
+
+    abspath = pathlib.Path(path).resolve()
+    start = abspath.parts[-1].split('.')[0]
+    source_name = abspath.parts[-2]
+    end = arrow.get(abspath.stat().st_mtime).format('YYYY-MM-DD HH:mm:ss')
+    room_id = config.get('source').get(source_name).get('room_id')
+    output_path = f'{pathlib.Path(path).parent}/{video_id}_{start}_{end}.vtt'
+
+    if not generate(room_id, output_path, start, end):
+        logging.critical(f'Generate failed, path: {path}, video_id: {video_id}')
+        return False
+
+    youtube = Youtube(config.get('youtube'))
+
+    return youtube.add_caption(video_id, output_path)
+
+
 @click.group()
 def cli():
     pass
@@ -238,11 +259,19 @@ def sub(room_ids):
 
 
 @cli.command()
-@click.option('--room_id', '-r', required=True, type=int)
-@click.option('--start', '-s', type=click.DateTime(), required=True)
-@click.option('--end', '-e', type=click.DateTime(), required=True)
-def gen(room_id, start, end):
-    generate(room_id, f'./{room_id}.vtt', start, end)
+@click.option('--room_id', '-r', type=int)
+@click.option('--start', '-s', type=click.DateTime())
+@click.option('--end', '-e', type=click.DateTime())
+@click.option('--path', '-p', type=click.Path(exists=True))
+@click.option('--video_id', '-v', type=str)
+def gen(room_id, start, end, path, video_id):
+    if room_id and start and end:
+        return generate(room_id, f'./{room_id}.vtt', start, end)
+
+    if path and video_id:
+        return generate_from_video(path, video_id)
+
+    click.echo(click.get_current_context().get_help())
 
 
 @cli.command()
