@@ -229,7 +229,7 @@ def generate_from_video(path, video_id):
     abspath = pathlib.Path(path).resolve()
     start = abspath.parts[-1].split('.')[0]
     source_name = abspath.parts[-2]
-    end = arrow.get(abspath.stat().st_mtime).replace(tzinfo=TZ_INFO).format('YYYY-MM-DD HH:mm:ss')
+    end = arrow.get(abspath.stat().st_mtime).to(TZ_INFO).format('YYYY-MM-DD HH:mm:ss')
     room_id = config.get('source').get(source_name).get('room_id')
     output_path = f'{pathlib.Path(path).parent}/{video_id}_{start}_{end}.vtt'
 
