@@ -204,9 +204,14 @@ def validate_thread(config, youtube, interval=3600):
             logger.info(f'uploaded successfully: {video_path}')
 
             try:
-                huya_danmaku_mongo.generate(room_id, vtt_caption_path, start, end)
+                result = huya_danmaku_mongo.generate(room_id, vtt_caption_path, start, end)
             except Exception:
                 logger.warning('huya_danmaku_mongo.generate raise exception: ' + traceback.format_exc())
+                continue
+            else:
+                if not result:
+                    logger.warning(f'huya_danmaku_mongo.generate failed: {room_id} {start} {end}')
+                    continue
 
             if os.path.exists(vtt_caption_path):
                 if youtube.add_caption(video_id, vtt_caption_path, 'via_recorder_vtt'):
