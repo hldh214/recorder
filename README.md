@@ -1,3 +1,12 @@
+<p align="center">
+  <b>Special thanks to the generous sponsorship by:</b>
+  <br><br>
+  <a target="_blank" href="https://jb.gg/OpenSourceSupport">
+    <img src="https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.svg" width=250 alt="logo">
+  </a>
+  <br><br>
+</p>
+
 # stream-recorder
 
 stream recorder &amp;&amp; automatic upload
