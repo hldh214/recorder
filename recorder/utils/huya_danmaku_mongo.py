@@ -14,6 +14,7 @@ import cachetools
 import click
 import jwt
 import pymongo.errors
+import tenacity
 import websockets
 
 import recorder.utils
@@ -74,6 +75,11 @@ async def gather_sub(room_ids, config):
     ])
 
 
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(3),
+    wait=tenacity.wait_random_exponential(multiplier=1, max=60),
+    retry=tenacity.retry_if_exception_type((websockets.WebSocketException,)),
+)
 async def subscribe(room_id, app_id, app_secret):
     iat = arrow.now().int_timestamp
     exp = iat + 10 * 60
@@ -96,7 +102,7 @@ async def subscribe(room_id, app_id, app_secret):
             await consumer_handler(websocket)
         except websockets.WebSocketException:
             logging.warning('WebSocketException excepted: ' + traceback.format_exc())
-            continue
+            raise
 
 
 async def consumer_handler(websocket):
