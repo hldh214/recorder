@@ -1,20 +1,20 @@
-FROM alpine:3.10
+FROM jrottenberg/ffmpeg:5.0-ubuntu
+
+ARG TZ=Asia/Hong_Kong
+
+ENV TZ ${TZ} \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# credit: https://github.com/frol/docker-alpine-python3/blob/master/Dockerfile
-RUN apk add --no-cache python3 && \
-    if [ ! -e /usr/bin/python ]; then ln -sf python3 /usr/bin/python ; fi && \
-    \
-   python3 -m ensurepip && \
-    rm -r /usr/lib/python*/ensurepip && \
-    pip3 install --no-cache --upgrade pip setuptools wheel && \
-    if [ ! -e /usr/bin/pip ]; then ln -s pip3 /usr/bin/pip ; fi && \
-    \
-    apk add --update --no-cache ffmpeg
+COPY . .
 
-COPY . /app
+RUN apt-get -y update && \
+    apt-get install -y --no-install-recommends python3 python3-pip nodejs && \
+    apt-get autoremove -y && \
+    apt-get clean -y && \
+    pip3 install -r requirements.txt
 
-RUN pip3 install -r requirements.txt
+ENTRYPOINT []
 
-CMD ['python3', '/app/recorder/app.py']
+CMD ["python3", "-m", "recorder"]

@@ -1,3 +1,6 @@
-.git/
-.idea/
-config.toml
+# Ignore everything
+**
+
+# ... except for dependencies and source
+!recorder
+!requirements.txt
