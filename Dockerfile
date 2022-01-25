@@ -13,7 +13,8 @@ RUN apt-get -y update && \
     apt-get install -y --no-install-recommends python3 python3-pip nodejs && \
     apt-get autoremove -y && \
     apt-get clean -y && \
-    pip3 install -r requirements.txt
+    rm -rf /var/lib/apt/lists/*
+RUN pip3 --no-cache-dir install -r requirements.txt
 
 ENTRYPOINT []
 
