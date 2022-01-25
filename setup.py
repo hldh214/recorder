@@ -12,7 +12,7 @@ with open('LICENSE') as f:
 
 setup(
     name='recorder',
-    version='1.1.5',
+    version='1.10.0',
     description='stream recorder && automatic upload',
     long_description=readme,
     author='Jim Liu',

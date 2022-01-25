@@ -17,12 +17,10 @@ These instructions will get you a copy of the project up and running on your loc
 
 ### From Docker
 
-[![Docker Stars](https://img.shields.io/docker/stars/hldh214/recorder.svg)](https://hub.docker.com/r/hldh214/recorder/)
-[![Docker Pulls](https://img.shields.io/docker/pulls/hldh214/recorder.svg)](https://hub.docker.com/r/hldh214/recorder/)
-[![Docker Automated buil](https://img.shields.io/docker/automated/hldh214/recorder.svg)](https://hub.docker.com/r/hldh214/recorder/)
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/hldh214/recorder/Docker%20Image%20CI.svg)](https://github.com/hldh214/recorder/pkgs/container/recorder)
 
-``` sh
-$ docker run -d --name recorder --restart always -v /path/to/your/config.toml:/app/config.toml -v /path/to/your/videos:/app/videos hldh214/recorder
+``` shell
+docker run -d --name recorder --restart always -v /path/to/your/config.toml:/app/config.toml -v /path/to/your/videos:/app/videos ghcr.io/hldh214/recorder
 ```
 
 ### Prerequisites
@@ -35,7 +33,7 @@ python >= 3.7
 
 ### Installing
 
-```
+``` shell
 git clone https://github.com/hldh214/recorder.git
 cd ./recorder
 pip install -r requirements.txt
