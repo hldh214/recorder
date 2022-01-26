@@ -39,7 +39,7 @@ DANMAKU_NOTICE = 'getMessageNotice'
 CAPTION_MINIMAL_INTERVAL = 0.1  # 两条字幕之间间隔不小于 0.1 秒, 为了字幕播放性能
 CONTENT_TTL = 4  # 弹幕展示时间 (秒)
 CONTENT_MAXSIZE = 6  # 最多一次显示多少条弹幕
-DANMAKU_DELAY = 2  # 时间轴快进 (秒) for 直播延迟
+DANMAKU_DELAY = 0  # 时间轴快进 (秒) for 直播延迟
 
 # spam 弹幕正则过滤
 CONTENT_FILTER_PATTERNS = (
