@@ -44,6 +44,7 @@ DANMAKU_DELAY = 0  # 时间轴快进 (秒) for 直播延迟
 # spam 弹幕正则过滤
 CONTENT_FILTER_PATTERNS = (
     re.compile(r'^/{'),  # 过滤表情开头的弹幕(通常全是表情)
+    re.compile(r'抢福袋，一元开超粉！'),  # 过滤抢福袋弹幕
 )
 # spam 账号 unionId 过滤
 UNION_ID_FILTER_LIST = (
