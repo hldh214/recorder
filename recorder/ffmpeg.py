@@ -4,7 +4,7 @@ import random
 import subprocess
 
 TIMEOUT_US = str(20 * 1000000)  # 20s
-MAX_DURATION = str(12 * 3600 - 300)
+MAX_DURATION = str(6 * 3600 - 60)  # 6h for max endurance and robustness
 USER_AGENTS = (
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114',
     'Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0 Iceweasel/38.2.1',
