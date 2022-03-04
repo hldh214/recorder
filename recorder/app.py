@@ -1,6 +1,5 @@
 import glob
 import importlib
-import logging
 import os
 import pathlib
 import threading
@@ -14,6 +13,8 @@ import recorder.ffmpeg as ffmpeg
 import recorder.utils.huya_danmaku_mongo as huya_danmaku_mongo
 import recorder.utils
 
+from recorder import logger
+
 video_name_sep = '|'
 video_extension = 'mp4'
 vtt_caption_extension = 'vtt'
@@ -21,15 +22,6 @@ vtt_caption_extension = 'vtt'
 datetime_format = '%Y-%m-%d %H:%M:%S'
 if os.name == 'nt':
     datetime_format = '%Y-%m-%d %H-%M-%S'
-
-base_path = pathlib.Path(os.path.abspath(__file__)).parent.parent
-
-logger = logging.getLogger(__name__)
-handler = logging.FileHandler(filename=os.path.join(base_path, 'recorder.log'))
-logger.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
 
 
 def record_thread(source_type, room_id, interval=5, **kwargs):
