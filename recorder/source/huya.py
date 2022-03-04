@@ -34,11 +34,10 @@ def parse_by_mini_program(sub_sid, preferred_cdn_type, preferred_format):
             'pid': sub_sid,
             'showSecret': '1'
         }, headers={
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0.1; ALP-AL00 Build/V417IR; wv) AppleWebKit/537.36 '
-                          '(KHTML, like Gecko) Version/4.0 Chrome/52.0.2743.100 Mobile Safari/537.36 '
-                          'MicroMessenger/7.0.10.1580(0x27000A59) Process/appbrand0 '
-                          'NetType/WIFI Language/zh_CN ABI/arm32',
-            'Referer': 'https://servicewechat.com/wx74767bf0b684f7d3/127/page-frame.html',  # 127?
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_3_1 like Mac OS X) AppleWebKit/605.1.15 '
+                          '(KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.18(0x18001231) NetType/WIFI '
+                          'Language/zh_CN',
+            'Referer': 'https://servicewechat.com/wx74767bf0b684f7d3/244/page-frame.html',  # 244?
             'content-type': 'application/json'
         }, timeout=REQUEST_TIMEOUT)
     except requests.exceptions.RequestException:
