@@ -229,13 +229,15 @@ def get_file_size(path):
 
 def main():
     config = recorder.utils.get_config()
-    youtube = recorder.destination.youtube.Youtube(config['youtube'])
 
     my_recorder(config)
 
-    uploader(config, youtube)
+    if os.path.exists(config['youtube']['client_secrets_file']):
+        youtube = recorder.destination.youtube.Youtube(config['youtube'])
 
-    upload_validator(config, youtube)
+        uploader(config, youtube)
+
+        upload_validator(config, youtube)
 
     while True:
         time.sleep(1)
