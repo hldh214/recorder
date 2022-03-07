@@ -18,11 +18,11 @@ def record(input_url, output_file, max_duration, args=None):
         FFMPEG_BINARY, '-y', '-user_agent', random.choice(USER_AGENTS), '-hide_banner',
         '-reconnect_streamed', '1', '-reconnect_delay_max', '20',
         '-rw_timeout', TIMEOUT_US, '-timeout', TIMEOUT_US,
-        '-i', input_url, '-c', 'copy', '-t', max_duration
+        '-i', input_url, '-c', 'copy', '-t', str(max_duration)
     ]
 
     if args is not None:
-        popen_args.extend(args)
+        popen_args.extend([str(each) for each in args])
 
     popen_args.append(output_file)
 
