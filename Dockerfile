@@ -2,7 +2,7 @@ FROM jrottenberg/ffmpeg:5.0-ubuntu
 
 ARG TZ=Asia/Hong_Kong
 
-ENV TZ ${TZ} \
+ENV TZ=${TZ} \
     PYTHONUNBUFFERED=1
 
 WORKDIR /app
