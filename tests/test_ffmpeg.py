@@ -10,7 +10,7 @@ VIDEO_DURATION = 5
 
 def test_record():
     # generate 5 seconds video for testing
-    ffmpeg.record(SAMPLE_M3U8_URL, OUTPUT_FILE, ['-y', '-t', str(VIDEO_DURATION)])
+    ffmpeg.record(SAMPLE_M3U8_URL, OUTPUT_FILE, VIDEO_DURATION, ['-y'])
 
     assert os.path.exists(OUTPUT_FILE)
 

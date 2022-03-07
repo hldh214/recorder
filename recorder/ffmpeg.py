@@ -4,7 +4,6 @@ import random
 import subprocess
 
 TIMEOUT_US = str(20 * 1000000)  # 20s
-MAX_DURATION = str(6 * 3600)  # 6h for max endurance and robustness
 USER_AGENTS = (
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114',
     'Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0 Iceweasel/38.2.1',
@@ -14,12 +13,12 @@ FFMPEG_BINARY = 'ffmpeg'
 FFPROBE_BINARY = 'ffprobe'
 
 
-def record(input_url, output_file, args=None):
+def record(input_url, output_file, max_duration, args=None):
     popen_args = [
         FFMPEG_BINARY, '-y', '-user_agent', random.choice(USER_AGENTS), '-hide_banner',
         '-reconnect_streamed', '1', '-reconnect_delay_max', '20',
         '-rw_timeout', TIMEOUT_US, '-timeout', TIMEOUT_US,
-        '-i', input_url, '-c', 'copy', '-t', MAX_DURATION
+        '-i', input_url, '-c', 'copy', '-t', max_duration
     ]
 
     if args is not None:
@@ -118,5 +117,6 @@ if __name__ == '__main__':
     record(
         'https://aldirect.hls.huya.com/backsrc/'
         '94525224-2460685313-10568562945082523648-2789274524-10057-A-0-1.m3u8',
-        './{}.flv'.format(datetime.datetime.now())
+        './{}.flv'.format(datetime.datetime.now()),
+        3600
     )
