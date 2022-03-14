@@ -33,7 +33,7 @@ def get_replay_by_time_range(base_url, start, end):
 @click.option('--video_id', '-v', type=int, required=True)
 def download_replay(video_id):
     video_url = recorder.source.huya.get_replay(video_id)
-    filename = pathlib.Path(video_url).stem + '.mp4'
+    filename = 'file:' + pathlib.Path(video_url).stem + '.mp4'
 
     recorder.ffmpeg.record(video_url, filename, 0)
 
