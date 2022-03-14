@@ -30,7 +30,7 @@ def get_replay_by_time_range(base_url, start, end):
 
 
 @cli.command()
-@click.option('--video_id', '-v', type=int)
+@click.option('--video_id', '-v', type=int, required=True)
 def download_replay(video_id):
     video_url = recorder.source.huya.get_replay(video_id)
     filename = pathlib.Path(video_url).stem + '.mp4'
