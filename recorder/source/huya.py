@@ -17,13 +17,12 @@ from recorder import logger
 REQUEST_TIMEOUT = 5
 WS_API = 'wss://wsapi.huya.com'
 PREFERRED_CDN_TYPE = 'AL'
-PREFERRED_FORMAT = 'hls'
+PREFERRED_FORMAT = 'flv'
 NODE_BINARY = 'node'
 TAF_COMMAND = NODE_BINARY, os.path.join(pathlib.Path(__file__).parent, 'taf.js')
 
 sub_sid_pattern = re.compile(r'"lUid"\s*:\s*(\d+)')
-m3u8_pattern = re.compile(r"hasvedio\s*:\s*'(\S+)'")
-is_live_false_pattern = re.compile(r"var\s*ISLIVE\s*=\s*false")
+global_init_pattern = re.compile(r"HNF_GLOBAL_INIT\s*=\s*({.*?})\s*</script>")
 
 
 def parse_by_mini_program(sub_sid, preferred_cdn_type, preferred_format):
@@ -105,15 +104,20 @@ def get_stream(room_id, **kwargs):
         return False
 
     sub_sid_result = sub_sid_pattern.findall(res.text)
-    # m3u8_result = m3u8_pattern.findall(res.text)
-
-    # if m3u8_result and not is_live_false_pattern.findall(res.text):
-    #     return 'https:' + m3u8_result[0].replace('_2000', '')
+    global_init_result = global_init_pattern.findall(res.text)
 
     if not sub_sid_result:
         return False
 
     sub_sid = sub_sid_result[0]
+
+    ratio = ''
+    try:
+        json_data = json.loads(global_init_result[0])
+        bitrate_list = json_data['roomInfo']['tLiveInfo']['tLiveStreamInfo']['vBitRateInfo']['value']
+        ratio = sorted(bitrate_list, key=lambda x: x['iBitRate'])[-1]['iBitRate']
+    except (IndexError, IndexError, json.decoder.JSONDecodeError):
+        pass
 
     ws_api = random.choice(kwargs['ws_apis']) if 'ws_apis' in kwargs else WS_API
     preferred_cdn_type = kwargs['preferred_cdn_type'] if 'preferred_cdn_type' in kwargs else PREFERRED_CDN_TYPE
@@ -122,12 +126,12 @@ def get_stream(room_id, **kwargs):
     result = parse_by_mini_program(sub_sid, preferred_cdn_type, preferred_format)
 
     if result:
-        return result
+        return result + f'&ratio={ratio}'
 
     result = parse_by_ws(sub_sid, ws_api, preferred_cdn_type, preferred_format)
 
     if result:
-        return result
+        return result + f'&ratio={ratio}'
 
     return False
 
