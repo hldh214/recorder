@@ -160,7 +160,18 @@ def parse_stream_info(stream_info, preferred_cdn_type, preferred_format):
     return result
 
 
+def get_replay(video_id):
+    res = requests.get('https://liveapi.huya.com/moment/getMomentContent', params={'videoId': video_id}).json()
+
+    definitions = res['data']['moment']['videoInfo']['definitions']
+
+    return sorted(definitions, key=lambda item: item['definition'])[-1]['url']
+
+
 if __name__ == '__main__':
+    # print(get_replay('677885387'))
+    # exit()
+
     import time
 
     while True:

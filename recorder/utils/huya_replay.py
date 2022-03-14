@@ -1,5 +1,10 @@
+import pathlib
+
 import pandas as pd
 import grequests
+
+import recorder.source.huya
+import recorder.ffmpeg
 
 
 def get_replay_by_time_range(base_url, start, end):
@@ -18,9 +23,17 @@ def get_replay_by_time_range(base_url, start, end):
                 return each_res.url
 
 
+def download_replay(video_id):
+    video_url = recorder.source.huya.get_replay(video_id)
+    filename = pathlib.Path(video_url).stem + '.mp4'
+
+    recorder.ffmpeg.record(video_url, filename, 0)
+
+
 if __name__ == '__main__':
-    print(get_replay_by_time_range(
-        'http://v-replay.cdn.huya.com/record/huyalive/3200269-3200269-13745050693402624-6523994-10057-A-0-1/',
-        ['2020-07-29-00:33:00', '2020-07-29-00:33:59'],
-        ['2020-07-29-01:44:00', '2020-07-29-01:50:59']
-    ))
+    download_replay('677885387')
+    # print(get_replay_by_time_range(
+    #     'http://v-replay.cdn.huya.com/record/huyalive/3200269-3200269-13745050693402624-6523994-10057-A-0-1/',
+    #     ['2020-07-29-00:33:00', '2020-07-29-00:33:59'],
+    #     ['2020-07-29-01:44:00', '2020-07-29-01:50:59']
+    # ))
