@@ -41,7 +41,7 @@ def download_replay(video_id):
     start_time = ' '.join(video_url_parsed.stem.split('_')[0].rsplit('-', 1))
     end_time = ' '.join(video_url_parsed.stem.split('_')[1].rsplit('-', 1))
     end_time_timestamp = arrow.get(end_time).replace(tzinfo=TZ_INFO).int_timestamp
-    filename = f'file:{start_time}.mp4'
+    filename = f'{start_time}.mp4'
 
     recorder.ffmpeg.record(video_url, filename, 0)
 
