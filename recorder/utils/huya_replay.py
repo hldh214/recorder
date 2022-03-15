@@ -1,11 +1,15 @@
+import os
 import pathlib
 
+import arrow
 import click
 import pandas as pd
 import grequests
 
 import recorder.source.huya
 import recorder.ffmpeg
+
+TZ_INFO = 'Asia/Shanghai'
 
 
 @click.group()
@@ -33,9 +37,15 @@ def get_replay_by_time_range(base_url, start, end):
 @click.option('--video_id', '-v', type=int, required=True)
 def download_replay(video_id):
     video_url = recorder.source.huya.get_replay(video_id)
-    filename = 'file:' + pathlib.Path(video_url).stem + '.mp4'
+    video_url_parsed = pathlib.Path(video_url)
+    start_time = ' '.join(video_url_parsed.stem.split('_')[0].rsplit('-', 1))
+    end_time = ' '.join(video_url_parsed.stem.split('_')[1].rsplit('-', 1))
+    end_time_timestamp = arrow.get(end_time).replace(tzinfo=TZ_INFO).int_timestamp
+    filename = f'file:{start_time}.mp4'
 
     recorder.ffmpeg.record(video_url, filename, 0)
+
+    os.utime(filename, (end_time_timestamp, end_time_timestamp))
 
 
 if __name__ == '__main__':
