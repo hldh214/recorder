@@ -104,20 +104,13 @@ def get_stream(room_id, **kwargs):
         return False
 
     sub_sid_result = sub_sid_pattern.findall(res.text)
-    global_init_result = global_init_pattern.findall(res.text)
 
     if not sub_sid_result:
         return False
 
     sub_sid = sub_sid_result[0]
 
-    ratio = ''
-    try:
-        json_data = json.loads(global_init_result[0])
-        bitrate_list = json_data['roomInfo']['tLiveInfo']['tLiveStreamInfo']['vBitRateInfo']['value']
-        ratio = sorted(bitrate_list, key=lambda x: x['iBitRate'])[-1]['iBitRate']
-    except (IndexError, IndexError, json.decoder.JSONDecodeError):
-        pass
+    ratio = '' if kwargs.get('ratio') is None else kwargs['ratio']
 
     ws_api = random.choice(kwargs['ws_apis']) if 'ws_apis' in kwargs else WS_API
     preferred_cdn_type = kwargs['preferred_cdn_type'] if 'preferred_cdn_type' in kwargs else PREFERRED_CDN_TYPE

@@ -26,6 +26,7 @@ playlist_id = "PLlph9D7YplcHhxNmhBGsgzTgLSlpk4B5-"
 ws_apis = ["wss://0dfbdba8-ws.va.huya.com", "wss://128a4d17-ws.va.huya.com", "wss://128a9862-ws.va.huya.com"]
 preferred_cdn_type = "AL"
 preferred_format = "flv"
+ratio = "8000"
 
 [source."18053596"]
 enabled = true
@@ -40,6 +41,7 @@ playlist_id = "PLlph9D7YplcEZkvv6_PByv_S7TffhhP96"
 ws_apis = ["wss://0dfbdba8-ws.va.huya.com", "wss://128a4d17-ws.va.huya.com", "wss://128a9862-ws.va.huya.com"]
 preferred_cdn_type = "AL"
 preferred_format = "flv"
+ratio = "8000"
 
 [source."deer98"]
 enabled = true
