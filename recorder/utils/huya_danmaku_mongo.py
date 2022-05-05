@@ -165,7 +165,7 @@ class Caption:
         last_modified_at = self.started_at
         timer = Timer(self.started_at.timestamp())
         ttl_cache = cachetools.TTLCache(maxsize=CONTENT_MAXSIZE, ttl=CONTENT_TTL, timer=timer.timer)
-        last_context = {'start': None, 'end': None, 'contents': []}
+        last_context = {'ts': None, 'contents': []}
 
         with open(output_path, 'w', encoding='utf8') as fp:
             fp.write(VTT_HEADERS)
@@ -177,17 +177,17 @@ class Caption:
                     continue
 
                 current_time = arrow.get(each['_id'].generation_time)
-                start_seconds = current_time.timestamp() - self.started_at.timestamp()
-                start = arrow.get(start_seconds)
+                ts_seconds = current_time.timestamp() - self.started_at.timestamp()
+                ts = arrow.get(ts_seconds)
 
                 timer.ts = current_time.timestamp()
-                cache_key = f'{start.format(VTT_TIME_FORMAT)}\n{content}'
+                cache_key = f'{ts.format(VTT_TIME_FORMAT)}\n{content}'
                 ttl_cache[cache_key] = content
                 content_list = list(ttl_cache.values())  # 获取当前字幕需要展示的所有弹幕
 
                 if not last_context['contents']:
                     # 第一次循环
-                    last_context['start'] = start
+                    last_context['ts'] = ts
                     last_context['contents'] = content_list
                     continue
 
@@ -197,8 +197,8 @@ class Caption:
                     last_context['contents'] = content_list
                     continue
 
-                last_start = last_context['start']
-                last_end = start
+                last_start = last_context['ts']
+                last_end = ts if ts.shift(seconds=-CONTENT_TTL) < last_start else last_start.shift(seconds=CONTENT_TTL)
 
                 line = f'{last_start.format(VTT_TIME_FORMAT)} --> {last_end.format(VTT_TIME_FORMAT)}\n'
 
@@ -208,7 +208,7 @@ class Caption:
                 line += '\n'
                 fp.write(line)
 
-                last_context['start'] = start
+                last_context['ts'] = ts
                 last_context['contents'] = content_list
                 last_modified_at = current_time
 
