@@ -58,11 +58,15 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 
         logger.info(f'recorded with exit_code {exit_code}: {flv_url}')
 
-        if not kwargs['auto_upload']:
+        if not kwargs.get('auto_upload'):
             continue
 
-        if kwargs['auto_upload_minimal_size'] > get_file_size(output_file):
+        if kwargs.get('auto_upload_minimal_size', 0) > get_file_size(output_file):
             logger.info(f'auto_upload_minimal_size > get_file_size(output_file): {output_file}')
+            continue
+
+        if kwargs.get('auto_upload_minimal_duration', 0) > ffmpeg.duration(output_file):
+            logger.info(f'auto_upload_minimal_duration > ffmpeg.duration(output_file): {output_file}')
             continue
 
         # move to upload folder
