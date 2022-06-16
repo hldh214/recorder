@@ -1,4 +1,5 @@
 import asyncio
+import csv
 import json
 import logging
 import pathlib
@@ -112,9 +113,14 @@ async def consumer_handler(websocket):
         mongo_collection.insert_one(json.loads(message))
 
 
-def find_danmaku_by_time_range(room_id, start, end):
-    dummy_start_id = bson.objectid.ObjectId.from_datetime(start)
-    dummy_end_id = bson.objectid.ObjectId.from_datetime(end)
+def find_danmaku(room_id, start=None, end=None):
+    dummy_start_id = None
+    dummy_end_id = None
+
+    if start:
+        dummy_start_id = bson.objectid.ObjectId.from_datetime(start)
+    if end:
+        dummy_end_id = bson.objectid.ObjectId.from_datetime(end)
 
     where_clause = {
         'notice': DANMAKU_NOTICE,
@@ -123,11 +129,17 @@ def find_danmaku_by_time_range(room_id, start, end):
         'data.unionId': {
             '$nin': UNION_ID_FILTER_LIST
         },
-        '_id': {
-            '$gt': dummy_start_id,
-            '$lt': dummy_end_id,
-        }
+        '_id': {}
     }
+
+    if dummy_start_id:
+        where_clause['_id']['$gt'] = dummy_start_id
+
+    if dummy_end_id:
+        where_clause['_id']['$lt'] = dummy_end_id
+
+    if not where_clause['_id']:
+        del where_clause['_id']
 
     if not mongo_collection.count_documents(where_clause):
         logging.critical(f'Mongo_collection empty, room_id: {room_id}, start: {start}, end: {end}')
@@ -217,7 +229,7 @@ def generate(room_id, output_path, start, end):
     start = arrow.get(start).replace(tzinfo=TZ_INFO).shift(seconds=DANMAKU_DELAY)
     end = arrow.get(end).replace(tzinfo=TZ_INFO).shift(seconds=DANMAKU_DELAY)
 
-    danmaku = find_danmaku_by_time_range(
+    danmaku = find_danmaku(
         room_id, arrow.get(start), arrow.get(end)
     )
 
@@ -339,6 +351,24 @@ def backup(start, end):
             print(line.decode().strip())
 
     return dump_process.wait()
+
+
+@cli.command()
+@click.option('--room_id', '-r', type=int, required=True)
+@click.option('--path', '-p', type=click.Path(), required=True)
+def generate_csv_for_analyze(room_id, path):
+    danmaku = find_danmaku(room_id)
+
+    with open(path, 'w', encoding='utf8') as fp:
+        writer = csv.writer(fp)
+        writer.writerow(['_id', 'ts', 'sendNick', 'badgeName', 'fansLevel', 'content'])
+
+        for each in danmaku:
+            ts = int(arrow.get(each['_id'].generation_time).timestamp())
+            writer.writerow([
+                each['_id'], ts, each['data']['sendNick'], each['data']['badgeName'], each['data']['fansLevel'],
+                each['data']['content']
+            ])
 
 
 if __name__ == '__main__':
