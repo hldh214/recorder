@@ -17,6 +17,7 @@ from recorder import logger
 REQUEST_TIMEOUT = 5
 WS_API = 'wss://wsapi.huya.com'
 PREFERRED_CDN_TYPE = 'AL'
+CDN_BLACKLIST = ('TX',)
 PREFERRED_FORMAT = 'flv'
 NODE_BINARY = 'node'
 TAF_COMMAND = NODE_BINARY, os.path.join(pathlib.Path(__file__).parent, 'taf.js')
@@ -134,6 +135,9 @@ def parse_stream_info(stream_info, preferred_cdn_type, preferred_format):
         (item for item in stream_info if item['sCdnType'] == preferred_cdn_type),
         stream_info[0]
     )
+
+    if current_stream_info['sCdnType'] in CDN_BLACKLIST:
+        return ''
 
     stream_name = current_stream_info['sStreamName']
 
