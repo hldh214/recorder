@@ -50,7 +50,7 @@ class Youtube:
                 flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
                     client_secrets_file, scopes
                 )
-                credentials = flow.run_console()
+                credentials = flow.run_local_server()
             # Save the credentials for the next run
             with open(credentials_file, 'wb') as token:
                 pickle.dump(credentials, token)
