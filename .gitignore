@@ -1,5 +1,7 @@
 # config
 config.toml
+.client_secrets.json
+.recorder-credentials.pkl
 
 # IDE
 .idea
