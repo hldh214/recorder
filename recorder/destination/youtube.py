@@ -56,7 +56,7 @@ class Youtube:
                 pickle.dump(credentials, token)
 
         self.youtube = googleapiclient.discovery.build(
-            api_service_name, api_version, credentials=credentials
+            api_service_name, api_version, credentials=credentials, cache_discovery=False
         )
 
     def upload(self, video_path, title, description='', chunk_size=googleapiclient.http.DEFAULT_CHUNK_SIZE):
