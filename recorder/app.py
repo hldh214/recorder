@@ -16,6 +16,9 @@ import recorder.utils
 from recorder import logger
 
 video_name_sep = '|'
+if os.name == 'nt':
+    video_name_sep = '__'
+
 video_extension = 'mp4'
 vtt_caption_extension = 'vtt'
 
