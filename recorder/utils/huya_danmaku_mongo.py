@@ -2,6 +2,7 @@ import asyncio
 import csv
 import json
 import logging
+import os
 import pathlib
 import traceback
 import urllib.parse
@@ -59,6 +60,10 @@ Kind: captions
 Language: zh-Hans
 
 '''
+
+DATETIME_FORMAT = 'YYYY-MM-DD HH:mm:ss'
+if os.name == 'nt':
+    DATETIME_FORMAT = 'YYYY-MM-DD HH-mm-ss'
 
 TZ_INFO = 'Asia/Shanghai'
 MONGODB_DATABASE = 'recorder'
@@ -226,8 +231,8 @@ class Caption:
 
 
 def generate(room_id, output_path, start, end):
-    start = arrow.get(start).replace(tzinfo=TZ_INFO).shift(seconds=DANMAKU_DELAY)
-    end = arrow.get(end).replace(tzinfo=TZ_INFO).shift(seconds=DANMAKU_DELAY)
+    start = arrow.get(start, DATETIME_FORMAT).replace(tzinfo=TZ_INFO).shift(seconds=DANMAKU_DELAY)
+    end = arrow.get(end, DATETIME_FORMAT).replace(tzinfo=TZ_INFO).shift(seconds=DANMAKU_DELAY)
 
     danmaku = find_danmaku(
         room_id, arrow.get(start), arrow.get(end)
@@ -248,7 +253,7 @@ def generate_from_video(path, video_id):
     abspath = pathlib.Path(path).resolve()
     start = abspath.parts[-1].split('.')[0]
     source_name = abspath.parts[-2]
-    end = arrow.get(abspath.stat().st_mtime).to(TZ_INFO).format('YYYY-MM-DD HH:mm:ss')
+    end = arrow.get(abspath.stat().st_mtime).to(TZ_INFO).format(DATETIME_FORMAT)
     room_id = config.get('source').get(source_name).get('room_id')
     output_path = f'{pathlib.Path(path).parent}/{video_id}_{start}_{end}.vtt'
 
