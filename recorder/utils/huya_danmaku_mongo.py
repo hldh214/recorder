@@ -231,8 +231,8 @@ class Caption:
 
 
 def generate(room_id, output_path, start, end):
-    start = arrow.get(start, DATETIME_FORMAT).replace(tzinfo=TZ_INFO).shift(seconds=DANMAKU_DELAY)
-    end = arrow.get(end, DATETIME_FORMAT).replace(tzinfo=TZ_INFO).shift(seconds=DANMAKU_DELAY)
+    start = arrow.get(str(start), DATETIME_FORMAT).replace(tzinfo=TZ_INFO).shift(seconds=DANMAKU_DELAY)
+    end = arrow.get(str(end), DATETIME_FORMAT).replace(tzinfo=TZ_INFO).shift(seconds=DANMAKU_DELAY)
 
     danmaku = find_danmaku(
         room_id, arrow.get(start), arrow.get(end)
