@@ -17,7 +17,7 @@ grequests = "==0.6.*"
 cachetools = "==4.2.*"
 arrow = "==1.*"
 tenacity = "==8.*"
-pymongo = "==4.*"
+pymongo = {extras = ["srv"], version = "==4.*"}
 click = "==8.*"
 PyJWT = "==2.4.*"
 
