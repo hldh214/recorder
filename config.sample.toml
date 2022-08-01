@@ -3,6 +3,7 @@ video_path = "./videos"
 danmaku_path = "./videos/caption"
 upload_validate = true
 max_duration = 39600
+mongo_dsn = ""
 
 [youtube]
 client_secrets_file = ""

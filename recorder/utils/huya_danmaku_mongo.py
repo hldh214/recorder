@@ -69,13 +69,15 @@ TZ_INFO = 'Asia/Shanghai'
 MONGODB_DATABASE = 'recorder'
 MONGODB_COLLECTION = 'huya_danmaku'
 
-mongo_client = pymongo.MongoClient()
+config = recorder.utils.get_config()
+
+mongo_client = pymongo.MongoClient(config['app'].get('mongo_dsn'))
 mongo_collection = mongo_client[MONGODB_DATABASE][MONGODB_COLLECTION]
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 
-async def gather_sub(room_ids, config):
+async def gather_sub(room_ids):
     return await asyncio.gather(*[
         subscribe(room_id, config['huya']['app_id'], config['huya']['app_secret'])
         for room_id in room_ids
@@ -248,8 +250,6 @@ def generate(room_id, output_path, start, end):
 
 
 def generate_from_video(path, video_id):
-    config = recorder.utils.get_config()
-
     abspath = pathlib.Path(path).resolve()
     start = abspath.parts[-1].split('.')[0]
     source_name = abspath.parts[-2]
@@ -274,12 +274,10 @@ def cli():
 @cli.command()
 @click.option('--room_ids', '-r', default=[], multiple=True, type=int)
 def sub(room_ids):
-    config = recorder.utils.get_config()
-
     if not room_ids:
         room_ids = [each['room_id'] for each in config['source'].values() if each['enabled']]
 
-    asyncio.run(gather_sub(room_ids, config))
+    asyncio.run(gather_sub(room_ids))
 
 
 @cli.command()
@@ -301,7 +299,7 @@ def gen(room_id, start, end, path, video_id):
 @cli.command()
 @click.option('--room_ids', '-r', default=[], multiple=True, type=int)
 def watch(room_ids):
-    start_id = bson.objectid.ObjectId.from_datetime(arrow.now())
+    start_id = bson.objectid.ObjectId.from_datetime(arrow.now().datetime)
 
     while True:
         where_clause = {
@@ -340,8 +338,8 @@ def backup(start, end):
     start = arrow.get(start).replace(tzinfo=TZ_INFO)
     end = arrow.get(end).replace(tzinfo=TZ_INFO)
 
-    dummy_start_id = bson.objectid.ObjectId.from_datetime(arrow.get(start))
-    dummy_end_id = bson.objectid.ObjectId.from_datetime(arrow.get(end))
+    dummy_start_id = bson.objectid.ObjectId.from_datetime(arrow.get(start).datetime)
+    dummy_end_id = bson.objectid.ObjectId.from_datetime(arrow.get(end).datetime)
 
     query = json.dumps({'_id': {'$gte': {'$oid': str(dummy_start_id)}, '$lt': {'$oid': str(dummy_end_id)}}})
 
