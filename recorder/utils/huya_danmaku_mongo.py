@@ -1,5 +1,6 @@
 import asyncio
 import csv
+import datetime
 import json
 import logging
 import os
@@ -119,6 +120,10 @@ async def consumer_handler(websocket):
         mongo_collection.insert_one(json.loads(message))
 
 
+def parse_datetime(obj):
+    return arrow.get(obj if isinstance(obj, datetime.datetime) else arrow.get(obj, DATETIME_FORMAT), tzinfo=TZ_INFO)
+
+
 def find_danmaku(room_id, start=None, end=None):
     where_clause = {
         'notice': DANMAKU_NOTICE,
@@ -131,13 +136,9 @@ def find_danmaku(room_id, start=None, end=None):
     }
 
     if start:
-        where_clause['_id']['$gt'] = bson.objectid.ObjectId.from_datetime(
-            arrow.get(str(start), DATETIME_FORMAT, tzinfo=TZ_INFO).datetime
-        )
+        where_clause['_id']['$gt'] = bson.objectid.ObjectId.from_datetime(parse_datetime(start).datetime)
     if end:
-        where_clause['_id']['$lt'] = bson.objectid.ObjectId.from_datetime(
-            arrow.get(str(end), DATETIME_FORMAT, tzinfo=TZ_INFO).datetime
-        )
+        where_clause['_id']['$lt'] = bson.objectid.ObjectId.from_datetime(parse_datetime(end).datetime)
 
     if not where_clause['_id']:
         del where_clause['_id']
@@ -232,7 +233,7 @@ def generate(room_id, output_path, start, end):
     if not danmaku:
         return False
 
-    caption = Caption(danmaku, arrow.get(start))
+    caption = Caption(danmaku, parse_datetime(start))
     caption.to_vtt(output_path)
 
     return True
@@ -324,8 +325,8 @@ def watch(room_ids):
 @click.option('--start', '-s', type=click.DateTime(), required=True)
 @click.option('--end', '-e', type=click.DateTime(), required=True)
 def backup(start, end):
-    start = arrow.get(start).replace(tzinfo=TZ_INFO)
-    end = arrow.get(end).replace(tzinfo=TZ_INFO)
+    start = parse_datetime(start)
+    end = parse_datetime(end)
 
     dummy_start_id = bson.objectid.ObjectId.from_datetime(start.datetime)
     dummy_end_id = bson.objectid.ObjectId.from_datetime(end.datetime)
