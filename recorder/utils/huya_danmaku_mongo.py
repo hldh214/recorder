@@ -364,5 +364,48 @@ def generate_csv_for_analyze(room_id, path):
             ])
 
 
+@cli.command()
+@click.option('--room_id', '-r', type=int, required=True)
+@click.option('--start', '-s', type=click.DateTime(), required=True)
+@click.option('--end', '-e', type=click.DateTime(), required=True)
+def generate_highlights(room_id, start, end, topn=10, minute_gap=10):
+    fmt = 'HH:mm'
+    danmaku = find_danmaku(room_id, start, end)
+
+    highlight_map = {}
+    for each in danmaku:
+        current_time = arrow.get(each['_id'].generation_time)
+        ts_seconds = current_time.timestamp() - parse_datetime(start).timestamp()
+        time_in_minutes = arrow.get(ts_seconds).format(fmt)
+
+        if time_in_minutes not in highlight_map:
+            highlight_map[time_in_minutes] = 1
+        else:
+            highlight_map[time_in_minutes] += 1
+
+    # sort by value
+    highlights = sorted(highlight_map.items(), key=lambda x: x[1], reverse=True)
+
+    # [ [time_in_minute, heat, topN], ... ]
+    result = []
+    index = 0
+    # topN with minute_gap
+    while len(result) < topn:
+        item = highlights.pop(0)
+        insertable = True
+        for each in result:
+            diff = arrow.get(each[0], fmt) - arrow.get(item[0], fmt)
+            if diff.seconds < minute_gap * 60:
+                insertable = False
+
+        if insertable:
+            index += 1
+            result.append([item[0], item[1], index])
+
+    result = sorted(result, key=lambda x: x[0])
+
+    print('Highlights\n00:00 Start\n' + '\n'.join([f'{each[0]}:00 Top{each[2]} ({each[1]}🔥)' for each in result]))
+
+
 if __name__ == '__main__':
     cli()
