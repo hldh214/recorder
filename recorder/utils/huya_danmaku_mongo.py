@@ -41,7 +41,6 @@ DANMAKU_NOTICE = 'getMessageNotice'
 CAPTION_MINIMAL_INTERVAL = 0.1  # 两条字幕之间间隔不小于 0.1 秒, 为了字幕播放性能
 CONTENT_TTL = 4  # 弹幕展示时间 (秒)
 CONTENT_MAXSIZE = 6  # 最多一次显示多少条弹幕
-DANMAKU_DELAY = 0  # 时间轴快进 (秒) for 直播延迟
 
 # spam 弹幕正则过滤
 CONTENT_FILTER_PATTERNS = (
@@ -121,14 +120,6 @@ async def consumer_handler(websocket):
 
 
 def find_danmaku(room_id, start=None, end=None):
-    dummy_start_id = None
-    dummy_end_id = None
-
-    if start:
-        dummy_start_id = bson.objectid.ObjectId.from_datetime(start)
-    if end:
-        dummy_end_id = bson.objectid.ObjectId.from_datetime(end)
-
     where_clause = {
         'notice': DANMAKU_NOTICE,
         'data.msgType': DANMAKU_MSG_TYPE,
@@ -139,11 +130,14 @@ def find_danmaku(room_id, start=None, end=None):
         '_id': {}
     }
 
-    if dummy_start_id:
-        where_clause['_id']['$gt'] = dummy_start_id
-
-    if dummy_end_id:
-        where_clause['_id']['$lt'] = dummy_end_id
+    if start:
+        where_clause['_id']['$gt'] = bson.objectid.ObjectId.from_datetime(
+            arrow.get(str(start), DATETIME_FORMAT, tzinfo=TZ_INFO).datetime
+        )
+    if end:
+        where_clause['_id']['$lt'] = bson.objectid.ObjectId.from_datetime(
+            arrow.get(str(end), DATETIME_FORMAT, tzinfo=TZ_INFO).datetime
+        )
 
     if not where_clause['_id']:
         del where_clause['_id']
@@ -233,12 +227,7 @@ class Caption:
 
 
 def generate(room_id, output_path, start, end):
-    start = arrow.get(str(start), DATETIME_FORMAT).replace(tzinfo=TZ_INFO).shift(seconds=DANMAKU_DELAY)
-    end = arrow.get(str(end), DATETIME_FORMAT).replace(tzinfo=TZ_INFO).shift(seconds=DANMAKU_DELAY)
-
-    danmaku = find_danmaku(
-        room_id, arrow.get(start), arrow.get(end)
-    )
+    danmaku = find_danmaku(room_id, start, end)
 
     if not danmaku:
         return False
@@ -338,8 +327,8 @@ def backup(start, end):
     start = arrow.get(start).replace(tzinfo=TZ_INFO)
     end = arrow.get(end).replace(tzinfo=TZ_INFO)
 
-    dummy_start_id = bson.objectid.ObjectId.from_datetime(arrow.get(start).datetime)
-    dummy_end_id = bson.objectid.ObjectId.from_datetime(arrow.get(end).datetime)
+    dummy_start_id = bson.objectid.ObjectId.from_datetime(start.datetime)
+    dummy_end_id = bson.objectid.ObjectId.from_datetime(end.datetime)
 
     query = json.dumps({'_id': {'$gte': {'$oid': str(dummy_start_id)}, '$lt': {'$oid': str(dummy_end_id)}}})
 
