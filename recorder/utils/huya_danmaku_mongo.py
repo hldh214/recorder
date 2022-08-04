@@ -395,7 +395,7 @@ def generate_highlights(room_id, start, end, topn=10, minute_gap=10):
         insertable = True
         for each in result:
             diff = arrow.get(each[0], fmt) - arrow.get(item[0], fmt)
-            if diff.seconds < minute_gap * 60:
+            if abs(diff.total_seconds()) < minute_gap * 60:
                 insertable = False
 
         if insertable:
