@@ -119,13 +119,21 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
                 continue
 
             playlist_id = current_config.get('playlist_id')
+            room_id = config['source'].get(source_name).get('room_id')
+            start = filename_datetime
+            end = time.strftime(datetime_format, time.localtime(os.path.getmtime(video_path)))
+            highlights = ''
+            try:
+                highlights = huya_danmaku_mongo.generate_highlights(room_id, start, end)
+            except Exception:
+                logger.warning('huya_danmaku_mongo.generate_highlights raise exception: ' + traceback.format_exc())
 
             logger.info(f'uploading: {video_path}')
             try:
                 video_id = youtube.upload(
                     video_path,
                     current_config['title'].format(datetime=filename_datetime),
-                    current_config.get('description', '')
+                    current_config.get('description', '') + '\n\n' + highlights,
                 )
             except googleapiclient.errors.HttpError as exception:
                 time.sleep(interval)
