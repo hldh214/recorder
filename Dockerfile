@@ -1,4 +1,4 @@
-FROM jrottenberg/ffmpeg:5.0-ubuntu
+FROM jrottenberg/ffmpeg:5.1-vaapi2004
 
 ARG TZ=Asia/Hong_Kong
 
