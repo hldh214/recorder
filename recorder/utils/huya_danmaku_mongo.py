@@ -279,6 +279,9 @@ def generate_highlights(room_id, start, end, topn=10, minute_gap=10):
     index = 0
     # topN with minute_gap
     while len(result) < topn:
+        if not highlights:
+            break
+
         item = highlights.pop(0)
         insertable = True
         for each in result:
@@ -291,6 +294,9 @@ def generate_highlights(room_id, start, end, topn=10, minute_gap=10):
             result.append([item[0], item[1], index])
 
     result = sorted(result, key=lambda x: x[0])
+
+    if not result:
+        return ''
 
     return 'Highlights\n00:00 Start\n' + '\n'.join([f'{each[0]}:00 Top{each[2]} ({each[1]}🔥)' for each in result])
 
