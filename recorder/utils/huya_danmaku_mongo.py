@@ -260,6 +260,9 @@ def generate_highlights(room_id, start, end, topn=10, minute_gap=10):
     fmt = 'HH:mm'
     danmaku = find_danmaku(room_id, start, end)
 
+    if not danmaku:
+        return ''
+
     highlight_map = {}
     for each in danmaku:
         current_time = arrow.get(each['_id'].generation_time)
