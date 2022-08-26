@@ -17,3 +17,11 @@ services:
       - "${RECORDER_YOUTUBE_CLIENT_SECRETS:-./.client_secrets.json}:/app/.client_secrets.json"
       - "${RECORDER_YOUTUBE_CREDENTIALS:-./.recorder-credentials.pkl}:/app/.recorder-credentials.pkl"
       - "${RECORDER_VIDEO:-./videos}:/app/videos"
+  danmaku-subscriber:
+    build: .
+    restart: always
+    volumes:
+      - "${RECORDER_CONFIG:-./config.toml}:/app/config.toml"
+    environment:
+      PYTHONPATH: $PYTHONPATH:/app/recorder;
+    command: python3 recorder/utils/huya_danmaku_mongo.py sub
