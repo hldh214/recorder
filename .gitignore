@@ -1,3 +1,7 @@
+# mongo
+mongo_data
+.env
+
 # config
 config.toml
 .client_secrets.json
