@@ -113,13 +113,14 @@ class Youtube:
                     progress_bar.close()
                 return response['id']
 
-    def update_description(self, video_id, description):
+    def update(self, video_id, title, description):
         try:
             self.youtube.videos().update(
                 part='snippet',
                 body={
                     'id': video_id,
                     'snippet': {
+                        'title': title,
                         'description': description
                     }
                 }

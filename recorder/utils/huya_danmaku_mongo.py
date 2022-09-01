@@ -321,8 +321,9 @@ def generate_highlights_from_video(path, video_id):
     youtube = Youtube(config.get('youtube'))
 
     description = source_config.get('description', '') + '\n\n' + highlights
+    title = source_config['title'].format(datetime=start)
 
-    return youtube.update_description(video_id, description)
+    return youtube.update(video_id, title, description)
 
 
 @click.group()
@@ -451,10 +452,12 @@ def generate_with_highlight(room_id, start, end, path, video_id):
     if room_id and start and end:
         print(generate(room_id, f'./{room_id}.vtt', start, end))
         print(generate_highlights(room_id, start, end))
+        return
 
     if path and video_id:
         print(generate_from_video(path, video_id))
         print(generate_highlights_from_video(path, video_id))
+        return
 
     click.echo(click.get_current_context().get_help())
 
