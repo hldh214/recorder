@@ -23,6 +23,25 @@ These instructions will get you a copy of the project up and running on your loc
 docker run -d --name recorder --restart always -v /path/to/your/config.toml:/app/config.toml -v /path/to/your/videos:/app/videos ghcr.io/hldh214/recorder
 ```
 
+#### Some useful docker commands
+
+```shell
+# watch
+docker exec -it recorder-recorder-1 watch -c -n 1 tree -D -C --du -h /app/videos/record
+
+# dev kit
+docker exec -it recorder-recorder-1 bash -c 'apt update && apt install -y zsh git vim tree curl && sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && git clone --depth=1 https://github.com/amix/vimrc.git ~/.vim_runtime && sh ~/.vim_runtime/install_awesome_vimrc.sh'
+
+# inspect
+docker exec -it recorder-recorder-1 zsh
+
+# python interpreter
+docker exec -it recorder-recorder-1 python3
+
+# recorder module command
+docker exec -it recorder-recorder-1 python3 recorder/utils/huya_danmaku_mongo.py generate-with-highlight
+```
+
 ### Prerequisites
 
 ```
@@ -55,12 +74,14 @@ python -m recorder
 
 Feel free to contribute.
 
-* Found a bug? Try to find it in issue tracker https://github.com/hldh214/recorder/issues ... If this bug is missing - you can add an issue about it.
+* Found a bug? Try to find it in issue tracker https://github.com/hldh214/recorder/issues ... If this bug is missing -
+  you can add an issue about it.
 * Can/want/like develop? Create pull request and I will check it in nearest time!
 
 ## Versioning
 
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/hldh214/recorder/tags). 
+We use [SemVer](http://semver.org/) for versioning. For the versions available, see
+the [tags on this repository](https://github.com/hldh214/recorder/tags).
 
 ## License
 
