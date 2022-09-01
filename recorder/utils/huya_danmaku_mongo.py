@@ -227,6 +227,16 @@ class Caption:
                 last_modified_at = current_time
 
 
+def get_info_from_path(path):
+    abspath = pathlib.Path(path).resolve()
+    start = abspath.parts[-1].split('.')[0]
+    source_name = abspath.parts[-2]
+    end = arrow.get(abspath.stat().st_mtime).to(TZ_INFO).format(DATETIME_FORMAT)
+    current_config = config.get('source').get(source_name)
+
+    return current_config, start, end
+
+
 def generate(room_id, output_path, start, end):
     danmaku = find_danmaku(room_id, start, end)
 
@@ -240,14 +250,10 @@ def generate(room_id, output_path, start, end):
 
 
 def generate_from_video(path, video_id):
-    abspath = pathlib.Path(path).resolve()
-    start = abspath.parts[-1].split('.')[0]
-    source_name = abspath.parts[-2]
-    end = arrow.get(abspath.stat().st_mtime).to(TZ_INFO).format(DATETIME_FORMAT)
-    room_id = config.get('source').get(source_name).get('room_id')
+    source_config, start, end = get_info_from_path(path)
     output_path = f'{pathlib.Path(path).parent}/{video_id}_{start}_{end}.vtt'
 
-    if not generate(room_id, output_path, start, end):
+    if not generate(source_config['room_id'], output_path, start, end):
         logging.critical(f'Generate failed, path: {path}, video_id: {video_id}')
         return False
 
@@ -302,6 +308,21 @@ def generate_highlights(room_id, start, end, topn=10, minute_gap=10):
         return ''
 
     return 'Highlights\n00:00 Start\n' + '\n'.join([f'{each[0]}:00 Top{each[2]} ({each[1]}🔥)' for each in result])
+
+
+def generate_highlights_from_video(path, video_id):
+    source_config, start, end = get_info_from_path(path)
+    highlights = generate_highlights(source_config['room_id'], start, end)
+
+    if not highlights:
+        logging.critical(f'Generate highlights failed, path: {path}, video_id: {video_id}')
+        return False
+
+    youtube = Youtube(config.get('youtube'))
+
+    description = source_config.get('description', '') + '\n\n' + highlights
+
+    return youtube.update_description(video_id, description)
 
 
 @click.group()
@@ -416,8 +437,26 @@ def generate_csv_for_analyze(room_id, path):
 @click.option('--room_id', '-r', type=int, required=True)
 @click.option('--start', '-s', type=click.DateTime(), required=True)
 @click.option('--end', '-e', type=click.DateTime(), required=True)
-def generate_highlights_command(room_id, start, end, topn=10, minute_gap=10):
-    print(generate_highlights(room_id, start, end, topn, minute_gap))
+def generate_highlights_command(room_id, start, end):
+    print(generate_highlights(room_id, start, end))
+
+
+@cli.command()
+@click.option('--room_id', '-r', type=int)
+@click.option('--start', '-s', type=click.DateTime())
+@click.option('--end', '-e', type=click.DateTime())
+@click.option('--path', '-p', type=click.Path(exists=True))
+@click.option('--video_id', '-v', type=str)
+def generate_with_highlight(room_id, start, end, path, video_id):
+    if room_id and start and end:
+        print(generate(room_id, f'./{room_id}.vtt', start, end))
+        print(generate_highlights(room_id, start, end))
+
+    if path and video_id:
+        print(generate_from_video(path, video_id))
+        print(generate_highlights_from_video(path, video_id))
+
+    click.echo(click.get_current_context().get_help())
 
 
 if __name__ == '__main__':

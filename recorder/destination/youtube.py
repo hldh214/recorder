@@ -113,6 +113,23 @@ class Youtube:
                     progress_bar.close()
                 return response['id']
 
+    def update_description(self, video_id, description):
+        try:
+            self.youtube.videos().update(
+                part='snippet',
+                body={
+                    'id': video_id,
+                    'snippet': {
+                        'description': description
+                    }
+                }
+            ).execute()
+        except (OSError, googleapiclient.errors.Error):
+            traceback.print_exc()
+            return False
+
+        return True
+
     def check_processed(self, video_id):
         try:
             response = self.youtube.videos().list(
