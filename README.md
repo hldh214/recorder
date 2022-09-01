@@ -26,6 +26,9 @@ docker run -d --name recorder --restart always -v /path/to/your/config.toml:/app
 #### Some useful docker commands
 
 ```shell
+# rebuild the image and recreate the container
+docker compose build && docker compose up -d && docker image prune -f
+
 # watch
 docker exec -it recorder-recorder-1 watch -c -n 1 tree -D -C --du -h /app/videos/record
 
