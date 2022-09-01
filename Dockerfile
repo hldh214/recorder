@@ -3,7 +3,8 @@ FROM jrottenberg/ffmpeg:5.1-vaapi2004
 ARG TZ=Asia/Hong_Kong
 
 ENV TZ=${TZ} \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=$PYTHONPATH:/app
 
 WORKDIR /app
 
