@@ -24,6 +24,8 @@ class Youtube:
 
     DEFAULT_CAPTION_LANGUAGE = 'zh-Hans'
 
+    DEFAULT_CATEGORY_ID = 20
+
     def __init__(self, config):
         scopes = [
             'https://www.googleapis.com/auth/youtube.readonly',
@@ -113,7 +115,7 @@ class Youtube:
                     progress_bar.close()
                 return response['id']
 
-    def update(self, video_id, title, description):
+    def update(self, video_id, title, description, category_id=None):
         try:
             self.youtube.videos().update(
                 part='snippet',
@@ -121,7 +123,8 @@ class Youtube:
                     'id': video_id,
                     'snippet': {
                         'title': title,
-                        'description': description
+                        'description': description,
+                        'categoryId': category_id if category_id else self.DEFAULT_CATEGORY_ID
                     }
                 }
             ).execute()
