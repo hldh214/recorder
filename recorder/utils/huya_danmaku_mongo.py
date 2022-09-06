@@ -335,7 +335,10 @@ def cli():
 @click.option('--room_ids', '-r', default=[], multiple=True, type=int)
 def sub(room_ids):
     if not room_ids:
-        room_ids = [each['room_id'] for each in config['source'].values() if each.get('danmaku_enabled')]
+        room_ids = [
+            each['room_id'] for each in config['source'].values()
+            if each.get('danmaku_enabled') is True and each.get('source_type') == 'huya'
+        ]
 
     asyncio.run(gather_sub(room_ids))
 
