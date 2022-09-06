@@ -16,6 +16,7 @@ app_secret = ""
 [source]
 [source."668668"]
 enabled = true
+danmaku_enabled = true
 auto_upload = true
 auto_upload_minimal_size = 1024
 auto_upload_minimal_duration = 3600
@@ -32,6 +33,7 @@ ratio = "8000"
 
 [source."18053596"]
 enabled = true
+danmaku_enabled = true
 auto_upload = true
 auto_upload_minimal_size = 1024
 auto_upload_minimal_duration = 3600
@@ -47,7 +49,8 @@ preferred_format = "flv"
 ratio = "8000"
 
 [source."deer98"]
-enabled = true
+enabled = false
+danmaku_enabled = false
 auto_upload = false
 auto_upload_minimal_size = 1024
 auto_upload_minimal_duration = 3600
