@@ -10,13 +10,12 @@ services:
     volumes:
       - "${MONGO_VOLUME_DATA_DB:-./mongo_data}:/data/db"
   mongo-express:
-    image: "mongo-express:${MONGO_EXPRESS_VERSION:-0.54.0}"
+    image: "mongo-express:${MONGO_EXPRESS_VERSION:-1.0.0-alpha.4}"
     restart: always
     depends_on:
       - mongo
     environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: "${MONGO_INITDB_ROOT_USERNAME:-recorder}"
-      ME_CONFIG_MONGODB_ADMINPASSWORD: "${MONGO_INITDB_ROOT_PASSWORD:-well_known_password}"
+      ME_CONFIG_MONGODB_URL: "mongodb://${MONGO_INITDB_ROOT_USERNAME:-recorder}:${MONGO_INITDB_ROOT_PASSWORD:-well_known_password}@mongo:27017"
       ME_CONFIG_BASICAUTH_USERNAME: "${MONGO_EXPRESS_USERNAME:-recorder}"
       ME_CONFIG_BASICAUTH_PASSWORD: "${MONGO_EXPRESS_PASSWORD:-well_known_password}"
     ports:
