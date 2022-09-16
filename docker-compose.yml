@@ -9,9 +9,23 @@ services:
       - "${MONGO_PORT:-127.0.0.1:27017}:27017"
     volumes:
       - "${MONGO_VOLUME_DATA_DB:-./mongo_data}:/data/db"
+  mongo-express:
+    image: "mongo-express:${MONGO_EXPRESS_VERSION:-0.54.0}"
+    restart: always
+    depends_on:
+      - mongo
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: "${MONGO_INITDB_ROOT_USERNAME:-recorder}"
+      ME_CONFIG_MONGODB_ADMINPASSWORD: "${MONGO_INITDB_ROOT_PASSWORD:-well_known_password}"
+      ME_CONFIG_BASICAUTH_USERNAME: "${MONGO_EXPRESS_USERNAME:-recorder}"
+      ME_CONFIG_BASICAUTH_PASSWORD: "${MONGO_EXPRESS_PASSWORD:-well_known_password}"
+    ports:
+      - "${MONGO_EXPRESS_PORT:-127.0.0.1:8081}:8081"
   recorder:
     build: .
     restart: always
+    depends_on:
+      - mongo
     volumes:
       - "${RECORDER_CONFIG:-./config.toml}:/app/config.toml"
       - "${RECORDER_YOUTUBE_CLIENT_SECRETS:-./.client_secrets.json}:/app/.client_secrets.json"
@@ -20,6 +34,8 @@ services:
   danmaku-subscriber:
     build: .
     restart: always
+    depends_on:
+      - mongo
     volumes:
       - "${RECORDER_CONFIG:-./config.toml}:/app/config.toml"
     environment:
