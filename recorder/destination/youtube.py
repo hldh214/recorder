@@ -15,8 +15,7 @@ import recorder.utils
 
 
 class Youtube:
-    # Always retry when an googleapiclient.errors.HttpError with one of these status
-    # codes is raised.
+    # Always retry when a googleapiclient.errors.HttpError with one of these status codes is raised.
     RETRYABLE_STATUS_CODES = [500, 502, 503, 504]
 
     # Always retry when these exceptions are raised.
@@ -72,8 +71,7 @@ class Youtube:
             part=','.join(body.keys()),
             body=body,
             media_body=googleapiclient.http.MediaFileUpload(
-                video_path, chunksize=chunk_size, resumable=True,
-                mimetype='application/octet-stream'
+                video_path, chunksize=chunk_size, resumable=True, mimetype='application/octet-stream'
             )
         )
 
@@ -137,8 +135,7 @@ class Youtube:
     def check_processed(self, video_id):
         try:
             response = self.youtube.videos().list(
-                part='status',
-                id=video_id
+                part='status', id=video_id
             ).execute()
         except (OSError, googleapiclient.errors.Error):
             traceback.print_exc()
