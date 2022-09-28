@@ -19,7 +19,7 @@ arrow = "==1.*"
 tenacity = "==8.*"
 pymongo = {extras = ["srv"], version = "==4.*"}
 click = "==8.*"
-PyJWT = "==2.4.*"
+PyJWT = "==2.*"
 
 [dev-packages]
 
