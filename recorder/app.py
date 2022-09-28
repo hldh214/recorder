@@ -211,8 +211,8 @@ def validate_thread(config, youtube, interval=3600):
                 if not uploaded:
                     continue
 
-            os.unlink(video_path)
-            logger.info(f'uploaded successfully: {video_path}')
+                os.unlink(video_path)
+                logger.info(f'uploaded successfully, file deleted: {video_path}')
 
             try:
                 result = huya_danmaku_mongo.generate(room_id, vtt_caption_path, start, end)
