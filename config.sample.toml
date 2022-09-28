@@ -4,6 +4,7 @@ danmaku_path = "./videos/caption"
 upload_validate = true
 max_duration = 39600
 mongo_dsn = ""
+timezone = "Asia/Hong_Kong"
 
 [youtube]
 client_secrets_file = ""

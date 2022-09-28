@@ -116,6 +116,16 @@ def split(input_file, chunk=10 * 3600 - 300):
     return True
 
 
+def calc_end_time(input_file, start_time_str, datetime_format='%Y-%m-%d %H:%M:%S'):
+    current_duration = duration(input_file)
+
+    assert current_duration is not False
+
+    start_time = datetime.datetime.strptime(start_time_str, datetime_format)
+
+    return start_time + datetime.timedelta(seconds=current_duration)
+
+
 if __name__ == '__main__':
     record(
         'https://aldirect.hls.huya.com/backsrc/'

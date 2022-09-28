@@ -1,3 +1,4 @@
+import datetime
 import glob
 import importlib
 import os
@@ -7,6 +8,7 @@ import time
 import traceback
 
 import googleapiclient.errors
+import pytz
 
 import recorder.destination.youtube
 import recorder.ffmpeg as ffmpeg
@@ -30,6 +32,8 @@ if os.name == 'nt':
 def record_thread(source_type, room_id, interval=5, **kwargs):
     source = importlib.import_module(f'recorder.source.{source_type}')
 
+    tz = pytz.timezone(kwargs['app'].get('timezone', 'Asia/Hong_Kong'))
+
     while True:
         flv_url = source.get_stream(room_id, **kwargs)
 
@@ -40,7 +44,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         folder_path = os.path.join(
             os.path.abspath(kwargs['app']['video_path']), 'record', source_type, kwargs['source_name']
         )
-        start = time.strftime(datetime_format, time.localtime())
+        start = datetime.datetime.now(tz).strftime(datetime_format)
         filename = f'{start}.{video_extension}'
         pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
         output_file = os.path.join(folder_path, filename)
@@ -121,7 +125,7 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
             playlist_id = current_config.get('playlist_id')
             room_id = config['source'].get(source_name).get('room_id')
             start = filename_datetime
-            end = time.strftime(datetime_format, time.localtime(os.path.getmtime(video_path)))
+            end = ffmpeg.calc_end_time(video_path, start, datetime_format)
             highlights = ''
             try:
                 highlights = huya_danmaku_mongo.generate_highlights(room_id, start, end)
@@ -196,7 +200,7 @@ def validate_thread(config, youtube, interval=3600):
             vtt_caption_path = os.path.join(caption_folder_path, f'{video_filename}.{vtt_caption_extension}')
             room_id = config['source'].get(source_name).get('room_id')
             start = video_filename.split('.')[0]
-            end = time.strftime(datetime_format, time.localtime(os.path.getmtime(video_path)))
+            end = ffmpeg.calc_end_time(video_path, start, datetime_format)
 
             if config['app']['upload_validate']:
                 try:
