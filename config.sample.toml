@@ -5,6 +5,8 @@ upload_validate = true
 max_duration = 39600
 mongo_dsn = ""
 timezone = "Asia/Hong_Kong"
+ffprobe_path = "ffprobe"
+ffmpeg_path = "ffmpeg"
 
 [youtube]
 client_secrets_file = ""

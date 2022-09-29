@@ -3,14 +3,16 @@ import json
 import random
 import subprocess
 
+from recorder.utils import get_config
+
 TIMEOUT_US = str(20 * 1000000)  # 20s
 USER_AGENTS = (
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114',
     'Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0 Iceweasel/38.2.1',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Safari/605.1.15'
 )
-FFMPEG_BINARY = 'ffmpeg'
-FFPROBE_BINARY = 'ffprobe'
+FFMPEG_BINARY = get_config()['app'].get('ffmpeg_path', 'ffmpeg')
+FFPROBE_BINARY = get_config()['app'].get('ffprobe_path', 'ffprobe')
 
 
 def record(input_url, output_file, max_duration, args=None):
