@@ -128,6 +128,12 @@ def calc_end_time(input_file, start_time_str, datetime_format='%Y-%m-%d %H:%M:%S
     return start_time + datetime.timedelta(seconds=current_duration)
 
 
+def start_time(input_file):
+    res = ffprobe(input_file)
+
+    return int(float(res['format']['start_time'])) if res else False
+
+
 if __name__ == '__main__':
     record(
         'https://aldirect.hls.huya.com/backsrc/'

@@ -37,7 +37,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
     while True:
         flv_url = source.get_stream(room_id, **kwargs)
 
-        if (not flv_url) or (not ffmpeg.valid(flv_url)):
+        if not flv_url:
             time.sleep(interval)
             continue
 

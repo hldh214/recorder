@@ -12,7 +12,7 @@ import requests
 import websockets
 import websockets.exceptions
 
-from recorder import logger
+from recorder import logger, ffmpeg
 
 REQUEST_TIMEOUT = 5
 WS_API = 'wss://wsapi.huya.com'
@@ -154,8 +154,12 @@ def parse_stream_info(stream_info, preferred_cdn_type, preferred_format):
 
     result = f'{url}/{stream_name}.{url_suffix}?{anti_code}'
 
-    logger.info('caller: {0}, result: {1}, stream_info: {2}'.format(
-        inspect.stack()[1][3], result, json.dumps(stream_info)
+    start_time = ffmpeg.start_time(result)
+    if not start_time or start_time < 30:
+        return ''
+
+    logger.info('caller: {0}, start_time: {1}, result: {2}'.format(
+        inspect.stack()[1][3], start_time, result
     ))
 
     return result
