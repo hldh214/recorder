@@ -114,30 +114,46 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
             split_video_path = video_path.split(os.sep)
             source_type = split_video_path[-3]
             source_name = split_video_path[-2]
-            split_filename = split_video_path[-1].split('.')
-            filename_datetime = split_filename[0]
+            video_filename = split_video_path[-1]
+            filename_datetime = video_filename.split('.')[0]
 
             current_config = config['source'].get(source_name)
 
             if not current_config:
                 continue
 
-            playlist_id = current_config.get('playlist_id')
             room_id = config['source'].get(source_name).get('room_id')
             start = filename_datetime
             end = ffmpeg.calc_end_time(video_path, start, datetime_format)
-            highlights = ''
-            try:
-                highlights = huya_danmaku_mongo.generate_highlights(room_id, start, end)
-            except Exception:
-                logger.warning('huya_danmaku_mongo.generate_highlights raise exception: ' + traceback.format_exc())
+            description = current_config.get('description', '')
+            caption_folder_path = os.path.join(
+                os.path.abspath(config['app']['danmaku_path']), source_type, source_name
+            )
+            pathlib.Path(caption_folder_path).mkdir(parents=True, exist_ok=True)
+            vtt_caption_path = os.path.join(caption_folder_path, f'{video_filename}.{vtt_caption_extension}')
+
+            if source_type == 'huya':
+                # generate highlights
+                try:
+                    description += '\n\n' + huya_danmaku_mongo.generate_highlights(room_id, start, end)
+                except Exception:
+                    logger.warning('huya_danmaku_mongo.generate_highlights raise exception: ' + traceback.format_exc())
+
+                # generate vtt caption
+                try:
+                    result = huya_danmaku_mongo.generate(room_id, vtt_caption_path, start, end)
+                except Exception:
+                    logger.warning('huya_danmaku_mongo.generate raise exception: ' + traceback.format_exc())
+                else:
+                    if not result:
+                        logger.warning(f'huya_danmaku_mongo.generate failed: {room_id} {start} {end}')
 
             logger.info(f'uploading: {video_path}')
             try:
                 video_id = youtube.upload(
                     video_path,
                     current_config['title'].format(datetime=filename_datetime),
-                    current_config.get('description', '') + '\n\n' + highlights,
+                    description,
                 )
             except googleapiclient.errors.HttpError as exception:
                 time.sleep(interval)
@@ -153,8 +169,14 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
                 time.sleep(quota_exceeded_sleep)
                 continue
 
-            logger.info(f'uploaded: {video_path}')
+            logger.info(f'uploaded: {video_path} -> {video_id}')
 
+            if os.path.exists(vtt_caption_path):
+                if youtube.add_caption(video_id, vtt_caption_path, 'via_recorder_vtt'):
+                    os.unlink(vtt_caption_path)
+                    logger.info(f'caption added successfully: {vtt_caption_path} -> {video_id}')
+
+            playlist_id = current_config.get('playlist_id')
             if playlist_id:
                 youtube.insert_into_playlist(video_id, playlist_id)
                 logger.info(f'inserted_into_playlist: {video_id} -> {playlist_id}')
@@ -188,46 +210,20 @@ def validate_thread(config, youtube, interval=3600):
         for video_path in videos:
             split_video_path = video_path.split(os.sep)
             video_id = split_video_path[-1].split(video_name_sep)[0]
-            video_filename = split_video_path[-1].split(video_name_sep)[1]
-            source_name = split_video_path[-2]
-            source_type = split_video_path[-3]
 
-            caption_folder_path = os.path.join(
-                os.path.abspath(config['app']['danmaku_path']), source_type, source_name
-            )
-            pathlib.Path(caption_folder_path).mkdir(parents=True, exist_ok=True)
-
-            vtt_caption_path = os.path.join(caption_folder_path, f'{video_filename}.{vtt_caption_extension}')
-            room_id = config['source'].get(source_name).get('room_id')
-            start = video_filename.split('.')[0]
-            end = ffmpeg.calc_end_time(video_path, start, datetime_format)
-
-            if config['app']['upload_validate']:
-                try:
-                    uploaded = youtube.check_processed(video_id)
-                except (googleapiclient.errors.HttpError, BrokenPipeError):
-                    continue
-
-                if not uploaded:
-                    continue
-
-                os.unlink(video_path)
-                logger.info(f'uploaded successfully, file deleted: {video_path}')
+            if not config['app']['upload_validate']:
+                continue
 
             try:
-                result = huya_danmaku_mongo.generate(room_id, vtt_caption_path, start, end)
-            except Exception:
-                logger.warning('huya_danmaku_mongo.generate raise exception: ' + traceback.format_exc())
+                uploaded = youtube.check_processed(video_id)
+            except (googleapiclient.errors.HttpError, BrokenPipeError):
                 continue
-            else:
-                if not result:
-                    logger.warning(f'huya_danmaku_mongo.generate failed: {room_id} {start} {end}')
-                    continue
 
-            if os.path.exists(vtt_caption_path):
-                if youtube.add_caption(video_id, vtt_caption_path, 'via_recorder_vtt'):
-                    os.unlink(vtt_caption_path)
-                    logger.info(f'caption added successfully: {vtt_caption_path}')
+            if not uploaded:
+                continue
+
+            os.unlink(video_path)
+            logger.info(f'uploaded successfully, file deleted: {video_path}')
 
         time.sleep(interval)
 
