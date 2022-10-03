@@ -20,7 +20,7 @@ import pymongo.errors
 import tenacity
 import websockets
 
-import recorder.utils
+import recorder
 from recorder.destination.youtube import Youtube
 
 WS_HOST = 'ws-apiext.huya.com'
@@ -69,7 +69,7 @@ TZ_INFO = 'Asia/Shanghai'
 MONGODB_DATABASE = 'recorder'
 MONGODB_COLLECTION = 'huya_danmaku'
 
-config = recorder.utils.get_config()
+config = recorder.config
 
 mongo_client = pymongo.MongoClient(config['app'].get('mongo_dsn'))
 mongo_collection = mongo_client[MONGODB_DATABASE][MONGODB_COLLECTION]

@@ -10,12 +10,13 @@ import traceback
 import googleapiclient.errors
 import pytz
 
+import recorder
 import recorder.destination.youtube
 import recorder.ffmpeg as ffmpeg
 import recorder.utils.huya_danmaku_mongo as huya_danmaku_mongo
 import recorder.utils
 
-from recorder import logger
+from recorder import logger, base_path
 
 video_name_sep = '|'
 if os.name == 'nt':
@@ -34,6 +35,8 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 
     tz = pytz.timezone(kwargs['app'].get('timezone', 'Asia/Hong_Kong'))
 
+    video_folder_path = os.path.join(base_path, kwargs['app']['video_path'])
+
     while True:
         flv_url = source.get_stream(room_id, **kwargs)
 
@@ -41,9 +44,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             time.sleep(interval)
             continue
 
-        folder_path = os.path.join(
-            os.path.abspath(kwargs['app']['video_path']), 'record', source_type, kwargs['source_name']
-        )
+        folder_path = os.path.join(video_folder_path, 'record', source_type, kwargs['source_name'])
         start = datetime.datetime.now(tz).strftime(datetime_format)
         filename = f'{start}.{video_extension}'
         pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
@@ -77,9 +78,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             continue
 
         # move to upload folder
-        dst_dir = os.path.join(
-            os.path.abspath(kwargs['app']['video_path']), 'upload', source_type, kwargs['source_name']
-        )
+        dst_dir = os.path.join(video_folder_path, 'upload', source_type, kwargs['source_name'])
         pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
         dst_path = os.path.join(dst_dir, filename)
         os.rename(output_file, dst_path)
@@ -243,7 +242,7 @@ def get_file_size(path):
 
 
 def main():
-    config = recorder.utils.get_config()
+    config = recorder.config
 
     my_recorder(config)
 

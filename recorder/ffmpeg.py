@@ -3,7 +3,7 @@ import json
 import random
 import subprocess
 
-from recorder.utils import get_config
+import recorder
 
 TIMEOUT_US = str(20 * 1000000)  # 20s
 USER_AGENTS = (
@@ -11,8 +11,8 @@ USER_AGENTS = (
     'Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0 Iceweasel/38.2.1',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Safari/605.1.15'
 )
-FFMPEG_BINARY = get_config()['app'].get('ffmpeg_path', 'ffmpeg')
-FFPROBE_BINARY = get_config()['app'].get('ffprobe_path', 'ffprobe')
+FFMPEG_BINARY = recorder.config['app'].get('ffmpeg_path', 'ffmpeg')
+FFPROBE_BINARY = recorder.config['app'].get('ffprobe_path', 'ffprobe')
 
 
 def record(input_url, output_file, max_duration, args=None):
@@ -123,9 +123,7 @@ def calc_end_time(input_file, start_time_str, datetime_format='%Y-%m-%d %H:%M:%S
 
     assert current_duration is not False
 
-    start_time = datetime.datetime.strptime(start_time_str, datetime_format)
-
-    return start_time + datetime.timedelta(seconds=current_duration)
+    return datetime.datetime.strptime(start_time_str, datetime_format) + datetime.timedelta(seconds=current_duration)
 
 
 def start_time(input_file):

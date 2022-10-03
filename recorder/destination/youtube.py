@@ -11,7 +11,7 @@ import googleapiclient.errors
 import google.auth.transport.requests
 import tqdm
 
-import recorder.utils
+import recorder
 
 
 class Youtube:
@@ -193,7 +193,7 @@ class Youtube:
 if __name__ == '__main__':
     import sys
 
-    youtube = Youtube(recorder.utils.get_config().get('youtube'))
+    youtube = Youtube(recorder.config.get('youtube'))
 
     if len(sys.argv) == 1:
         print('Usage: python3 youtube.py <video_id> <caption_path>')

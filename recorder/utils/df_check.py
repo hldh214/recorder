@@ -1,10 +1,11 @@
 import logging
+import os.path
 import pathlib
 import shutil
 
 import click
 
-import recorder.utils as utils
+import recorder
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -24,14 +25,14 @@ def cli(ctx, limit, ignore_keywords):
     # by means other than the `if` block below)
     ctx.ensure_object(dict)
 
-    config = utils.get_config()
-    video_path = config.get('app').get('video_path')
-    df_current = get_disk_usage_percent(video_path)
+    config = recorder.config
+    video_folder_path = os.path.join(recorder.base_path, config['app']['video_path'])
+    df_current = get_disk_usage_percent(video_folder_path)
 
     if df_current < limit:
         ctx.exit()
 
-    ctx.obj['video_path'] = video_path
+    ctx.obj['video_path'] = video_folder_path
     ctx.obj['ignore_keywords'] = ignore_keywords
     ctx.obj['df_current'] = df_current
 
