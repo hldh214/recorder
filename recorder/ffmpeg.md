@@ -5,7 +5,7 @@
 ### nvenc
 
 ```bash
-ffmpeg -hide_banner -hwaccel cuda -hwaccel_output_format cuda -c:v h264_cuvid -i input.mp4 -c:a copy -c:v h264_nvenc output_nvenc.mp4
+ffmpeg -hide_banner -vsync 0 -hwaccel cuda -hwaccel_output_format cuda -extra_hw_frames 8 -i input.mp4 -c:a copy -c:v h264_nvenc output_nvenc.mp4
 ```
 
 ### h264_qsv
