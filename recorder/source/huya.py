@@ -155,7 +155,7 @@ def parse_stream_info(stream_info, preferred_cdn_type, preferred_format):
     result = f'{url}/{stream_name}.{url_suffix}?{anti_code}'
 
     start_time = ffmpeg.start_time(result)
-    if not start_time or start_time < 30:
+    if not start_time:
         return ''
 
     logger.info('caller: {0}, start_time: {1}, result: {2}'.format(
