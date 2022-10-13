@@ -13,6 +13,11 @@ USER_AGENTS = (
 )
 FFMPEG_BINARY = recorder.config['app'].get('ffmpeg_path', 'ffmpeg')
 FFPROBE_BINARY = recorder.config['app'].get('ffprobe_path', 'ffprobe')
+ERROR_CHECK_LIST = (
+    'illegal reordering_of_pic_nums_idc',
+    'illegal memory management control operation',
+    'Out of range weight is not implemented',
+)
 
 
 def record(input_url, output_file, max_duration, args=None):
@@ -34,7 +39,12 @@ def record(input_url, output_file, max_duration, args=None):
     ff = subprocess.Popen(popen_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     for line in ff.stdout:
-        print(line.decode(), end='')
+        line = line.decode()
+        print(line, end='')
+
+        if any([each in line for each in ERROR_CHECK_LIST]):
+            print(f'Error: {line}')
+            return ff.terminate()
 
     return ff.wait()
 

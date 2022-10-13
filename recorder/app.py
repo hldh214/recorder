@@ -53,6 +53,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         logger.info(f'recording: {flv_url} -> {output_file}')
 
         exit_code = ffmpeg.record(flv_url, output_file, kwargs['app']['max_duration'])
+        logger.info(f'({kwargs["source_name"]})recorded with exit_code {exit_code}: {flv_url}')
 
         if not ffmpeg.valid(output_file):
             if not os.path.exists(output_file):
@@ -63,8 +64,6 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             os.unlink(output_file)
             logger.warning(f'not valid and unlinked: {output_file}')
             continue
-
-        logger.info(f'recorded with exit_code {exit_code}: {flv_url}')
 
         if not kwargs.get('auto_upload'):
             continue
