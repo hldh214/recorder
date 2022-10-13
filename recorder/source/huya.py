@@ -43,7 +43,7 @@ def parse_by_mini_program(sub_sid, preferred_cdn_type, preferred_format, ratio):
     except requests.exceptions.RequestException:
         return False
 
-    logger.debug('parse_by_mini_program: ' + res.text)
+    logger.debug(f'parse_by_mini_program({sub_sid}): {res.text}')
 
     try:
         stream_info = res.json()['data']['stream']['baseSteamInfoList']
@@ -74,7 +74,7 @@ async def get_stream_ng(sub_sid, ws_api):
     except (OSError, ValueError, websockets.exceptions.WebSocketException, asyncio.TimeoutError):
         return False
 
-    logger.debug('parse_by_ws: ' + json.dumps(living_info))
+    logger.debug(f'parse_by_ws({sub_sid}): {json.dumps(living_info)}')
 
     if not living_info['bIsLiving']:
         return False
