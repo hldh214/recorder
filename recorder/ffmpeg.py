@@ -43,8 +43,9 @@ def record(input_url, output_file, max_duration, args=None):
         print(line, end='')
 
         if any([each in line for each in ERROR_CHECK_LIST]):
-            print(f'Error: {line}')
-            return ff.terminate()
+            recorder.logger.error(f'FFmpeg Error: {line}, quitting...')
+            ff.communicate('q'.encode())
+            return ff.wait()
 
     return ff.wait()
 
