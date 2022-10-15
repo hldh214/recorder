@@ -13,10 +13,13 @@ import pytz
 import recorder
 import recorder.destination.youtube
 import recorder.ffmpeg as ffmpeg
-import recorder.utils.huya_danmaku_mongo as huya_danmaku_mongo
 import recorder.utils
 
 from recorder import logger, base_path
+
+huya_danmaku_mongo = None
+if recorder.config['app'].get('mongo_dsn'):
+    import recorder.utils.huya_danmaku_mongo as huya_danmaku_mongo
 
 video_name_sep = '|'
 if os.name == 'nt':
@@ -130,7 +133,7 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
             pathlib.Path(caption_folder_path).mkdir(parents=True, exist_ok=True)
             vtt_caption_path = os.path.join(caption_folder_path, f'{video_filename}.{vtt_caption_extension}')
 
-            if source_type == 'huya':
+            if source_type == 'huya' and huya_danmaku_mongo:
                 # generate highlights
                 try:
                     description += '\n\n' + huya_danmaku_mongo.generate_highlights(room_id, start, end)
