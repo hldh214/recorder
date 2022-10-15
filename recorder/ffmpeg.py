@@ -36,15 +36,15 @@ def record(input_url, output_file, max_duration, args=None):
 
     popen_args.append(output_file)
 
-    ff = subprocess.Popen(popen_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    ff = subprocess.Popen(popen_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     for line in ff.stdout:
         line = line.decode()
         print(line, end='')
 
         if any([each in line for each in ERROR_CHECK_LIST]):
-            recorder.logger.error(f'FFmpeg Error: {line}, quitting...')
-            ff.communicate('q'.encode())
+            recorder.logger.error(f'FFmpeg Error, quitting: {line.strip()}')
+            ff.communicate(b'q')
             return ff.wait()
 
     return ff.wait()
