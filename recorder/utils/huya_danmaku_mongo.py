@@ -20,7 +20,8 @@ import pymongo.errors
 import tenacity
 import websockets
 
-import recorder
+from recorder import config
+from recorder.app import video_name_sep
 from recorder.destination.youtube import Youtube
 
 WS_HOST = 'ws-apiext.huya.com'
@@ -68,8 +69,6 @@ if os.name == 'nt':
 TZ_INFO = 'Asia/Shanghai'
 MONGODB_DATABASE = 'recorder'
 MONGODB_COLLECTION = 'huya_danmaku'
-
-config = recorder.config
 
 mongo_client = pymongo.MongoClient(config['app'].get('mongo_dsn'))
 mongo_collection = mongo_client[MONGODB_DATABASE][MONGODB_COLLECTION]
@@ -230,6 +229,10 @@ class Caption:
 def get_info_from_path(path):
     abspath = pathlib.Path(path).resolve()
     start = abspath.parts[-1].split('.')[0]
+
+    if video_name_sep in start:
+        start = start.split(video_name_sep)[-1]
+
     source_name = abspath.parts[-2]
     end = arrow.get(abspath.stat().st_mtime).to(TZ_INFO).format(DATETIME_FORMAT)
     current_config = config.get('source').get(source_name)
