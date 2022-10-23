@@ -20,8 +20,7 @@ import pymongo.errors
 import tenacity
 import websockets
 
-from recorder import config
-from recorder.app import video_name_sep
+from recorder import config, video_name_sep
 from recorder.destination.youtube import Youtube
 
 WS_HOST = 'ws-apiext.huya.com'

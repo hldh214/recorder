@@ -4,6 +4,8 @@ import pathlib
 
 import toml
 
+video_name_sep = '|'
+
 base_path = pathlib.Path(os.path.abspath(__file__)).parent.parent
 
 config = toml.load(os.path.join(base_path, 'config.toml'))

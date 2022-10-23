@@ -15,13 +15,12 @@ import recorder.destination.youtube
 import recorder.ffmpeg as ffmpeg
 import recorder.utils
 
-from recorder import logger, base_path
+from recorder import logger, base_path, video_name_sep
 
 huya_danmaku_mongo = None
 if recorder.config['app'].get('mongo_dsn'):
     import recorder.utils.huya_danmaku_mongo as huya_danmaku_mongo
 
-video_name_sep = '|'
 if os.name == 'nt':
     video_name_sep = '__'
 
