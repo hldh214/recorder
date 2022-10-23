@@ -68,6 +68,8 @@ def ffprobe(input_file):
 
     proc = subprocess.run(args, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
+    recorder.logger.debug(f'ffprobe args: {json.dumps(args)}, output: {proc.stdout.decode()}')
+
     try:
         res = json.loads(proc.stdout)
     except ValueError:
