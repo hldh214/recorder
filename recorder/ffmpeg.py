@@ -61,14 +61,15 @@ def ffprobe(input_file):
         args.extend(['-user_agent', random.choice(USER_AGENTS)])
 
     args.extend([
-        '-hide_banner', '-print_format', 'json', '-rw_timeout', TIMEOUT_US,
-        '-show_format', '-show_streams', '-select_streams', 'a',
-        '-i', input_file
+        '-loglevel', 'warning', '-hide_banner', '-print_format', 'json', '-rw_timeout', TIMEOUT_US,
+        '-show_format', '-show_streams', '-select_streams', 'v', '-i', input_file
     ])
 
     proc = subprocess.run(args, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
-    recorder.logger.debug(f'ffprobe args: {json.dumps(args)}, output: {proc.stdout.decode()}')
+    recorder.logger.debug(
+        f'ffprobe args: {json.dumps(args)}, stdout: {proc.stdout.decode()}, stderr: {proc.stderr.decode()}'
+    )
 
     try:
         res = json.loads(proc.stdout)
