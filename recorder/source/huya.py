@@ -26,7 +26,7 @@ sub_sid_pattern = re.compile(r'"lUid"\s*:\s*(\d+)')
 global_init_pattern = re.compile(r"HNF_GLOBAL_INIT\s*=\s*({.*?})\s*</script>")
 
 
-def parse_by_mini_program(sub_sid, preferred_cdn_type, preferred_format, ratio):
+def parse_by_mini_program(sub_sid, preferred_cdn_type, preferred_format, ratio, min_start_time):
     try:
         res = requests.get('https://mp.huya.com/cache.php', params={
             'm': 'Live',
@@ -48,18 +48,18 @@ def parse_by_mini_program(sub_sid, preferred_cdn_type, preferred_format, ratio):
     try:
         stream_info = res.json()['data']['stream']['baseSteamInfoList']
 
-        return parse_stream_info(stream_info, preferred_cdn_type, preferred_format, ratio)
+        return parse_stream_info(stream_info, preferred_cdn_type, preferred_format, ratio, min_start_time)
     except (LookupError, ValueError, TypeError):
         return False
 
 
-def parse_by_ws(sub_sid, ws_api, preferred_cdn_type, preferred_format, ratio):
+def parse_by_ws(sub_sid, ws_api, preferred_cdn_type, preferred_format, ratio, min_start_time):
     stream_info = asyncio.run(get_stream_ng(sub_sid, ws_api))
 
     if not stream_info:
         return False
 
-    return parse_stream_info(stream_info, preferred_cdn_type, preferred_format, ratio)
+    return parse_stream_info(stream_info, preferred_cdn_type, preferred_format, ratio, min_start_time)
 
 
 async def get_stream_ng(sub_sid, ws_api):
@@ -116,23 +116,24 @@ def get_stream(room_id, **kwargs):
     sub_sid = sub_sid_result[0]
 
     ratio = '' if kwargs.get('ratio') is None else kwargs['ratio']
+    min_start_time = '' if kwargs.get('min_start_time') is None else kwargs['min_start_time']
 
     ws_api = random.choice(kwargs['ws_apis']) if 'ws_apis' in kwargs else WS_API
     preferred_cdn_type = kwargs['preferred_cdn_type'] if 'preferred_cdn_type' in kwargs else PREFERRED_CDN_TYPE
     preferred_format = kwargs['preferred_format'] if 'preferred_format' in kwargs else PREFERRED_FORMAT
 
-    result = parse_by_mini_program(sub_sid, preferred_cdn_type, preferred_format, ratio)
+    result = parse_by_mini_program(sub_sid, preferred_cdn_type, preferred_format, ratio, min_start_time)
     if result:
         return result
 
-    result = parse_by_ws(sub_sid, ws_api, preferred_cdn_type, preferred_format, ratio)
+    result = parse_by_ws(sub_sid, ws_api, preferred_cdn_type, preferred_format, ratio, min_start_time)
     if result:
         return result
 
     return False
 
 
-def parse_stream_info(stream_info, preferred_cdn_type, preferred_format, ratio):
+def parse_stream_info(stream_info, preferred_cdn_type, preferred_format, ratio, min_start_time):
     current_stream_info = next(
         (item for item in stream_info if item['sCdnType'] == preferred_cdn_type),
         stream_info[0]
@@ -157,7 +158,7 @@ def parse_stream_info(stream_info, preferred_cdn_type, preferred_format, ratio):
     result = f'{url}/{stream_name}.{url_suffix}?{anti_code}&ratio={ratio}'
 
     start_time = ffmpeg.start_time(result)
-    if not start_time:
+    if not start_time or start_time < min_start_time:
         return ''
 
     logger.info('caller: {0}, start_time: {1}, result: {2}'.format(

@@ -34,6 +34,7 @@ ws_apis = ["wss://wsapi.huya.com"]
 preferred_cdn_type = "AL"
 preferred_format = "flv"
 ratio = "8000"
+min_start_time = 140
 
 [source."18053596"]
 enabled = true
@@ -51,6 +52,7 @@ ws_apis = ["wss://wsapi.huya.com"]
 preferred_cdn_type = "AL"
 preferred_format = "flv"
 ratio = "8000"
+min_start_time = 140
 
 [source."deer98"]
 enabled = false
