@@ -1,26 +1,13 @@
-import array
-import asyncio
-import inspect
-import json
-import os
-import pathlib
-import random
 import re
-import subprocess
 
 import requests
-import websockets
-import websockets.exceptions
 
 from recorder import logger, ffmpeg
 
 REQUEST_TIMEOUT = 5
-WS_API = 'wss://wsapi.huya.com'
 PREFERRED_CDN_TYPE = 'AL'
 CDN_BLACKLIST = ('TX',)
 PREFERRED_FORMAT = 'flv'
-NODE_BINARY = 'node'
-TAF_COMMAND = NODE_BINARY, os.path.join(pathlib.Path(__file__).parent, 'taf.js')
 
 sub_sid_pattern = re.compile(r'"lUid"\s*:\s*(\d+)')
 global_init_pattern = re.compile(r"HNF_GLOBAL_INIT\s*=\s*({.*?})\s*</script>")
@@ -53,52 +40,6 @@ def parse_by_mini_program(sub_sid, preferred_cdn_type, preferred_format, ratio, 
         return False
 
 
-def parse_by_ws(sub_sid, ws_api, preferred_cdn_type, preferred_format, ratio, min_start_time):
-    stream_info = asyncio.run(get_stream_ng(sub_sid, ws_api))
-
-    if not stream_info:
-        return False
-
-    return parse_stream_info(stream_info, preferred_cdn_type, preferred_format, ratio, min_start_time)
-
-
-async def get_stream_ng(sub_sid, ws_api):
-    try:
-        async with websockets.connect(ws_api, close_timeout=REQUEST_TIMEOUT) as websocket:
-            await asyncio.wait_for(websocket.send(
-                array.array('B', get_living_info_request(sub_sid)).tobytes()
-            ), timeout=REQUEST_TIMEOUT)
-
-            greeting = await asyncio.wait_for(websocket.recv(), timeout=REQUEST_TIMEOUT)
-        living_info = get_living_info_response([each for each in greeting])
-    except (OSError, ValueError, websockets.exceptions.WebSocketException, asyncio.TimeoutError):
-        return False
-
-    logger.debug(f'parse_by_ws({sub_sid}): {json.dumps(living_info)}')
-
-    if not living_info['bIsLiving']:
-        return False
-
-    stream_info = living_info['tNotice']['vStreamInfo']['value']
-
-    if not stream_info:
-        return False
-
-    return stream_info
-
-
-def get_living_info_request(sub_sid):
-    return json.loads(subprocess.run([
-        *TAF_COMMAND, 'GetLivingInfoReq', str(sub_sid)
-    ], stdout=subprocess.PIPE).stdout.decode())
-
-
-def get_living_info_response(binary_array):
-    return json.loads(subprocess.run([
-        *TAF_COMMAND, 'GetLivingInfoRsp', str(binary_array)
-    ], stdout=subprocess.PIPE).stdout.decode())
-
-
 def get_stream(room_id, **kwargs):
     try:
         res = requests.get('https://m.huya.com/{0}'.format(room_id), headers={
@@ -118,15 +59,10 @@ def get_stream(room_id, **kwargs):
     ratio = '' if kwargs.get('ratio') is None else kwargs['ratio']
     min_start_time = '' if kwargs.get('min_start_time') is None else kwargs['min_start_time']
 
-    ws_api = random.choice(kwargs['ws_apis']) if 'ws_apis' in kwargs else WS_API
     preferred_cdn_type = kwargs['preferred_cdn_type'] if 'preferred_cdn_type' in kwargs else PREFERRED_CDN_TYPE
     preferred_format = kwargs['preferred_format'] if 'preferred_format' in kwargs else PREFERRED_FORMAT
 
     result = parse_by_mini_program(sub_sid, preferred_cdn_type, preferred_format, ratio, min_start_time)
-    if result:
-        return result
-
-    result = parse_by_ws(sub_sid, ws_api, preferred_cdn_type, preferred_format, ratio, min_start_time)
     if result:
         return result
 
@@ -161,9 +97,7 @@ def parse_stream_info(stream_info, preferred_cdn_type, preferred_format, ratio, 
     if not start_time or start_time < min_start_time:
         return ''
 
-    logger.info('caller: {0}, start_time: {1}, result: {2}'.format(
-        inspect.stack()[1][3], start_time, result
-    ))
+    logger.info(f'parse_stream_info: start_time: {start_time}, result: {result}')
 
     return result
 

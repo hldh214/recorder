@@ -15,21 +15,14 @@ import recorder.destination.youtube
 import recorder.ffmpeg as ffmpeg
 import recorder.utils
 
-from recorder import logger, base_path, video_name_sep
+from recorder import logger
 
 huya_danmaku_mongo = None
 if recorder.config['app'].get('mongo_dsn'):
     import recorder.utils.huya_danmaku_mongo as huya_danmaku_mongo
 
-if os.name == 'nt':
-    video_name_sep = '__'
-
 video_extension = 'mp4'
 vtt_caption_extension = 'vtt'
-
-datetime_format = '%Y-%m-%d %H:%M:%S'
-if os.name == 'nt':
-    datetime_format = '%Y-%m-%d %H-%M-%S'
 
 
 def record_thread(source_type, room_id, interval=5, **kwargs):
@@ -37,7 +30,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 
     tz = pytz.timezone(kwargs['app'].get('timezone', 'Asia/Hong_Kong'))
 
-    video_folder_path = os.path.join(base_path, kwargs['app']['video_path'])
+    video_folder_path = os.path.join(recorder.base_path, kwargs['app']['video_path'])
 
     while True:
         flv_url = source.get_stream(room_id, **kwargs)
@@ -47,7 +40,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             continue
 
         folder_path = os.path.join(video_folder_path, 'record', source_type, kwargs['source_name'])
-        start = datetime.datetime.now(tz).strftime(datetime_format)
+        start = datetime.datetime.now(tz).strftime(recorder.datetime_format)
         filename = f'{start}.{video_extension}'
         pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
         output_file = os.path.join(folder_path, filename)
@@ -70,7 +63,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         if not kwargs.get('auto_upload'):
             continue
 
-        if kwargs.get('auto_upload_minimal_size', 0) > get_file_size(output_file):
+        if kwargs.get('auto_upload_minimal_size', 0) > recorder.utils.get_file_size(output_file):
             logger.info(f'auto_upload_minimal_size > get_file_size(output_file): {output_file}')
             continue
 
@@ -124,7 +117,7 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
 
             room_id = config['source'].get(source_name).get('room_id')
             start = filename_datetime
-            end = ffmpeg.calc_end_time(video_path, start, datetime_format)
+            end = ffmpeg.calc_end_time(video_path, start, recorder.datetime_format)
             description = current_config.get('description', '')
             caption_folder_path = os.path.join(
                 os.path.abspath(config['app']['danmaku_path']), source_type, source_name
@@ -186,7 +179,7 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
 
             pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
 
-            os.rename(video_path, os.path.join(dst_dir, f'{video_id}{video_name_sep}{split_video_path[-1]}'))
+            os.rename(video_path, os.path.join(dst_dir, f'{video_id}{recorder.video_name_sep}{split_video_path[-1]}'))
 
         time.sleep(interval)
 
@@ -209,7 +202,7 @@ def validate_thread(config, youtube, interval=3600):
 
         for video_path in videos:
             split_video_path = video_path.split(os.sep)
-            video_id = split_video_path[-1].split(video_name_sep)[0]
+            video_id = split_video_path[-1].split(recorder.video_name_sep)[0]
 
             if not config['app']['upload_validate']:
                 continue
@@ -236,10 +229,6 @@ def upload_validator(config, youtube):
     )
     task.daemon = True
     task.start()
-
-
-def get_file_size(path):
-    return float('{:f}'.format(pathlib.Path(path).stat().st_size / 1024 / 1024))
 
 
 def main():

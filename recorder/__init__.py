@@ -4,7 +4,11 @@ import pathlib
 
 import toml
 
+datetime_format = '%Y-%m-%d %H:%M:%S'
 video_name_sep = '|'
+if os.name == 'nt':
+    datetime_format = '%Y-%m-%d %H-%M-%S'
+    video_name_sep = '__'
 
 base_path = pathlib.Path(os.path.abspath(__file__)).parent.parent
 
