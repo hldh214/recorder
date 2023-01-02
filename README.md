@@ -17,7 +17,7 @@ These instructions will get you a copy of the project up and running on your loc
 
 ### From Docker
 
-[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/hldh214/recorder/Docker%20Image%20CI.svg)](https://github.com/hldh214/recorder/pkgs/container/recorder)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/hldh214/recorder/docker-image.yml?branch=master)](https://github.com/hldh214/recorder/pkgs/container/recorder)
 
 ``` shell
 docker run -d --name recorder --restart always -v /path/to/your/config.toml:/app/config.toml -v /path/to/your/videos:/app/videos ghcr.io/hldh214/recorder
