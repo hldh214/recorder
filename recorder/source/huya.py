@@ -116,7 +116,7 @@ def get_stream(room_id, **kwargs):
     sub_sid = sub_sid_result[0]
 
     ratio = '' if kwargs.get('ratio') is None else kwargs['ratio']
-    min_start_time = '' if kwargs.get('min_start_time') is None else kwargs['min_start_time']
+    min_start_time = 0 if kwargs.get('min_start_time') is None else kwargs['min_start_time']
 
     ws_api = random.choice(kwargs['ws_apis']) if 'ws_apis' in kwargs else WS_API
     preferred_cdn_type = kwargs['preferred_cdn_type'] if 'preferred_cdn_type' in kwargs else PREFERRED_CDN_TYPE
