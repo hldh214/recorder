@@ -12,7 +12,7 @@ import requests
 import websockets
 import websockets.exceptions
 
-from recorder import logger, ffmpeg
+from recorder import ffmpeg, logger
 
 REQUEST_TIMEOUT = 5
 WS_API = 'wss://wsapi.huya.com'
