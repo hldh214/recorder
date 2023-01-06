@@ -27,7 +27,7 @@ def get_stream(room_id, **kwargs):
 
     room_data = render_data['app']['initialState']['roomStore']['roomInfo']['room']
 
-    logger.info(f'[{room_id}]room_data: {json.dumps(room_data)}')
+    logger.debug(f'[{room_id}]room_data: {json.dumps(room_data)}')
 
     if 'stream_url' not in room_data:
         return False
