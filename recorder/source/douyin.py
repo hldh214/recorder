@@ -12,11 +12,14 @@ render_data_pattern = re.compile(r'<script\s+id="RENDER_DATA"\s+type="applicatio
 def get_stream(room_id, **kwargs):
     min_start_time = 0 if kwargs.get('min_start_time') is None else kwargs['min_start_time']
 
-    res = requests.get(f'https://live.douyin.com/{room_id}', headers={
-        'cookie': '__ac_nonce=063b59ce0001243a9217f;',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                      'Chrome/108.0.0.0 Safari/537.36'
-    })
+    try:
+        res = requests.get(f'https://live.douyin.com/{room_id}', headers={
+            'cookie': '__ac_nonce=063b59ce0001243a9217f;',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                          'Chrome/108.0.0.0 Safari/537.36'
+        })
+    except requests.exceptions.RequestException:
+        return False
 
     render_data_result = render_data_pattern.findall(res.text)
 
