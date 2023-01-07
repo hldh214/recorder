@@ -797,9 +797,33 @@
                         // ======================== recorder modification start ========================
                         window.data_n = n;
                         (() => {
+                            // pause video player
+                            if ($('.xgplayer-play').getAttribute('data-state') === 'play') {
+                                $('.xgplayer-play').click();
+                            }
+                            // disable danmaku display on video player
+                            if ($('.danmu-icon').getAttribute('data-state') === 'active') {
+                                $('.danmu-icon').click();
+                            }
+                            // disable gift display on video player
+                            if (document.querySelectorAll('.fHknbHHl')[2].querySelectorAll('div')[0].innerHTML === '屏蔽礼物特效') {
+                                document.querySelectorAll('.fHknbHHl')[2].querySelectorAll('div')[1].click();
+                            }
+
+                            // no danmaku monitor interval
+                            if (!window.danmakuMonitorInterval) {
+                                window.danmakuMonitorInterval = setInterval(() => {
+                                    // reload page
+                                    window.location.reload();
+                                }, 1000 * 10);
+                            }
+
                             if (window.ws_rpc_client && window.ws_rpc_client.readyState !== WebSocket.CLOSED) {
                                 if (window.ws_rpc_client.readyState === WebSocket.OPEN) {
                                     window.ws_rpc_client.send(JSON.stringify(window.data_n));
+                                    // clear danmaku monitor interval
+                                    clearInterval(window.danmakuMonitorInterval);
+                                    window.danmakuMonitorInterval = null;
                                 }
                             } else {
                                 window.ws_rpc_client = new WebSocket('ws://localhost:18964');
