@@ -28,14 +28,22 @@ def get_stream(room_id, **kwargs):
 
     render_data = json.loads(urllib.parse.unquote(render_data_result[0]))
 
-    room_data = render_data['app']['initialState']['roomStore']['roomInfo']['room']
+    try:
+        room_data = render_data['app']['initialState']['roomStore']['roomInfo']['room']
+    except KeyError:
+        logger.error(f'Failed to get room data, render_data: {render_data}')
+        return False
 
     logger.debug(f'[{room_id}]room_data: {json.dumps(room_data)}')
 
     if 'stream_url' not in room_data:
         return False
 
-    result = room_data['stream_url']['flv_pull_url']['FULL_HD1']
+    try:
+        result = room_data['stream_url']['flv_pull_url']['FULL_HD1']
+    except KeyError:
+        logger.error(f'Failed to get stream url, room_data: {room_data}')
+        return False
 
     start_time = ffmpeg.start_time(result)
     if not start_time or start_time < min_start_time:
