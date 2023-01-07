@@ -798,12 +798,12 @@
                         window.data_n = n;
                         (() => {
                             // pause video player
-                            if ($('.xgplayer-play').getAttribute('data-state') === 'play') {
-                                $('.xgplayer-play').click();
+                            if (document.querySelector('.xgplayer-play').getAttribute('data-state') === 'play') {
+                                document.querySelector('.xgplayer-play').click();
                             }
                             // disable danmaku display on video player
-                            if ($('.danmu-icon').getAttribute('data-state') === 'active') {
-                                $('.danmu-icon').click();
+                            if (document.querySelector('.danmu-icon').getAttribute('data-state') === 'active') {
+                                document.querySelector('.danmu-icon').click();
                             }
                             // disable gift display on video player
                             if (document.querySelectorAll('.fHknbHHl')[2].querySelectorAll('div')[0].innerHTML === '屏蔽礼物特效') {
