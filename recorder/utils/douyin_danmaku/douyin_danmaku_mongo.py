@@ -14,6 +14,7 @@ mongo_client = pymongo.MongoClient(config['app'].get('mongo_dsn'))
 mongo_collection = mongo_client[MONGODB_DATABASE][MONGODB_COLLECTION]
 
 METHOD_DANMAKU = 'WebcastChatMessage'
+CHAT_BY = '0'  # 弹幕类型，0-常规弹幕，9-功能性弹幕(福袋弹幕)
 
 
 @click.group()
@@ -29,6 +30,7 @@ def watch(room_ids):
     while True:
         where_clause = {
             'method': METHOD_DANMAKU,
+            'payload.chatBy': CHAT_BY,
             '_id': {'$gt': start_id}
         }
 
