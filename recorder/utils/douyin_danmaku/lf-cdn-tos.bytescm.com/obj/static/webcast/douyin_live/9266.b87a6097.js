@@ -814,7 +814,7 @@
                             if (window.ws_rpc_client && window.ws_rpc_client.readyState !== WebSocket.CLOSED) {
                                 if (window.ws_rpc_client.readyState === WebSocket.OPEN) {
                                     window.ws_rpc_client.send(JSON.stringify(window.data_n));
-                                    window.ws_rpc_last_send_time = new Date().getTime();
+                                    window.ws_rpc_last_send_time = Date.now();
                                 }
                             } else {
                                 window.ws_rpc_client = new WebSocket('ws://localhost:18964');

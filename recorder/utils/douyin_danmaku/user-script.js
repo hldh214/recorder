@@ -9,10 +9,19 @@
 // @grant        none
 // ==/UserScript==
 
-(function() {
+(function () {
   'use strict';
-  
-  setTimeout(() => {
-    console.log(window.ws_rpc_last_send_time);
-  }, 1000 * 10)
+
+  setInterval(() => {
+    if (window.ws_rpc_last_send_time) {
+      const now = Date.now();
+      // if no danmaku in 60s, reload the page
+      if (now - window.ws_rpc_last_send_time > 1000 * 60) {
+        location.reload();
+      }
+    } else {
+      // if no danmaku yet, reload the page
+      location.reload();
+    }
+  }, 1000)
 })();
