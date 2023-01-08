@@ -1,9 +1,7 @@
 import asyncio
 import csv
-import datetime
 import json
 import logging
-import os
 import pathlib
 import traceback
 import urllib.parse
@@ -13,15 +11,17 @@ import time
 
 import arrow
 import bson
-import cachetools
 import click
 import jwt
 import pymongo.errors
 import tenacity
 import websockets
 
-from recorder import config, video_name_sep
+import recorder.danmaku
+from recorder import config
+from recorder.danmaku import parse_datetime, get_info_from_path
 from recorder.destination.youtube import Youtube
+from recorder.danmaku.caption import Caption
 
 WS_HOST = 'ws-apiext.huya.com'
 NOTICE_MAP = {
@@ -39,10 +39,6 @@ NOTICE_DATA = list(NOTICE_MAP.keys())
 DANMAKU_MSG_TYPE = 0  # 弹幕类型，0-常规弹幕，1-功能性弹幕(诸如部分投票/战队支持等相关弹幕)，2-上电视弹幕
 DANMAKU_NOTICE = 'getMessageNotice'
 
-CAPTION_MINIMAL_INTERVAL = 0.1  # 两条字幕之间间隔不小于 0.1 秒, 为了字幕播放性能
-CONTENT_TTL = 4  # 弹幕展示时间 (秒)
-CONTENT_MAXSIZE = 6  # 最多一次显示多少条弹幕
-
 # spam 弹幕正则过滤
 CONTENT_FILTER_PATTERNS = (
     re.compile(r'^/{'),  # 过滤表情开头的弹幕(通常全是表情)
@@ -53,19 +49,6 @@ UNION_ID_FILTER_LIST = (
     'un8RvnUOwsr6J3xq8uAXTzmtxs00GClkrY',  # 668668 直播间的 [你猜]
 )
 
-VTT_TIME_FORMAT = 'HH:mm:ss.SSS'
-VTT_HEADERS = '''\
-WEBVTT
-Kind: captions
-Language: zh-Hans
-
-'''
-
-DATETIME_FORMAT = 'YYYY-MM-DD HH:mm:ss'
-if os.name == 'nt':
-    DATETIME_FORMAT = 'YYYY-MM-DD HH-mm-ss'
-
-TZ_INFO = 'Asia/Shanghai'
 MONGODB_DATABASE = 'recorder'
 MONGODB_COLLECTION = 'huya_danmaku'
 
@@ -118,10 +101,6 @@ async def consumer_handler(websocket):
         mongo_collection.insert_one(json.loads(message))
 
 
-def parse_datetime(obj):
-    return arrow.get(obj if isinstance(obj, datetime.datetime) else arrow.get(obj, DATETIME_FORMAT), tzinfo=TZ_INFO)
-
-
 def find_danmaku(room_id, start=None, end=None):
     where_clause = {
         'notice': DANMAKU_NOTICE,
@@ -156,87 +135,31 @@ def is_spam(content):
     return False
 
 
-class Timer:
-    """
-    custom timer for `TTLCache`
-    """
-
-    def __init__(self, ts):
-        self.ts = ts
-
-    def timer(self):
-        return self.ts
-
-
-class Caption:
-    def __init__(self, iterator, started_at):
-        self.iterator = iterator
-        self.started_at = started_at
-
-    def to_vtt(self, output_path):
-        last_modified_at = self.started_at
-        timer = Timer(self.started_at.timestamp())
-        ttl_cache = cachetools.TTLCache(maxsize=CONTENT_MAXSIZE, ttl=CONTENT_TTL, timer=timer.timer)
-        last_context = {'ts': None, 'contents': []}
-
-        with open(output_path, 'w', encoding='utf8') as fp:
-            fp.write(VTT_HEADERS)
-
-            for each in self.iterator:
-                content = each['data']['content']
-
-                if is_spam(content):
-                    continue
-
-                current_time = arrow.get(each['_id'].generation_time)
-                ts_seconds = current_time.timestamp() - self.started_at.timestamp()
-                ts = arrow.get(ts_seconds)
-
-                timer.ts = current_time.timestamp()
-                cache_key = f'{ts.format(VTT_TIME_FORMAT)}\n{content}'
-                ttl_cache[cache_key] = content
-                content_list = list(ttl_cache.values())  # 获取当前字幕需要展示的所有弹幕
-
-                if not last_context['contents']:
-                    # 第一次循环
-                    last_context['ts'] = ts
-                    last_context['contents'] = content_list
-                    continue
-
-                caption_interval = current_time - last_modified_at
-                if caption_interval.seconds < CAPTION_MINIMAL_INTERVAL:
-                    # 控制两条字幕之间间隔时间
-                    last_context['contents'] = content_list
-                    continue
-
-                last_start = last_context['ts']
-                last_end = ts if ts.shift(seconds=-CONTENT_TTL) < last_start else last_start.shift(seconds=CONTENT_TTL)
-
-                line = f'{last_start.format(VTT_TIME_FORMAT)} --> {last_end.format(VTT_TIME_FORMAT)}\n'
-
-                for each_content in last_context['contents']:
-                    line += f'{each_content}\n'
-
-                line += '\n'
-                fp.write(line)
-
-                last_context['ts'] = ts
-                last_context['contents'] = content_list
-                last_modified_at = current_time
+def prepare_iterator_for_caption(danmaku):
+    return (
+        {
+            'generation_time': each['_id'].generation_time,
+            'content': each['data']['content'],
+        }
+        for each in danmaku
+        if not is_spam(each['data']['content'])
+    )
 
 
-def get_info_from_path(path):
-    abspath = pathlib.Path(path).resolve()
-    start = abspath.parts[-1].split('.')[0]
+def generate_highlights_from_video(path, video_id):
+    source_config, start, end = get_info_from_path(path)
+    highlights = generate_highlights(source_config['room_id'], start, end)
 
-    if video_name_sep in start:
-        start = start.split(video_name_sep)[-1]
+    if not highlights:
+        logging.critical(f'Generate highlights failed, path: {path}, video_id: {video_id}')
+        return False
 
-    source_name = abspath.parts[-2]
-    end = arrow.get(abspath.stat().st_mtime).to(TZ_INFO).format(DATETIME_FORMAT)
-    current_config = config.get('source').get(source_name)
+    youtube = Youtube(config.get('youtube'))
 
-    return current_config, start, end
+    description = source_config.get('description', '') + '\n\n' + highlights
+    title = source_config['title'].format(datetime=start)
+
+    return youtube.update(video_id, title, description)
 
 
 def generate(room_id, output_path, start, end):
@@ -245,7 +168,7 @@ def generate(room_id, output_path, start, end):
     if not danmaku:
         return False
 
-    caption = Caption(danmaku, parse_datetime(start))
+    caption = Caption(prepare_iterator_for_caption(danmaku), parse_datetime(start))
     caption.to_vtt(output_path)
 
     return True
@@ -264,68 +187,13 @@ def generate_from_video(path, video_id):
     return youtube.add_caption(video_id, output_path)
 
 
-def generate_highlights(room_id, start, end, topn=10, minute_gap=10):
-    fmt = 'HH:mm'
+def generate_highlights(room_id, start, end):
     danmaku = find_danmaku(room_id, start, end)
 
     if not danmaku:
-        return ''
-
-    highlight_map = {}
-    for each in danmaku:
-        current_time = arrow.get(each['_id'].generation_time)
-        ts_seconds = current_time.timestamp() - parse_datetime(start).timestamp()
-        time_in_minutes = arrow.get(ts_seconds).format(fmt)
-
-        if time_in_minutes not in highlight_map:
-            highlight_map[time_in_minutes] = 1
-        else:
-            highlight_map[time_in_minutes] += 1
-
-    # sort by value
-    highlights = sorted(highlight_map.items(), key=lambda x: x[1], reverse=True)
-
-    # [ [time_in_minute, heat, topN], ... ]
-    result = []
-    index = 0
-    # topN with minute_gap
-    while len(result) < topn:
-        if not highlights:
-            break
-
-        item = highlights.pop(0)
-        insertable = True
-        for each in result:
-            diff = arrow.get(each[0], fmt) - arrow.get(item[0], fmt)
-            if abs(diff.total_seconds()) < minute_gap * 60:
-                insertable = False
-
-        if insertable:
-            index += 1
-            result.append([item[0], item[1], index])
-
-    result = sorted(result, key=lambda x: x[0])
-
-    if not result:
-        return ''
-
-    return 'Highlights\n00:00 Start\n' + '\n'.join([f'{each[0]}:00 Top{each[2]} ({each[1]}🔥)' for each in result])
-
-
-def generate_highlights_from_video(path, video_id):
-    source_config, start, end = get_info_from_path(path)
-    highlights = generate_highlights(source_config['room_id'], start, end)
-
-    if not highlights:
-        logging.critical(f'Generate highlights failed, path: {path}, video_id: {video_id}')
         return False
 
-    youtube = Youtube(config.get('youtube'))
-
-    description = source_config.get('description', '') + '\n\n' + highlights
-    title = source_config['title'].format(datetime=start)
-
-    return youtube.update(video_id, title, description)
+    return recorder.danmaku.generate_highlights(danmaku, start)
 
 
 @click.group()

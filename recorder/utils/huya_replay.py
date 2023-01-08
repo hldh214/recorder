@@ -8,8 +8,7 @@ import grequests
 
 import recorder.source.huya
 import recorder.ffmpeg
-
-TZ_INFO = 'Asia/Shanghai'
+from recorder import TZ_INFO
 
 
 @click.group()

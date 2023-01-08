@@ -4,7 +4,15 @@ import pathlib
 
 import toml
 
+TZ_INFO = 'Asia/Shanghai'
+
 video_name_sep = '|'
+if os.name == 'nt':
+    video_name_sep = '__'
+
+ARROW_DATETIME_FORMAT = 'YYYY-MM-DD HH:mm:ss'
+if os.name == 'nt':
+    ARROW_DATETIME_FORMAT = 'YYYY-MM-DD HH-mm-ss'
 
 base_path = pathlib.Path(os.path.abspath(__file__)).parent.parent
 

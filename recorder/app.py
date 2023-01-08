@@ -19,10 +19,7 @@ from recorder import logger, base_path, video_name_sep
 
 huya_danmaku_mongo = None
 if recorder.config['app'].get('mongo_dsn'):
-    import recorder.utils.huya_danmaku_mongo as huya_danmaku_mongo
-
-if os.name == 'nt':
-    video_name_sep = '__'
+    import recorder.danmaku.huya.huya_danmaku_mongo as huya_danmaku_mongo
 
 video_extension = 'mp4'
 vtt_caption_extension = 'vtt'
@@ -132,6 +129,7 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
             pathlib.Path(caption_folder_path).mkdir(parents=True, exist_ok=True)
             vtt_caption_path = os.path.join(caption_folder_path, f'{video_filename}.{vtt_caption_extension}')
 
+            # todo: improve this
             if source_type == 'huya' and huya_danmaku_mongo:
                 # generate highlights
                 try:
