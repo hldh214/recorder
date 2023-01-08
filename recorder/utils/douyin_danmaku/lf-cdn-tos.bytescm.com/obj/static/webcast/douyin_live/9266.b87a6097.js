@@ -1,4 +1,14 @@
 "use strict";
+
+(() => {
+    // no danmaku monitor interval at page init
+    if (!window.danmakuMonitorTimeout) {
+        window.danmakuMonitorTimeout = setTimeout(() => {
+            window.location.reload();
+        }, 1000 * 10);
+    }
+})();
+
 (self.__LOADABLE_LOADED_CHUNKS__ = self.__LOADABLE_LOADED_CHUNKS__ || []).push([[9266], {
     73569: function(e, t, n) {
         var r, a = n(44503);
@@ -810,20 +820,14 @@
                                 document.querySelectorAll('.fHknbHHl')[2].querySelectorAll('div')[1].click();
                             }
 
-                            // no danmaku monitor interval
-                            if (!window.danmakuMonitorInterval) {
-                                window.danmakuMonitorInterval = setInterval(() => {
-                                    // reload page
-                                    window.location.reload();
-                                }, 1000 * 10);
-                            }
-
                             if (window.ws_rpc_client && window.ws_rpc_client.readyState !== WebSocket.CLOSED) {
                                 if (window.ws_rpc_client.readyState === WebSocket.OPEN) {
                                     window.ws_rpc_client.send(JSON.stringify(window.data_n));
                                     // clear danmaku monitor interval
-                                    clearInterval(window.danmakuMonitorInterval);
-                                    window.danmakuMonitorInterval = null;
+                                    clearTimeout(window.danmakuMonitorTimeout);
+                                    window.danmakuMonitorTimeout = setTimeout(() => {
+                                        window.location.reload();
+                                    }, 1000 * 10);
                                 }
                             } else {
                                 window.ws_rpc_client = new WebSocket('ws://localhost:18964');
