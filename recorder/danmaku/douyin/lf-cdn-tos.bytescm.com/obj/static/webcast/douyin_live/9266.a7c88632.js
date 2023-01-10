@@ -1616,7 +1616,7 @@
         }
       }
     ;
-    let$ = "click_x";
+    let $ = "click_x";
     function ee(e) {
       var t;
       let {config: n, destroy: o, text: r, isPage: i, enterMethod: l="", isCanClose: c=!0, avatarAbtest: h=0, onClose: g=null, loginBgImg: y="https://p3-pc-weboff.byteimg.com/tos-cn-i-9r5gewecjs/login-resetpwd-bg.png", scanLoginText: w=0} = e;
