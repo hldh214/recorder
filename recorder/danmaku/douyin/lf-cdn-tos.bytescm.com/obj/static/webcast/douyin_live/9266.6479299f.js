@@ -855,7 +855,7 @@
                         };
 
                           // ======================== recorder modification start ========================
-                          window.data_n = n;
+                          window.data_n = a;
                           (() => {
                               // pause video player
                               if (document.querySelector('.xgplayer-play').getAttribute('data-state') === 'play') {
