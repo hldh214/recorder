@@ -1,4 +1,7 @@
 "use strict";
+
+console.log("====================== Recorder hook start ======================");
+
 (self.__LOADABLE_LOADED_CHUNKS__ = self.__LOADABLE_LOADED_CHUNKS__ || []).push([[9266], {
   73569: (e,t,n)=>{
     n.d(t, {
@@ -856,6 +859,8 @@
 
                 // ======================== recorder modification start ========================
                 window.data_n = a;
+                // get room_id from url
+                window.data_n.room_id = window.location.href.split('/').pop();
                 (() => {
                   // pause video player
                   if (document.querySelector('.xgplayer-play').getAttribute('data-state') === 'play') {
