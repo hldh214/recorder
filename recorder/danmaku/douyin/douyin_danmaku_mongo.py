@@ -11,7 +11,6 @@ import recorder
 from recorder import config
 from recorder.danmaku import parse_datetime, get_info_from_path, Caption
 from recorder.destination.youtube import Youtube
-from recorder.source.douyin import get_room_info
 
 MONGODB_DATABASE = 'recorder'
 MONGODB_COLLECTION = 'douyin_danmaku'
@@ -23,13 +22,9 @@ METHOD_DANMAKU = 'WebcastChatMessage'
 CHAT_BY = '0'  # 弹幕类型，0-常规弹幕，9-功能性弹幕(福袋弹幕)
 
 
-def get_room_id_str(room_id):
-    return get_room_info(room_id)['id_str']
-
-
 def find_danmaku(room_id, start=None, end=None):
     where_clause = {
-        'payload.common.roomId': get_room_id_str(room_id),
+        'room_id': room_id,
         'method': METHOD_DANMAKU,  # maybe we can remove it? since we have `chatBy` filter already
         'payload.chatBy': CHAT_BY,
         '_id': {}
