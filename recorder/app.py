@@ -18,8 +18,10 @@ import recorder.utils
 from recorder import logger, base_path, video_name_sep
 
 huya_danmaku_mongo = None
+douyin_danmaku_mongo = None
 if recorder.config['app'].get('mongo_dsn'):
     import recorder.danmaku.huya.huya_danmaku_mongo as huya_danmaku_mongo
+    import recorder.danmaku.douyin.douyin_danmaku_mongo as douyin_danmaku_mongo
 
 video_extension = 'mp4'
 vtt_caption_extension = 'vtt'
@@ -130,6 +132,17 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
             vtt_caption_path = os.path.join(caption_folder_path, f'{video_filename}.{vtt_caption_extension}')
 
             # todo: improve this
+            if source_type == 'douyin' and douyin_danmaku_mongo:
+                try:
+                    description += '\n\n' + douyin_danmaku_mongo.gen_caption_and_return_highlights(
+                        room_id, start, end, vtt_caption_path
+                    )
+                except Exception:
+                    logger.warning(
+                        'douyin_danmaku_mongo.gen_caption_and_return_highlights raise exception: ' +
+                        traceback.format_exc()
+                    )
+
             if source_type == 'huya' and huya_danmaku_mongo:
                 # generate highlights
                 try:

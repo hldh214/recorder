@@ -58,8 +58,7 @@ def prepare_iterator_for_caption(danmaku):
 def gen_caption_and_return_highlights(room_id, start, end, caption_output_path):
     danmaku = find_danmaku(room_id, start, end)
 
-    if not danmaku:
-        return False
+    assert danmaku is not False
 
     highlights = recorder.danmaku.generate_highlights(danmaku, start)
 
