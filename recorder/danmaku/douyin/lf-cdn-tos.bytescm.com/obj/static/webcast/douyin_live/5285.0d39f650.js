@@ -952,7 +952,7 @@ console.log("======================== Recorder hook start ======================
                               // ======================== recorder modification start ========================
                               window.data_n = i;
                               // get room_id from url
-                              window.data_n.room_id = window.location.href.split('/').pop();
+                              window.data_n.room_id = (new URL(window.location.href)).pathname.split('/')[1];
                               (() => {
                                 // pause video player
                                 if (document.querySelector('.xgplayer-play').getAttribute('data-state') === 'play') {
