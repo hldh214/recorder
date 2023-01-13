@@ -97,7 +97,7 @@ def watch(room_ids):
         }
 
         if room_ids:
-            where_clause.update({'payload.common.roomId': {'$in': room_ids}})
+            where_clause.update({'room_id': {'$in': room_ids}})
 
         cursor = mongo_collection.find(where_clause)
 
@@ -109,7 +109,7 @@ def watch(room_ids):
                     .to('Asia/Hong_Kong') \
                     .format('YYYY-MM-DD HH:mm:ss')
                 payload = doc.get('payload')
-                room_id = payload.get('common').get('roomId')
+                room_id = doc.get('room_id')
                 sender_nick = payload.get('user').get('nickname')
                 content = payload.get('content')
                 print(f'{generation_time}: {room_id}: {sender_nick}: {content}')
