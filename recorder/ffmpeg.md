@@ -19,3 +19,9 @@ ffmpeg -hide_banner -init_hw_device qsv=hw -filter_hw_device hw -i input.mp4 -c:
 ```bash
 ffmpeg -hide_banner -hwaccel dxva2 -c:v h264_dxva2 -i input.mp4 -c:a copy -c:v h264_amf output_amf.mp4
 ```
+
+## mute part of video
+
+```bash
+ffmpeg -hide_banner -i input.mp4 -af "volume=enable='between(t,2*2600+15*60+6,2*3600+18*60+10)':volume=0" -c:v copy output.mp4
+```
