@@ -21,6 +21,7 @@ pymongo = {extras = ["srv"], version = "==4.*"}
 click = "==8.*"
 PyJWT = "==2.*"
 protobuf = "==3.19.0"
+playwright = "==1.29.*"
 
 [dev-packages]
 
