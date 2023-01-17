@@ -18,11 +18,10 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 async def consumer_handler(websocket):
     async for message in websocket:
-        logging.info(message)
         msg_decoded = json.loads(message)
         mongo_collection.insert_one(msg_decoded)
-        # if msg_decoded['method'] == 'WebcastChatMessage':
-        #     print(msg_decoded['payload']['content'])
+        if msg_decoded['method'] == 'WebcastChatMessage':
+            logging.info(msg_decoded['payload']['content'])
 
 
 async def main():

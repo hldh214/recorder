@@ -23,5 +23,5 @@
       // if no danmaku yet, reload the page
       location.reload();
     }
-  }, 1000 * 10)
+  }, 1000 * 60)
 })();
