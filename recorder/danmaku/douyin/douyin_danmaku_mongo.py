@@ -45,7 +45,7 @@ def find_danmaku(room_id, start=None, end=None):
     return mongo_collection.aggregate([
         {'$match': where_clause},
         {'$group': {'_id': "$msgId", 'doc': {'$first': "$$ROOT"}}},
-        {'$sort': {'_id': 1}},
+        {'$sort': {'doc._id': 1}},
         {'$replaceRoot': {'newRoot': '$doc'}},
     ])
 
