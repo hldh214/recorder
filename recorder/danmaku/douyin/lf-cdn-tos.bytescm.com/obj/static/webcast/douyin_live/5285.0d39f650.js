@@ -1,6 +1,18 @@
 "use strict";
 
 console.log("======================== Recorder hook start ========================");
+window.danmaku_reload_interval = setInterval(() => {
+  if (window.ws_rpc_last_send_time) {
+    const now = Date.now();
+    // if no danmaku in 60s, reload the page
+    if (now - window.ws_rpc_last_send_time > 1000 * 60) {
+      location.reload();
+    }
+  } else {
+    // if no danmaku yet, reload the page
+    location.reload();
+  }
+}, 1000 * 60);
 
 (self.__LOADABLE_LOADED_CHUNKS__ = self.__LOADABLE_LOADED_CHUNKS__ || []).push([[5285], {
   75570: (e,t,n)=>{
