@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         douyin-danmaku
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  Detect if still recording and send danmaku to ws-server, otherwise reload the page.
 // @author       You
 // @match        https://live.douyin.com/590890573
@@ -11,6 +11,8 @@
 
 (function () {
   'use strict';
+  
+  console.log('douyin-danmaku loaded');
 
   setInterval(() => {
     if (window.ws_rpc_last_send_time) {
