@@ -14,7 +14,7 @@ notifiers = "==1.2.1"
 websockets = "==10.*"
 pandas = "==1.*"
 grequests = "==0.6.*"
-cachetools = "==4.2.*"
+cachetools = "==5.2.*"
 arrow = "==1.*"
 tenacity = "==8.*"
 pymongo = {extras = ["srv"], version = "==4.*"}
