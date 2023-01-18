@@ -6,7 +6,7 @@ import click
 
 from recorder.source import douyin
 
-chrome_path = r'C:\Program Files\Google\Chrome\Application\chrome.exe'
+chrome_path = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
 
 
 @click.group()
