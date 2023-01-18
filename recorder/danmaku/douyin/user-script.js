@@ -11,7 +11,7 @@
 
 (function () {
   'use strict';
-  
+
   console.log('douyin-danmaku loaded');
 
   setInterval(() => {
