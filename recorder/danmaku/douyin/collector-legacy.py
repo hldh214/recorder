@@ -6,6 +6,8 @@ import click
 
 from recorder.source import douyin
 
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+
 
 @click.group()
 def cli():
