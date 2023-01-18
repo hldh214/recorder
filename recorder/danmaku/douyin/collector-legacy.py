@@ -6,8 +6,6 @@ import click
 
 from recorder.source import douyin
 
-chrome_path = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
-
 
 @click.group()
 def cli():
@@ -25,7 +23,7 @@ def sub(room_id, interval):
             continue
 
         logging.info(f'Live started: {room_id}')
-        webbrowser.get(chrome_path).open(f'https://live.douyin.com/{room_id}')
+        webbrowser.open(f'https://live.douyin.com/{room_id}')
 
         while True:
             time.sleep(interval)
