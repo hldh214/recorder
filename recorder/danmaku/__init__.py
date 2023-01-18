@@ -38,7 +38,7 @@ def generate_highlights(danmaku, start, topn=10, minute_gap=10):
 
     highlight_map = {}
     for each in danmaku:
-        current_time = arrow.get(each['_id'].generation_time)
+        current_time = arrow.get(each['generation_time'])
         ts_seconds = current_time.timestamp() - parse_datetime(start).timestamp()
         time_in_minutes = arrow.get(ts_seconds).format(fmt)
 

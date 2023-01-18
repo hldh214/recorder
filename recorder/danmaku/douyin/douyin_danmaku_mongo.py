@@ -42,7 +42,12 @@ def find_danmaku(room_id, start=None, end=None):
         logging.critical(f'Mongo_collection empty, room_id: {room_id}, start: {start}, end: {end}')
         return False
 
-    return mongo_collection.find(where_clause)
+    return mongo_collection.aggregate([
+        {'$match': where_clause},
+        {'$group': {'_id': "$msgId", 'doc': {'$first': "$$ROOT"}}},
+        {'$sort': {'_id': 1}},
+        {'$replaceRoot': {'newRoot': '$doc'}},
+    ])
 
 
 def prepare_iterator_for_caption(danmaku):
@@ -60,11 +65,12 @@ def gen_caption_and_return_highlights(room_id, start, end, caption_output_path):
 
     assert danmaku is not False
 
-    highlights = recorder.danmaku.generate_highlights(danmaku, start)
+    # store it in memory for reuse
+    danmaku_list = list(prepare_iterator_for_caption(danmaku))
 
-    danmaku.rewind()
+    highlights = recorder.danmaku.generate_highlights(danmaku_list, start)
 
-    caption = Caption(prepare_iterator_for_caption(danmaku), parse_datetime(start))
+    caption = Caption(danmaku_list, parse_datetime(start))
     caption.to_vtt(caption_output_path)
 
     return highlights
@@ -85,7 +91,7 @@ def cli():
 
 
 @cli.command()
-@click.option('--room_ids', '-r', default=[], multiple=True, type=int)
+@click.option('--room_ids', '-r', default=[], multiple=True, type=str)
 def watch(room_ids):
     start_id = bson.objectid.ObjectId.from_datetime(arrow.now().datetime)
 
@@ -118,7 +124,7 @@ def watch(room_ids):
 
 
 @cli.command()
-@click.option('--room_id', '-r', type=int)
+@click.option('--room_id', '-r', type=str)
 @click.option('--start', '-s', type=click.DateTime())
 @click.option('--end', '-e', type=click.DateTime())
 @click.option('--path', '-p', type=click.Path(exists=True))
