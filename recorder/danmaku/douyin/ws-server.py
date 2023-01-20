@@ -2,16 +2,9 @@ import asyncio
 import json
 import logging
 
-import pymongo
 import websockets
 
-from recorder import config
-
-MONGODB_DATABASE = 'recorder'
-MONGODB_COLLECTION = 'douyin_danmaku'
-
-mongo_client = pymongo.MongoClient(config['app'].get('mongo_dsn'))
-mongo_collection = mongo_client[MONGODB_DATABASE][MONGODB_COLLECTION]
+from recorder import mongo_collection_douyin_danmaku as mongo_collection
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 

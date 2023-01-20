@@ -5,18 +5,11 @@ import time
 import arrow
 import bson
 import click
-import pymongo
 
 import recorder
-from recorder import config
+from recorder import config, mongo_collection_douyin_danmaku as mongo_collection
 from recorder.danmaku import parse_datetime, get_info_from_path, Caption
 from recorder.destination.youtube import Youtube
-
-MONGODB_DATABASE = 'recorder'
-MONGODB_COLLECTION = 'douyin_danmaku'
-
-mongo_client = pymongo.MongoClient(config['app'].get('mongo_dsn'))
-mongo_collection = mongo_client[MONGODB_DATABASE][MONGODB_COLLECTION]
 
 METHOD_DANMAKU = 'WebcastChatMessage'
 CHAT_BY = '0'  # 弹幕类型，0-常规弹幕，9-功能性弹幕(福袋弹幕)

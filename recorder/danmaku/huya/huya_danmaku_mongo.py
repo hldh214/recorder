@@ -13,12 +13,11 @@ import arrow
 import bson
 import click
 import jwt
-import pymongo.errors
 import tenacity
 import websockets
 
 import recorder.danmaku
-from recorder import config
+from recorder import config, mongo_collection_huya_danmaku as mongo_collection
 from recorder.danmaku import parse_datetime, get_info_from_path
 from recorder.destination.youtube import Youtube
 from recorder.danmaku.caption import Caption
@@ -48,12 +47,6 @@ CONTENT_FILTER_PATTERNS = (
 UNION_ID_FILTER_LIST = (
     'un8RvnUOwsr6J3xq8uAXTzmtxs00GClkrY',  # 668668 直播间的 [你猜]
 )
-
-MONGODB_DATABASE = 'recorder'
-MONGODB_COLLECTION = 'huya_danmaku'
-
-mongo_client = pymongo.MongoClient(config['app'].get('mongo_dsn'))
-mongo_collection = mongo_client[MONGODB_DATABASE][MONGODB_COLLECTION]
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
