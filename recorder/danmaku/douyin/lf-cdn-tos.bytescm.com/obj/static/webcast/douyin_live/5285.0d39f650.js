@@ -9,11 +9,13 @@ window.danmaku_reload_interval = setInterval(() => {
     if (now - window.ws_rpc_last_send_time > 1000 * 60) {
       console.log("======================== Recorder hook dead ========================");
       window.is_danmaku_dead = true;
+      clearInterval(window.danmaku_reload_interval);
     }
   } else {
     // if no danmaku yet
     console.log("======================== Recorder hook dead ========================");
     window.is_danmaku_dead = true;
+    clearInterval(window.danmaku_reload_interval);
   }
 }, 1000 * 60);
 
