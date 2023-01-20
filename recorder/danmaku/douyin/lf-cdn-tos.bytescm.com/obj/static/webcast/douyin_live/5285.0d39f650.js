@@ -4,13 +4,13 @@ console.log("======================== Recorder hook start ======================
 window.danmaku_reload_interval = setInterval(() => {
   if (window.ws_rpc_last_send_time) {
     const now = Date.now();
-    // if no danmaku in 60s, reload the page
+    // if no danmaku in 60s
     if (now - window.ws_rpc_last_send_time > 1000 * 60) {
-      location.reload();
+      window.close();
     }
   } else {
-    // if no danmaku yet, reload the page
-    location.reload();
+    // if no danmaku yet
+    window.close();
   }
 }, 1000 * 60);
 
