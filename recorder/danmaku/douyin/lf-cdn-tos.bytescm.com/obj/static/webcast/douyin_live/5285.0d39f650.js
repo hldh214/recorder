@@ -1,16 +1,19 @@
 "use strict";
 
 console.log("======================== Recorder hook start ========================");
+window.is_danmaku_dead = false;
 window.danmaku_reload_interval = setInterval(() => {
   if (window.ws_rpc_last_send_time) {
     const now = Date.now();
     // if no danmaku in 60s
     if (now - window.ws_rpc_last_send_time > 1000 * 60) {
-      window.close();
+      console.log("======================== Recorder hook dead ========================");
+      window.is_danmaku_dead = true;
     }
   } else {
     // if no danmaku yet
-    window.close();
+    console.log("======================== Recorder hook dead ========================");
+    window.is_danmaku_dead = true;
   }
 }, 1000 * 60);
 
@@ -962,32 +965,34 @@ window.danmaku_reload_interval = setInterval(() => {
                               };
 
                               // ======================== recorder modification start ========================
-                              window.data_n = i;
-                              // get room_id from url
-                              window.data_n.room_id = (new URL(window.location.href)).pathname.split('/')[1];
-                              (() => {
-                                // pause video player
-                                if (document.querySelector('.xgplayer-play').getAttribute('data-state') === 'play') {
-                                  document.querySelector('.xgplayer-play').click();
-                                }
-                                // disable danmaku display on video player
-                                if (document.querySelector('.danmu-icon').getAttribute('data-state') === 'active') {
-                                  document.querySelector('.danmu-icon').click();
-                                }
-                                // disable gift display on video player
-                                if (document.querySelectorAll('.fHknbHHl')[2].querySelectorAll('div')[0].innerHTML === '屏蔽礼物特效') {
-                                  document.querySelectorAll('.fHknbHHl')[2].querySelectorAll('div')[1].click();
-                                }
-
-                                if (window.ws_rpc_client && window.ws_rpc_client.readyState !== WebSocket.CLOSED) {
-                                  if (window.ws_rpc_client.readyState === WebSocket.OPEN) {
-                                    window.ws_rpc_client.send(JSON.stringify(window.data_n));
-                                    window.ws_rpc_last_send_time = Date.now();
+                              if (!window.is_danmaku_dead) {
+                                window.data_n = i;
+                                // get room_id from url
+                                window.data_n.room_id = (new URL(window.location.href)).pathname.split('/')[1];
+                                (() => {
+                                  // pause video player
+                                  if (document.querySelector('.xgplayer-play').getAttribute('data-state') === 'play') {
+                                    document.querySelector('.xgplayer-play').click();
                                   }
-                                } else {
-                                  window.ws_rpc_client = new WebSocket('ws://localhost:18964');
-                                }
-                              })();
+                                  // disable danmaku display on video player
+                                  if (document.querySelector('.danmu-icon').getAttribute('data-state') === 'active') {
+                                    document.querySelector('.danmu-icon').click();
+                                  }
+                                  // disable gift display on video player
+                                  if (document.querySelectorAll('.fHknbHHl')[2].querySelectorAll('div')[0].innerHTML === '屏蔽礼物特效') {
+                                    document.querySelectorAll('.fHknbHHl')[2].querySelectorAll('div')[1].click();
+                                  }
+
+                                  if (window.ws_rpc_client && window.ws_rpc_client.readyState !== WebSocket.CLOSED) {
+                                    if (window.ws_rpc_client.readyState === WebSocket.OPEN) {
+                                      window.ws_rpc_client.send(JSON.stringify(window.data_n));
+                                      window.ws_rpc_last_send_time = Date.now();
+                                    }
+                                  } else {
+                                    window.ws_rpc_client = new WebSocket('ws://localhost:18964');
+                                  }
+                                })();
+                              }
                               // ======================== recorder modification end ========================
 
                               n.queuePush(i),
