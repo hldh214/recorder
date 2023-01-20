@@ -29,7 +29,7 @@ def get_room_info(room_id):
     try:
         return render_data['app']['initialState']['roomStore']['roomInfo']['room']
     except KeyError:
-        logger.error(f'Failed to get room data, render_data: {render_data}')
+        logger.debug(f'Failed to get room data, render_data: {render_data}')
         return {}
 
 
