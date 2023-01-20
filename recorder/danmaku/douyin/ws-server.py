@@ -34,7 +34,7 @@ async def main(room_id, interval):
                 continue
 
             logging.info(f'Live started: {room_id}')
-            webbrowser.open(f'https://www.douyu.com/{room_id}')
+            webbrowser.open(f'https://live.douyin.com/{room_id}')
 
             while True:
                 await asyncio.sleep(interval)
