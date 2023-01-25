@@ -5,6 +5,7 @@ import logging
 import webbrowser
 
 import click
+import pymongo.errors
 import websockets
 
 from recorder import mongo_collection_douyin_danmaku as mongo_collection
@@ -19,10 +20,15 @@ async def consumer_handler(websocket):
 
     async for message in websocket:
         msg_decoded = json.loads(message)
-        mongo_collection.insert_one(msg_decoded)
-        last_danmaku_time = datetime.datetime.now()
-        if msg_decoded['method'] == 'WebcastChatMessage':
-            logging.info(msg_decoded['payload']['content'])
+
+        try:
+            mongo_collection.insert_one(msg_decoded)
+        except pymongo.errors.DuplicateKeyError:
+            pass
+        else:
+            last_danmaku_time = datetime.datetime.now()
+            if msg_decoded['method'] == 'WebcastChatMessage':
+                logging.info(msg_decoded['payload']['content'])
 
 
 async def main(room_id, interval):
