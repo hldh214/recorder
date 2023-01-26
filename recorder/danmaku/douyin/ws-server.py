@@ -49,11 +49,6 @@ async def main(room_id, interval):
                     logging.info(f'No danmaku for 60 seconds: {room_id}')
                     break
 
-                if not douyin.get_stream(room_id):
-                    # live ended
-                    logging.info(f'Live ended: {room_id}')
-                    break
-
 
 @click.group()
 def cli():
