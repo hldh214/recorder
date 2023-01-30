@@ -17,6 +17,7 @@ ERROR_CHECK_LIST = (
     'illegal reordering_of_pic_nums_idc',
     'illegal memory management control operation',
     'Out of range weight is not implemented',
+    'Non-monotonous DTS in output stream',
 )
 
 
