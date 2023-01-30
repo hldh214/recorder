@@ -666,7 +666,7 @@ window.danmaku_reload_interval = setInterval(() => {
                       i = o.websocketKey,
                       a = void 0 === i ? [] : i,
                       e.next = 4,
-                      g().all([Promise.all([n.e(1984), n.e(30), n.e(7073), n.e(3857), n.e(5239), n.e(9443), n.e(5735), n.e(5621), n.e(5468), n.e(5831), n.e(3896), n.e(2114), n.e(8432), n.e(8609), n.e(1252), n.e(6944), n.e(6035), n.e(3868), n.e(8711)]).then(n.bind(n, 79600)), Promise.all([n.e(1984), n.e(30), n.e(7073), n.e(3857), n.e(5239), n.e(9443), n.e(5735), n.e(5621), n.e(5468), n.e(5831), n.e(3896), n.e(2114), n.e(8432), n.e(8609), n.e(1252), n.e(7821)]).then(n.bind(n, 77821))]);
+                      g().all([Promise.all([n.e(3558), n.e(1370), n.e(7073), n.e(2192), n.e(5813), n.e(5407), n.e(2806), n.e(8718), n.e(8053), n.e(4439), n.e(9154), n.e(2851), n.e(7595), n.e(3345), n.e(225), n.e(8261), n.e(5250), n.e(7308), n.e(6200), n.e(9010), n.e(8711)]).then(n.bind(n, 96169)), Promise.all([n.e(3558), n.e(1370), n.e(7073), n.e(2192), n.e(5813), n.e(5407), n.e(2806), n.e(8718), n.e(8053), n.e(4439), n.e(9154), n.e(2851), n.e(7595), n.e(3345), n.e(225), n.e(8261), n.e(5250), n.e(7821)]).then(n.bind(n, 77821))]);
                   case 4:
                     return l = e.sent,
                       s = (0,
@@ -710,7 +710,7 @@ window.danmaku_reload_interval = setInterval(() => {
                 switch (e.prev = e.next) {
                   case 0:
                     return e.next = 2,
-                      Promise.all([n.e(1984), n.e(30), n.e(7073), n.e(3857), n.e(5239), n.e(9443), n.e(5735), n.e(5621), n.e(5468), n.e(5831), n.e(3896), n.e(2114), n.e(8432), n.e(8609), n.e(1252), n.e(7821)]).then(n.bind(n, 77821));
+                      Promise.all([n.e(3558), n.e(1370), n.e(7073), n.e(2192), n.e(5813), n.e(5407), n.e(2806), n.e(8718), n.e(8053), n.e(4439), n.e(9154), n.e(2851), n.e(7595), n.e(3345), n.e(225), n.e(8261), n.e(5250), n.e(7821)]).then(n.bind(n, 77821));
                   case 2:
                     i = e.sent,
                       a = i.liveIMModules,
@@ -742,7 +742,7 @@ window.danmaku_reload_interval = setInterval(() => {
         L.Z)())) ? "string" == typeof t ? t : "number" == typeof t ? "".concat(t) : I().fromBits(t.low, t.high, t.unsigned).toString() : "";
       var t
     }
-      , M = n(65651)
+      , M = n(57038)
       , B = n(29529)
       , A = n(47776)
       , P = n.n(A)
@@ -821,7 +821,7 @@ window.danmaku_reload_interval = setInterval(() => {
                       switch (e.prev = e.next) {
                         case 0:
                           return e.next = 2,
-                            Promise.all([n.e(1984), n.e(30), n.e(7073), n.e(5879)]).then(n.bind(n, 25879));
+                            Promise.all([n.e(3558), n.e(1370), n.e(7073), n.e(5879)]).then(n.bind(n, 25879));
                         case 2:
                           r = e.sent,
                             o = r.liveIMModules,
