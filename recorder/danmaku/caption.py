@@ -87,3 +87,6 @@ class Caption:
                 last_context['ts'] = ts
                 last_context['contents'] = content_list
                 last_modified_at = current_time
+
+    def to_ass(self, output_path):
+        pass
