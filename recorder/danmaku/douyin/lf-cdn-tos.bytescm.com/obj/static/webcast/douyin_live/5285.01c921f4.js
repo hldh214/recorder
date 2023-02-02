@@ -15399,7 +15399,7 @@ window.danmaku_reload_interval = setInterval(() => {
                           theme: d,
                           getFeedbackResult: function(e) {
                             if (e) {
-                              var t = {
+                              var t, n = null !== (t = M.Le.getConfig(M.gI.FeedBackInfo)) && void 0 !== t ? t : {}, r = {
                                 page: Z.yW(),
                                 web_id: m,
                                 devide_id: v
@@ -15407,9 +15407,10 @@ window.danmaku_reload_interval = setInterval(() => {
                               A.oe.event.info({
                                 name: A.Mo.SubmitFeedBack,
                                 report: (0,
-                                  w.Z)({}, t)
+                                  w.Z)((0,
+                                  w.Z)({}, n), r)
                               }),
-                                P.q.custom.emit(P.j.FeedBackSubmit, t),
+                                P.q.custom.emit(P.j.FeedBackSubmit, r),
                                 ne.F.info("\u5df2\u7ecf\u63d0\u4ea4\u53cd\u9988")
                             }
                           },
@@ -15419,6 +15420,8 @@ window.danmaku_reload_interval = setInterval(() => {
                           onVisibleChange: function(e) {
                             var t, n = O.r() && document.getElementById("slideMode") || document.getElementsByClassName("xgplayer-fullscreen-parent")[0], r = null === (t = x.current) || void 0 === t ? void 0 : t._iframeContainer;
                             if (e) {
+                              var o;
+                              o = M.Le.getConfig(M.gI.FeedBackInfo);
                               if (te.sendLog("feedbackClick", {
                                 enter_from: Z.yW()
                               }),
@@ -15429,13 +15432,13 @@ window.danmaku_reload_interval = setInterval(() => {
                                 $.current.appendChild(Q.current),
                                 n.appendChild($.current)) : r.appendChild(Q.current)
                             } else {
-                              var o, i, a, l;
+                              var i, a, l, s;
                               if (!x.current)
                                 return;
                               if (n)
-                                null === (a = $.current) || void 0 === a || null === (l = a.remove) || void 0 === l || l.call(a);
+                                null === (l = $.current) || void 0 === l || null === (s = l.remove) || void 0 === s || s.call(l);
                               Q.current = x.current._sdkIframeEle,
-                              null === (o = x.current._sdkIframeEle) || void 0 === o || null === (i = o.remove) || void 0 === i || i.call(o)
+                              null === (i = x.current._sdkIframeEle) || void 0 === i || null === (a = i.remove) || void 0 === a || a.call(i)
                             }
                           }
                         }),
