@@ -144,5 +144,33 @@ def generate_with_highlight(room_id, start, end, path, video_id):
         print(highlights)
 
 
+@cli.command()
+@click.option('--room_id', '-r', type=str)
+@click.option('--start', '-s', type=click.DateTime())
+@click.option('--end', '-e', type=click.DateTime())
+@click.option('--path', '-p', type=click.Path(exists=True))
+@click.option('--video_id', '-v', type=str)
+def generate_ass(room_id, start, end, path, video_id):
+    if not (path and video_id) and not (room_id and start and end):
+        click.echo(click.get_current_context().get_help())
+        return
+
+    caption_path = f'./{room_id}.ass'
+    if path and video_id:
+        source_config, start, end = get_info_from_path(path)
+        room_id = source_config['room_id']
+        caption_path = f'{pathlib.Path(path).parent}/{video_id}_{start}_{end}.ass'
+
+    danmaku = find_danmaku(room_id, start, end)
+
+    assert danmaku is not False
+
+    # store it in memory for reuse
+    danmaku_list = list(prepare_iterator_for_caption(danmaku))
+
+    caption = Caption(danmaku_list, parse_datetime(start))
+    caption.to_ass(caption_path)
+
+
 if __name__ == '__main__':
     cli()

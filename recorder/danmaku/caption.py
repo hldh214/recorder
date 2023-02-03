@@ -1,16 +1,34 @@
 import arrow
 import cachetools
 
-CAPTION_MINIMAL_INTERVAL = 0.1  # 两条字幕之间间隔不小于 0.1 秒, 为了字幕播放性能
-CONTENT_TTL = 4  # 弹幕展示时间 (秒)
-CONTENT_MAXSIZE = 7  # 最多一次显示多少条弹幕
-
+VTT_CAPTION_MINIMAL_INTERVAL = 0.1  # 两条字幕之间间隔不小于 0.1 秒, 为了字幕播放性能
+VTT_CONTENT_TTL = 4  # 弹幕展示时间 (秒)
+VTT_CONTENT_MAXSIZE = 7  # 最多一次显示多少条弹幕
 VTT_TIME_FORMAT = 'HH:mm:ss.SSS'
 VTT_HEADERS = '''\
 WEBVTT
 Kind: captions
 Language: zh-Hans
 
+'''
+
+ASS_CONTENT_TTL = 15
+ASS_TIME_FORMAT = 'H:mm:ss.SS'
+ASS_HEADERS = '''\
+[Script Info]
+ScriptType: v4.00+
+WrapStyle: 2
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Small,黑体,36,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,1.2,0,5,0,0,0,0
+Style: Medium,黑体,52,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,1.2,0,5,0,0,0,0
+Style: Large,黑体,64,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,1.2,0,5,0,0,0,0
+Style: Larger,黑体,72,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,1.2,0,5,0,0,0,0
+Style: ExtraLarge,黑体,90,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,1.2,0,5,0,0,0,0
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 '''
 
 
@@ -43,7 +61,7 @@ class Caption:
     def to_vtt(self, output_path):
         last_modified_at = self.started_at
         timer = Timer(self.started_at.timestamp())
-        ttl_cache = cachetools.TTLCache(maxsize=CONTENT_MAXSIZE, ttl=CONTENT_TTL, timer=timer.timer)
+        ttl_cache = cachetools.TTLCache(maxsize=VTT_CONTENT_MAXSIZE, ttl=VTT_CONTENT_TTL, timer=timer.timer)
         last_context = {'ts': None, 'contents': []}
 
         with open(output_path, 'w', encoding='utf8') as fp:
@@ -68,13 +86,14 @@ class Caption:
                     continue
 
                 caption_interval = current_time - last_modified_at
-                if caption_interval.seconds < CAPTION_MINIMAL_INTERVAL:
+                if caption_interval.seconds < VTT_CAPTION_MINIMAL_INTERVAL:
                     # 控制两条字幕之间间隔时间
                     last_context['contents'] = content_list
                     continue
 
                 last_start = last_context['ts']
-                last_end = ts if ts.shift(seconds=-CONTENT_TTL) < last_start else last_start.shift(seconds=CONTENT_TTL)
+                last_end = ts if ts.shift(seconds=-VTT_CONTENT_TTL) < last_start else last_start.shift(
+                    seconds=VTT_CONTENT_TTL)
 
                 line = f'{last_start.format(VTT_TIME_FORMAT)} --> {last_end.format(VTT_TIME_FORMAT)}\n'
 
@@ -89,4 +108,25 @@ class Caption:
                 last_modified_at = current_time
 
     def to_ass(self, output_path):
-        pass
+        with open(output_path, 'w', encoding='utf8') as fp:
+            fp.write(ASS_HEADERS)
+
+            for each in self.iterator:
+                content = each['content']
+                current_time = arrow.get(each['generation_time'])
+
+                ts_seconds = current_time.timestamp() - self.started_at.timestamp()
+                ts = arrow.get(ts_seconds)
+
+                start = ts.format(ASS_TIME_FORMAT)
+                end = ts.shift(seconds=ASS_CONTENT_TTL).format(ASS_TIME_FORMAT)
+
+                # fixme: calculate the coordinates of the move
+                # \move(<x1>, <y1>, <x2>, <y2>[, <t1>, <t2>])
+                # x1, y1: the starting coordinates of the move
+                # x2, y2: the ending coordinates of the move
+                # t1, t2: the starting and ending times of the move, can be omitted
+                move_content = r'{\move(1946,30,-26,30,0,15000)}' + content
+
+                dialogue = f'Dialogue: 0,{start},{end},Medium,,0,0,0,,{move_content}'
+                fp.write(dialogue + '\n')
