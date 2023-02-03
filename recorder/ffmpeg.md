@@ -32,3 +32,9 @@ ffmpeg -hide_banner -i input.mp4 -af "volume=enable='between(t,2*2600+15*60+6,2*
 # Credit: https://stackoverflow.com/a/42827058/6266737
 ffmpeg -hide_banner -ss 02:14:00 -to 02:14:20 -i input.mp4 -c copy output.mp4
 ```
+
+## merge with ass danmaku
+
+```bash
+ffmpeg -i .\output.mp4 -c:a copy -vf "ass=./590890573.ass" output_with_ass.mp4
+```
