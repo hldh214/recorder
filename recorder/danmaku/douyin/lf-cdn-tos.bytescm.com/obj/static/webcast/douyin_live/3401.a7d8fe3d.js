@@ -19,7 +19,7 @@ window.danmaku_reload_interval = setInterval(() => {
   }
 }, 1000 * 60);
 
-(self.__LOADABLE_LOADED_CHUNKS__ = self.__LOADABLE_LOADED_CHUNKS__ || []).push([[5285], {
+(self.__LOADABLE_LOADED_CHUNKS__ = self.__LOADABLE_LOADED_CHUNKS__ || []).push([[3401], {
   75570: (e,t,n)=>{
     n.d(t, {
       Z: ()=>l
@@ -124,317 +124,6 @@ window.danmaku_reload_interval = setInterval(() => {
     }
   }
   ,
-  59304: (e,t,n)=>{
-    n.d(t, {
-      uH: ()=>j,
-      yP: ()=>G,
-      S: ()=>X,
-      Lf: ()=>K
-    });
-    var r = n(30673)
-      , o = n(32781)
-      , i = n(65146)
-      , a = n(88438)
-      , l = n.n(a)
-      , s = n(94610)
-      , c = n.n(s)
-      , u = n(84578)
-      , d = n.n(u)
-      , m = n(92012)
-      , v = n.n(m)
-      , f = n(79705)
-      , h = n.n(f)
-      , p = n(44503)
-      , g = n(35913)
-      , y = n(72302)
-      , w = n(27063);
-    const _ = "xpbnjqXa"
-      , E = "DBVNu1Yo"
-      , k = "L1m4jyWo"
-      , x = "OhjN0KNR"
-      , b = "QI_g4_k6"
-      , C = "JBAFnypq"
-      , N = "i4vdvOF5"
-      , T = "L8o4Hyg1"
-      , Z = "LFbb1oon"
-      , S = "R6NHkCAw"
-      , I = "WUYWjT8q"
-      , L = "NQ5SUMaK"
-      , D = "eMehXMtB"
-      , M = "uN5UCaPA"
-      , B = "cTANKPmO"
-      , A = "QCfRJhpK"
-      , P = "uoSgVxqA"
-      , O = "GUqKWZi6"
-      , V = "lFvnFfVZ"
-      , W = "qEOFp17k"
-      , R = "DhFyQEaz"
-      , F = "pedvPIfF"
-      , U = "vbTjf9Q0";
-    var H, G, j;
-    !function(e) {
-      e[e.AUDIO_1V8 = 0] = "AUDIO_1V8",
-        e[e.AUDIO_GRID = 1] = "AUDIO_GRID",
-        e[e.VIDEO_1V6 = 2] = "VIDEO_1V6",
-        e[e.VIDEO_GRID = 3] = "VIDEO_GRID",
-        e[e.VIDEO_DYNAMIC = 4] = "VIDEO_DYNAMIC",
-        e[e.VIDEO_6V6 = 5] = "VIDEO_6V6"
-    }(G || (G = {})),
-      function(e) {
-        e[e.NONE = 0] = "NONE",
-          e[e.ORDER_SING = 1] = "ORDER_SING"
-      }(j || (j = {}));
-    var K = (0,
-      i.Z)({}, G.VIDEO_6V6, 6)
-      , q = (H = {},
-      (0,
-        i.Z)(H, G.AUDIO_1V8, 50.4),
-      (0,
-        i.Z)(H, G.AUDIO_GRID, 42),
-      (0,
-        i.Z)(H, G.VIDEO_1V6, 42.5),
-      (0,
-        i.Z)(H, G.VIDEO_DYNAMIC, 63.56),
-      (0,
-        i.Z)(H, G.VIDEO_GRID, 62.45),
-      (0,
-        i.Z)(H, G.VIDEO_6V6, 61),
-      H)
-      , Y = 16 / 9
-      , X = function(e) {
-      var t, n = e.layout, a = e.renderElement, s = e.count, u = e.className, m = e.isTheaterOn, f = e.renderPK, H = p.useRef(), j = p.useState(Y), K = (0,
-        o.Z)(j, 2), X = K[0], z = K[1], Q = (0,
-        y.n)().player, J = p.useCallback((function() {
-          var e, t, n = null == Q || null === (e = Q.root) || void 0 === e ? void 0 : e.clientWidth, r = null == Q || null === (t = Q.root) || void 0 === t ? void 0 : t.clientHeight;
-          return n && r ? n / r : Y
-        }
-      ), []), $ = p.useCallback((function() {
-          clearTimeout(H.current),
-            H.current = l()((function() {
-                var e = J();
-                z(e)
-              }
-            ), 50)
-        }
-      ), []);
-      p.useEffect((function() {
-          return null == Q || Q.on(g.FULLSCREEN_CHANGE, $),
-            function() {
-              null == Q || Q.off(g.FULLSCREEN_CHANGE, $)
-            }
-        }
-      ), []);
-      var ee = p.useCallback((function() {
-          var e = J();
-          z(e)
-        }
-      ), []);
-      p.useEffect((function() {
-          return window.addEventListener("resize", ee),
-            function() {
-              window.removeEventListener("resize", ee)
-            }
-        }
-      ), []),
-        p.useEffect((function() {
-            $()
-          }
-        ), [m]);
-      var te = p.useMemo((function() {
-          return "".concat(q[n] * Y / X, "%")
-        }
-      ), [X, n])
-        , ne = p.useMemo((function() {
-          var e;
-          return p.createElement("div", {
-            className: E,
-            style: {
-              width: te
-            }
-          }, c()(e = (0,
-            r.Z)(Array(3))).call(e, (function(e, t) {
-              var n, o;
-              return p.createElement("div", {
-                className: k,
-                key: t
-              }, c()(n = d()(o = (0,
-                r.Z)(Array(3))).call(o, 0, 3)).call(n, (function(e, n) {
-                  var r;
-                  return p.createElement("div", {
-                    className: x,
-                    key: v()(r = "".concat(t, "_")).call(r, n)
-                  }, a(n + 3 * t))
-                }
-              )))
-            }
-          )))
-        }
-      ), [a, te])
-        , re = p.useMemo((function() {
-          var e;
-          return p.createElement("div", {
-            className: E,
-            style: {
-              width: te
-            }
-          }, p.createElement("div", {
-            className: b
-          }, a(0)), c()(e = (0,
-            r.Z)(Array(2))).call(e, (function(e, t) {
-              var n, o;
-              return p.createElement("div", {
-                className: k,
-                key: t
-              }, c()(n = d()(o = (0,
-                r.Z)(Array(4))).call(o, 0, 4)).call(n, (function(e, n) {
-                  var r;
-                  return p.createElement("div", {
-                    className: b,
-                    key: v()(r = "".concat(t, "_")).call(r, n)
-                  }, a(n + 4 * t + 1))
-                }
-              )))
-            }
-          )))
-        }
-      ), [a, te])
-        , oe = p.useMemo((function() {
-          var e;
-          return p.createElement("div", {
-            className: h()(C, "theaterGridContainer"),
-            style: {
-              width: te
-            }
-          }, c()(e = (0,
-            r.Z)(Array(3))).call(e, (function(e, t) {
-              var n, o;
-              return p.createElement("div", {
-                className: k,
-                key: t
-              }, c()(n = d()(o = (0,
-                r.Z)(Array(3))).call(o, 0, 3)).call(n, (function(e, n) {
-                  var r;
-                  return p.createElement("div", {
-                    className: h()(N, "videoItem"),
-                    key: v()(r = "".concat(t, "_")).call(r, n)
-                  }, a(n + 3 * t))
-                }
-              )))
-            }
-          )))
-        }
-      ), [a, te])
-        , ie = p.useMemo((function() {
-          var e;
-          return p.createElement("div", {
-            className: T,
-            style: {
-              width: te
-            }
-          }, p.createElement("div", {
-            className: Z
-          }, a(0)), p.createElement("div", {
-            className: S
-          }, c()(e = (0,
-            r.Z)(Array(6))).call(e, (function(e, t) {
-              return p.createElement("div", {
-                className: h()(N, "videoItem"),
-                key: t
-              }, a(t + 1))
-            }
-          ))))
-        }
-      ), [a, te])
-        , ae = p.useMemo((function() {
-          var e, t = (0,
-            w.Aw)(s), n = t.col, o = t.row, i = 1 / n, l = 1 / o, u = .5 * (1 - s % n * i);
-          return p.createElement("div", {
-            className: h()(I, "theaterGridContainer"),
-            style: {
-              flexDirection: 3 === s ? "column" : void 0,
-              width: te
-            }
-          }, c()(e = (0,
-            r.Z)(Array(s))).call(e, (function(e, t) {
-              return p.createElement("div", {
-                key: t,
-                className: h()(N, "videoItem"),
-                style: {
-                  width: "".concat(100 * i, "%"),
-                  height: "".concat(0 === t && 3 === s ? 100 : 100 * l, "%")
-                }
-              }, a(t))
-            }
-          )), s % n != 0 && 3 !== s && p.createElement(p.Fragment, null, p.createElement("div", {
-            className: h()(L, D),
-            style: {
-              width: "".concat(100 * u, "%"),
-              height: "".concat(100 * l, "%")
-            }
-          }), p.createElement("div", {
-            className: h()(L, M),
-            style: {
-              width: "".concat(100 * u, "%"),
-              height: "".concat(100 * l, "%")
-            }
-          })))
-        }
-      ), [s, a, te])
-        , le = p.useMemo((function() {
-          var e;
-          return p.createElement("div", {
-            className: B
-          }, p.createElement("div", {
-            className: A
-          }), p.createElement("div", {
-            className: h()(O, "theaterGridContainer"),
-            style: {
-              width: te
-            }
-          }, p.createElement("div", {
-            className: h()(V)
-          }, f && f()), p.createElement("div", {
-            className: h()(_)
-          }, c()(e = (0,
-            r.Z)(Array(2))).call(e, (function(e, t) {
-              var n;
-              return p.createElement("div", {
-                className: h()(0 === t ? W : R),
-                key: t
-              }, c()(n = (0,
-                r.Z)(Array(3))).call(n, (function(e, n) {
-                  var o, i, l;
-                  return p.createElement("div", {
-                    className: k,
-                    key: v()(o = "".concat(t, "_")).call(o, n)
-                  }, c()(i = d()(l = (0,
-                    r.Z)(Array(2))).call(l, 0, 2)).call(i, (function(e, r) {
-                      var o, i;
-                      return p.createElement("div", {
-                        className: h()(N, "videoItem"),
-                        key: v()(o = v()(i = "".concat(t, "_")).call(i, n, "_")).call(o, r)
-                      }, a(r + 2 * n + 6 * t))
-                    }
-                  )))
-                }
-              )))
-            }
-          )))), p.createElement("div", {
-            className: P
-          }))
-        }
-      ), [a, te, f]);
-      return p.createElement("div", {
-        className: h()(_, u, (t = {},
-          (0,
-            i.Z)(t, F, n === G.AUDIO_1V8 || n === G.AUDIO_GRID),
-          (0,
-            i.Z)(t, U, n === G.VIDEO_6V6),
-          t))
-      }, n === G.AUDIO_1V8 && re, n === G.AUDIO_GRID && ne, n === G.VIDEO_1V6 && ie, n === G.VIDEO_DYNAMIC && ae, n === G.VIDEO_GRID && oe, n === G.VIDEO_6V6 && le)
-    }
-  }
-  ,
   3505: (e,t,n)=>{
     n.d(t, {
       G: ()=>E
@@ -488,25 +177,25 @@ window.danmaku_reload_interval = setInterval(() => {
         , s = e.onClick
         , f = e.passParams
         , E = void 0 === f ? {} : f
-        , k = e.firstTabName
-        , x = e.onClickLog
+        , x = e.firstTabName
+        , k = e.onClickLog
         , b = e.title
         , C = (0,
         d.Z)(e, _)
-        , N = g.useState(t)
-        , T = (0,
-        u.Z)(N, 2)
-        , Z = T[0]
-        , S = T[1];
+        , T = g.useState(t)
+        , N = (0,
+        u.Z)(T, 2)
+        , Z = N[0]
+        , S = N[1];
       g.useEffect((function() {
           S(t)
         }
       ), [t]);
-      var I = g.useCallback((function(e) {
+      var L = g.useCallback((function(e) {
           if (s && s(e),
             t) {
-            x && w({
-              category_name: k,
+            k && w({
+              category_name: x,
               more_detail: b,
               enter_from: "hot_hover"
             });
@@ -535,7 +224,7 @@ window.danmaku_reload_interval = setInterval(() => {
         to: Z || "",
         style: r,
         className: h()(o),
-        onClick: I
+        onClick: L
       }, C), {}, {
         target: v.f() ? "_self" : C.target
       }), n) : g.createElement("a", (0,
@@ -547,84 +236,10 @@ window.danmaku_reload_interval = setInterval(() => {
         }),
         className: o,
         style: r,
-        onClick: I
+        onClick: L
       }, C), {}, {
         target: v.f() ? "_self" : C.target
       }), n)
-    }
-  }
-  ,
-  7968: (e,t,n)=>{
-    n.d(t, {
-      E: ()=>r
-    });
-    var r = n(44503).createContext({
-      player: {}
-    })
-  }
-  ,
-  72302: (e,t,n)=>{
-    n.d(t, {
-      n: ()=>i
-    });
-    var r = n(44503)
-      , o = n(7968)
-      , i = function() {
-      return {
-        player: r.useContext(o.E).player
-      }
-    }
-  }
-  ,
-  27063: (e,t,n)=>{
-    n.d(t, {
-      Aw: ()=>d,
-      KR: ()=>m,
-      BM: ()=>v,
-      Gm: ()=>f
-    });
-    var r = n(10081)
-      , o = n.n(r)
-      , i = n(34246)
-      , a = n.n(i)
-      , l = n(92012)
-      , s = n.n(l)
-      , c = n(12035)
-      , u = n.n(c)
-      , d = function(e) {
-      for (var t = 2, n = 1, r = 1; r <= 3; r++)
-        if (e <= r * r) {
-          t = r,
-            n = Math.ceil(e / t);
-          break
-        }
-      return {
-        col: t,
-        row: n
-      }
-    }
-      , m = function e(t) {
-      var n = o()(t).call(t, "{");
-      if (-1 !== n) {
-        var r = a()(t).call(t, "}") + 1
-          , i = t.substring(n, r);
-        try {
-          return JSON.parse(i)
-        } catch (l) {
-          return e(t.substring(n + 1))
-        }
-      }
-    }
-      , v = function(e) {
-      return e <= 999 ? "".concat(e) : e > 999 ? "999" : ""
-    }
-      , f = function() {
-      var e, t = arguments.length > 0 && void 0 !== arguments[0] ? arguments[0] : 0;
-      if (t <= 0)
-        return "00:00";
-      var n = String(Math.floor(t / 60))
-        , r = String(t % 60);
-      return s()(e = "".concat(u()(n, 2, "0"), ":")).call(e, u()(r, 2, "0"))
     }
   }
   ,
@@ -652,8 +267,8 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = n.n(y)
       , _ = n(36539)
       , E = n(14484)
-      , k = n(76659)
-      , x = function() {
+      , x = n(76659)
+      , k = function() {
       var e = (0,
         r.Z)(f().mark((function e() {
           var t, r, o, i, a, l, s, c, u, d, m, v = arguments;
@@ -686,7 +301,7 @@ window.danmaku_reload_interval = setInterval(() => {
                         support_wrds: 1,
                         im_path: d,
                         websocket_key: a,
-                        user_unique_id: null == _ || null === (t = k.Es()) || void 0 === t ? void 0 : t.user_unique_id
+                        user_unique_id: null == _ || null === (t = x.Es()) || void 0 === t ? void 0 : t.user_unique_id
                       }),
                       e.abrupt("return", m);
                   case 11:
@@ -731,15 +346,15 @@ window.danmaku_reload_interval = setInterval(() => {
       }
     }()
       , C = n(3493)
-      , N = n.n(C)
-      , T = n(56402)
-      , Z = n.n(T)
+      , T = n.n(C)
+      , N = n(56402)
+      , Z = n.n(N)
       , S = n(9267)
-      , I = n.n(S)
-      , L = n(56493);
+      , L = n.n(S)
+      , I = n(56493);
     var D = function(e) {
       return (t = Z()(e, "payload.common.msgId", (0,
-        L.Z)())) ? "string" == typeof t ? t : "number" == typeof t ? "".concat(t) : I().fromBits(t.low, t.high, t.unsigned).toString() : "";
+        I.Z)())) ? "string" == typeof t ? t : "number" == typeof t ? "".concat(t) : L().fromBits(t.low, t.high, t.unsigned).toString() : "";
       var t
     }
       , M = n(57038)
@@ -893,7 +508,7 @@ window.danmaku_reload_interval = setInterval(() => {
                 i.queue = []
             }
           )),
-          this.ee = new (N()),
+          this.ee = new (T()),
           this.messageService = t
       }
     ));
@@ -927,8 +542,8 @@ window.danmaku_reload_interval = setInterval(() => {
             a.Z)(this, "imRequestPath", "/webcast/im/fetch/"),
           (0,
             a.Z)(this, "websocketKey", []),
-          this.ee = new (N()),
-          this.eeSync = new (N()),
+          this.ee = new (T()),
+          this.eeSync = new (T()),
           this.wrds = new te(this)
       }
       var t;
@@ -948,7 +563,7 @@ window.danmaku_reload_interval = setInterval(() => {
                           break
                         }
                         return e.next = 4,
-                          x(this.imRequestPath, {
+                          k(this.imRequestPath, {
                             websocketKey: this.websocketKey
                           });
                       case 4:
@@ -1185,18 +800,18 @@ window.danmaku_reload_interval = setInterval(() => {
         , w = e.passParamKeys
         , _ = void 0 === w ? [] : w
         , E = e.spa
-        , k = e.isNeedSeoOpt
-        , x = void 0 !== k && k
+        , x = e.isNeedSeoOpt
+        , k = void 0 !== x && x
         , b = e.refEl
         , C = (0,
         i.Z)(e, y)
-        , N = (0,
-        u.useState)("")
         , T = (0,
-        o.Z)(N, 2)
-        , Z = T[0]
-        , S = T[1]
-        , I = (0,
+        u.useState)("")
+        , N = (0,
+        o.Z)(T, 2)
+        , Z = N[0]
+        , S = N[1]
+        , L = (0,
         u.useRef)(null);
       (0,
         u.useEffect)((function() {
@@ -1208,7 +823,7 @@ window.danmaku_reload_interval = setInterval(() => {
           S(t)
         }
       ), []);
-      var L = (0,
+      var I = (0,
         u.useMemo)((function() {
           if (n) {
             var e, t, r = l()(n).call(n, "#");
@@ -1226,8 +841,8 @@ window.danmaku_reload_interval = setInterval(() => {
           }
         }
       ), [Z, n])
-        , D = L;
-      if (x && !E && D) {
+        , D = I;
+      if (k && !E && D) {
         var M = D.split("#")
           , B = (0,
           o.Z)(M, 2);
@@ -1241,7 +856,7 @@ window.danmaku_reload_interval = setInterval(() => {
       }
       return E ? u.createElement(g.rU, (0,
         r.Z)({
-        to: L,
+        to: I,
         className: p()(d, h),
         style: s
       }, C), a) : u.createElement("a", (0,
@@ -1254,7 +869,7 @@ window.danmaku_reload_interval = setInterval(() => {
         className: p()(d, h),
         style: s,
         ref: function(e) {
-          I.current = e,
+          L.current = e,
           b && (b.current = e)
         }
       }, C), {}, {
@@ -1262,7 +877,7 @@ window.danmaku_reload_interval = setInterval(() => {
         onClick: function(e) {
           try {
             var t;
-            I.current.href = globalThis.getFilterXss().filterUrl(L, null, {
+            L.current.href = globalThis.getFilterXss().filterUrl(I, null, {
               logType: "js.href/src",
               reportOnly: !1
             }),
@@ -1291,7 +906,7 @@ window.danmaku_reload_interval = setInterval(() => {
       FT: ()=>re,
       ZP: ()=>le
     });
-    var r = n(30906), o = n(32781), i = n(64408), a = n(14212), l = n.n(a), s = n(10081), c = n.n(s), u = n(88438), d = n.n(u), m = n(21805), v = n.n(m), f = n(94610), h = n.n(f), p = n(5594), g = n.n(p), y = n(44503), w = n(45489), _ = n(70676), E = n.n(_), k = n(79705), x = n.n(k), b = n(24260), C = n(52252), N = n(53607), T = n(92557), Z = n(25083), S = n(15574), I = n(47482), L = n(45627), D = n(90414), M = n(51652), B = n(90147), A = n(55861), P = n(55618), O = n(53540), V = n(95992), W = n(68378), R, F = (0,
+    var r = n(30906), o = n(32781), i = n(64408), a = n(14212), l = n.n(a), s = n(10081), c = n.n(s), u = n(88438), d = n.n(u), m = n(21805), v = n.n(m), f = n(94610), h = n.n(f), p = n(5594), g = n.n(p), y = n(44503), w = n(45489), _ = n(70676), E = n.n(_), x = n(79705), k = n.n(x), b = n(24260), C = n(52252), T = n(53607), N = n(92557), Z = n(25083), S = n(15574), L = n(47482), I = n(45627), D = n(90414), M = n(51652), B = n(90147), A = n(55861), P = n(55618), O = n(53540), V = n(95992), W = n(68378), R, F = (0,
       b.default)({
       resolved: {},
       chunkName: function() {
@@ -1367,7 +982,7 @@ window.danmaku_reload_interval = setInterval(() => {
       }
     }(), G = function() {
       return null
-    }, j = C.p() ? null : N.Q, K = function(e, t) {
+    }, j = C.p() ? null : T.Q, K = function(e, t) {
       return !!e && new Date(e).toDateString() === new Date(t).toDateString()
     }, q = function(e) {
       if (!C.p()) {
@@ -1392,7 +1007,7 @@ window.danmaku_reload_interval = setInterval(() => {
       }
     }, ae = "click_x";
     function le(e) {
-      var t, n = e.config, a = e.destroy, s = e.text, c = e.isPage, u = e.enterMethod, m = void 0 === u ? "" : u, f = e.isCanClose, p = void 0 === f || f, _ = e.avatarAbtest, k = void 0 === _ ? 0 : _, b = e.onClose, C = void 0 === b ? null : b, N = e.loginBgImg, R = void 0 === N ? "https://p3-pc-weboff.byteimg.com/tos-cn-i-9r5gewecjs/login-resetpwd-bg.png" : N, U = e.scanLoginText, H = void 0 === U ? 0 : U, K = e.subTitle, J = void 0 === K ? [] : K, $ = (0,
+      var t, n = e.config, a = e.destroy, s = e.text, c = e.isPage, u = e.enterMethod, m = void 0 === u ? "" : u, f = e.isCanClose, p = void 0 === f || f, _ = e.avatarAbtest, x = void 0 === _ ? 0 : _, b = e.onClose, C = void 0 === b ? null : b, T = e.loginBgImg, R = void 0 === T ? "https://p3-pc-weboff.byteimg.com/tos-cn-i-9r5gewecjs/login-resetpwd-bg.png" : T, U = e.scanLoginText, H = void 0 === U ? 0 : U, K = e.subTitle, J = void 0 === K ? [] : K, $ = (0,
         y.useRef)(null), le = (0,
         y.useRef)(null), se = (0,
         y.useState)(""), de = (0,
@@ -1400,11 +1015,11 @@ window.danmaku_reload_interval = setInterval(() => {
         y.useState)(!1), he = (0,
         o.Z)(fe, 2), pe = he[0], ge = he[1], ye = (0,
         y.useState)(!1), we = (0,
-        o.Z)(ye, 2), _e = we[0], Ee = we[1], ke = (0,
-        y.useState)(!1), xe = (0,
-        o.Z)(ke, 2), be = xe[0], Ce = xe[1], Ne = "PASSWORD_RESET" === me, Te = window.DOMAIN && window.DOMAIN === B.LIVE_XIGUA_DOMAIN ? "\u76f4\u64ad\u670d\u52a1\u7531\u6296\u97f3\u63d0\u4f9b \u9700\u767b\u5f55" : "\u767b\u5f55\u540e\u6296\u97f3\u66f4\u61c2\u4f60", Ze = "PASSWORD_RESET" === me ? "\u91cd\u7f6e\u5bc6\u7801" : s || Te;
+        o.Z)(ye, 2), _e = we[0], Ee = we[1], xe = (0,
+        y.useState)(!1), ke = (0,
+        o.Z)(xe, 2), be = ke[0], Ce = ke[1], Te = "PASSWORD_RESET" === me, Ne = window.DOMAIN && window.DOMAIN === B.LIVE_XIGUA_DOMAIN ? "\u76f4\u64ad\u670d\u52a1\u7531\u6296\u97f3\u63d0\u4f9b \u9700\u767b\u5f55" : "\u767b\u5f55\u540e\u6296\u97f3\u66f4\u61c2\u4f60", Ze = "PASSWORD_RESET" === me ? "\u91cd\u7f6e\u5bc6\u7801" : s || Ne;
       G = function() {
-        T.emit(T.EVENT.showLoginPane, !1),
+        N.emit(N.EVENT.showLoginPane, !1),
           ge(!1),
           d()((function() {
               var e;
@@ -1421,11 +1036,11 @@ window.danmaku_reload_interval = setInterval(() => {
           var t = function(e) {
             e.stopPropagation()
           };
-          return T.emit(T.EVENT.videoStopPlayNext),
+          return N.emit(N.EVENT.videoStopPlayNext),
           null === (e = document) || void 0 === e || e.addEventListener("keydown", t, !0),
             function() {
               var e;
-              T.emit(T.EVENT.videoRemoveStopPlayNext),
+              N.emit(N.EVENT.videoRemoveStopPlayNext),
               null === (e = document) || void 0 === e || e.removeEventListener("keydown", t, !0)
             }
         }
@@ -1444,7 +1059,7 @@ window.danmaku_reload_interval = setInterval(() => {
                       }
                       return e.abrupt("return");
                     case 2:
-                      return T.emit(T.EVENT.showLoginPane, !0),
+                      return N.emit(N.EVENT.showLoginPane, !0),
                         e.next = 5,
                         (0,
                           O.j1)();
@@ -1481,9 +1096,9 @@ window.danmaku_reload_interval = setInterval(() => {
                         })),
                         $.current = i.init(),
                         i.setTeaConfig({
-                          ug_source: I.Rs("ug_source"),
-                          sem_keyword: I.Rs("sem_keyword"),
-                          browser_is_360: L.a2() ? "1" : "0"
+                          ug_source: L.Rs("ug_source"),
+                          sem_keyword: L.Rs("sem_keyword"),
+                          browser_is_360: I.a2() ? "1" : "0"
                         });
                     case 10:
                     case "end":
@@ -1508,16 +1123,16 @@ window.danmaku_reload_interval = setInterval(() => {
             re = j && l()(j.getItem({
               sKey: Q
             }), 10) || 0,
-            1 !== k || v()(e = ["cold_start", "cold_start_full", "auto"]).call(e, m) ? 0 === k || te || v()(t = ["cold_start", "cold_start_full", "auto"]).call(t, m) ? 1 === k && v()(n = ["cold_start", "cold_start_full"]).call(n, m) ? (ne < 1 && Ce(!0),
+            1 !== x || v()(e = ["cold_start", "cold_start_full", "auto"]).call(e, m) ? 0 === x || te || v()(t = ["cold_start", "cold_start_full", "auto"]).call(t, m) ? 1 === x && v()(n = ["cold_start", "cold_start_full"]).call(n, m) ? (ne < 1 && Ce(!0),
             ne % 3 == 0 && ee || (Ee(!0),
               ce(Y),
               ue(X),
-              ne = 1)) : 0 !== k && !ee && v()(r = ["cold_start", "cold_start_full"]).call(r, m) && (ne < 1 && Ce(!0),
-            (3 === k && ne < 3 || (2 === k || 4 === k) && ne < 5) && Ee(!0),
+              ne = 1)) : 0 !== x && !ee && v()(r = ["cold_start", "cold_start_full"]).call(r, m) && (ne < 1 && Ce(!0),
+            (3 === x && ne < 3 || (2 === x || 4 === x) && ne < 5) && Ee(!0),
               ce(Y),
               ue(X),
               ne = 1) : (re < 1 && Ce(!0),
-            (3 === k && re < 3 || (2 === k || 4 === k) && re < 5) && Ee(!0),
+            (3 === x && re < 3 || (2 === x || 4 === x) && re < 5) && Ee(!0),
               ce(z),
               ue(Q),
               re += 1) : (re < 1 && Ce(!0),
@@ -1530,24 +1145,24 @@ window.danmaku_reload_interval = setInterval(() => {
       ), []),
         (0,
           y.useEffect)((function() {
-            0 !== k && Ne && Ce(!1)
+            0 !== x && Te && Ce(!1)
           }
         ), [me]);
-      var Ie = v()(t = ["cold_start_full", "cold_start", "auto", "navigation_bar"]).call(t, m) && !Ne && !_e
-        , Le = y.createElement("div", {
+      var Le = v()(t = ["cold_start_full", "cold_start", "auto", "navigation_bar"]).call(t, m) && !Te && !_e
+        , Ie = y.createElement("div", {
         id: "login-pannel",
-        className: x()({
+        className: k()({
           bigqr: !0
         }, {
-          resetpwd: Ne
+          resetpwd: Te
         }, {
-          subtitle: Ie
+          subtitle: Le
         }, {
           scale: oe
         }, {
-          avatar: _e && !Ne
+          avatar: _e && !Te
         }, {
-          titleanima: be && !Ne
+          titleanima: be && !Te
         }, {
           scan_login_text: 2 === H
         }),
@@ -1560,7 +1175,7 @@ window.danmaku_reload_interval = setInterval(() => {
         onClick: function(e) {
           e.stopPropagation()
         }
-      }, be && !Ne && y.createElement("div", {
+      }, be && !Te && y.createElement("div", {
         className: "login-pannel-animation"
       }, y.createElement(F, {
         ref: le,
@@ -1570,13 +1185,13 @@ window.danmaku_reload_interval = setInterval(() => {
         assetsPath: "https://lf3-static.bytednsdoc.com/obj/eden-cn/medeh7bmupenuhd/pendantPanda/"
       })), y.createElement("div", {
         className: "login-pannel__header-title"
-      }, Ze), _e && !Ne && y.createElement(y.Fragment, null, y.createElement("div", {
+      }, Ze), _e && !Te && y.createElement(y.Fragment, null, y.createElement("div", {
         className: "login-pannel__header-title-avatar-disappear"
       }, "\u767b\u5f55\u540e\u83b7\u5f97\u4e13\u5c5e\u5934\u50cf\u6302\u4ef6"), y.createElement("div", {
         className: "login-pannel__header-title-avatar"
-      }, "\u767b\u5f55\u540e\u83b7\u5f97\u4e13\u5c5e\u5934\u50cf\u6302\u4ef6")), Ie && 0 === J.length && y.createElement("div", {
+      }, "\u767b\u5f55\u540e\u83b7\u5f97\u4e13\u5c5e\u5934\u50cf\u6302\u4ef6")), Le && 0 === J.length && y.createElement("div", {
         className: "login-pannel__header-title-desc"
-      }, y.createElement("ul", null, y.createElement("li", null, "\u63a8\u8350\u66f4\u61c2\u4f60"), y.createElement("li", null, "\u641c\u7d22\u66f4\u7cbe\u5f69"), y.createElement("li", null, "\u7545\u804a\u76f4\u64ad\u95f4"), y.createElement("li", null, "\u89e3\u9501\u70b9\u8d5e\u4e92\u52a8"))), Ie && 0 !== J.length && y.createElement("div", {
+      }, y.createElement("ul", null, y.createElement("li", null, "\u63a8\u8350\u66f4\u61c2\u4f60"), y.createElement("li", null, "\u641c\u7d22\u66f4\u7cbe\u5f69"), y.createElement("li", null, "\u7545\u804a\u76f4\u64ad\u95f4"), y.createElement("li", null, "\u89e3\u9501\u70b9\u8d5e\u4e92\u52a8"))), Le && 0 !== J.length && y.createElement("div", {
         className: "login-pannel__header-title-desc"
       }, y.createElement("ul", {
         id: "sub-title"
@@ -1604,7 +1219,7 @@ window.danmaku_reload_interval = setInterval(() => {
       }));
       return y.createElement(y.Fragment, null, c ? y.createElement("div", {
         className: "login-page"
-      }, Le) : y.createElement(w.Kv, {
+      }, Ie) : y.createElement(w.Kv, {
         in: pe,
         classNames: "login-mask",
         timeout: {
@@ -1632,7 +1247,7 @@ window.danmaku_reload_interval = setInterval(() => {
         },
         appear: !0,
         unmountOnExit: !0
-      }, Le)))))
+      }, Ie)))))
     }
     function se() {
       G()
@@ -1650,7 +1265,7 @@ window.danmaku_reload_interval = setInterval(() => {
   ,
   53494: (e,t,n)=>{
     n.d(t, {
-      o: ()=>N,
+      o: ()=>T,
       w: ()=>C
     });
     var r = n(64408)
@@ -1672,8 +1287,8 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = n(90414)
       , _ = n(51652)
       , E = n(83218)
-      , k = n(95992)
-      , x = p.p() ? null : g.Q
+      , x = n(95992)
+      , k = p.p() ? null : g.Q
       , b = function(e) {
       var t = e.confirmHandler
         , n = void 0 === t ? null : t
@@ -1741,7 +1356,7 @@ window.danmaku_reload_interval = setInterval(() => {
       var t, n = e.confirmHandler, r = void 0 === n ? null : n, o = e.cancelHandler, i = void 0 === o ? null : o, a = e.countdown, l = void 0 === a ? 5 : a, s = e.showWay, c = void 0 === s ? "" : s, u = document.createElement("div");
       u.setAttribute("id", "trust-logout-dialog"),
         document.body.appendChild(u),
-        k.Z.sendLog("loginInfoPopupShow", {
+        x.Z.sendLog("loginInfoPopupShow", {
           popup_type: c,
           params_for_special: "uc_login",
           device_id: null === (t = y.Es()) || void 0 === t ? void 0 : t.user_unique_id
@@ -1749,13 +1364,13 @@ window.danmaku_reload_interval = setInterval(() => {
         f.render(v.createElement(b, {
           confirmHandler: function() {
             var e, t;
-            k.Z.sendLog("loginInfoPopupResult", {
+            x.Z.sendLog("loginInfoPopupResult", {
               popup_type: c,
               status: "save",
               params_for_special: "uc_login",
               device_id: null === (e = y.Es()) || void 0 === e ? void 0 : e.user_unique_id
             }),
-              k.Z.sendLog("loginInfoPopupClose", {
+              x.Z.sendLog("loginInfoPopupClose", {
                 popup_type: c,
                 method: "click",
                 params_for_special: "uc_login",
@@ -1776,13 +1391,13 @@ window.danmaku_reload_interval = setInterval(() => {
           },
           cancelHandler: function() {
             var e, t;
-            k.Z.sendLog("loginInfoPopupResult", {
+            x.Z.sendLog("loginInfoPopupResult", {
               popup_type: c,
               status: "cancel",
               params_for_special: "uc_login",
               device_id: null === (e = y.Es()) || void 0 === e ? void 0 : e.user_unique_id
             }),
-              k.Z.sendLog("loginInfoPopupClose", {
+              x.Z.sendLog("loginInfoPopupClose", {
                 popup_type: c,
                 method: "click",
                 params_for_special: "uc_login",
@@ -1804,7 +1419,7 @@ window.danmaku_reload_interval = setInterval(() => {
           },
           defaultHandler: function() {
             var e;
-            k.Z.sendLog("loginInfoPopupClose", {
+            x.Z.sendLog("loginInfoPopupClose", {
               popup_type: c,
               method: "auto",
               params_for_special: "uc_login",
@@ -1818,7 +1433,7 @@ window.danmaku_reload_interval = setInterval(() => {
           countdown: l
         }), u)
     }
-      , N = function() {
+      , T = function() {
       var e = (0,
         r.Z)(a().mark((function e(t) {
           var n, r, i, l, s, c, d, v, f, p, g;
@@ -1826,7 +1441,7 @@ window.danmaku_reload_interval = setInterval(() => {
               for (; ; )
                 switch (e.prev = e.next) {
                   case 0:
-                    if (1 !== (x && u()(x.getItem({
+                    if (1 !== (k && u()(k.getItem({
                       sKey: "LOGIN_STATUS"
                     }), 10) || 0)) {
                       e.next = 3;
@@ -1854,7 +1469,7 @@ window.danmaku_reload_interval = setInterval(() => {
                     }
                     return e.abrupt("return");
                   case 11:
-                    return x.setItem("LOGIN_STATUS", 1, 1 / 0, "/", "douyin.com", ""),
+                    return k.setItem("LOGIN_STATUS", 1, 1 / 0, "/", "douyin.com", ""),
                     (null == (c = w.$o(_.LocalStorageKeys.UserInfo)) ? void 0 : c.uid) !== (null == t || null === (n = t.info) || void 0 === n ? void 0 : n.secUid) && (w.qQ(_.LocalStorageKeys.UserInfo, {
                       uid: null == t || null === (d = t.info) || void 0 === d ? void 0 : d.secUid,
                       nickname: null == t || null === (v = t.info) || void 0 === v ? void 0 : v.nickname,
@@ -1942,12 +1557,12 @@ window.danmaku_reload_interval = setInterval(() => {
         , w = e.tipInfoPosition
         , _ = void 0 === w ? "" : w
         , E = c.$o(v.LocalStorageKeys.IsAllowTrust)
-        , k = (0,
-        a.useState)(1 === E)
         , x = (0,
-        i.Z)(k, 2)
-        , b = x[0]
-        , C = x[1];
+        a.useState)(1 === E)
+        , k = (0,
+        i.Z)(x, 2)
+        , b = k[0]
+        , C = k[1];
       (0,
         a.useEffect)((function() {
           u.listen(u.EVENT.updateTrustSwitch, (function(e) {
@@ -2105,7 +1720,7 @@ window.danmaku_reload_interval = setInterval(() => {
                   case 0:
                     return c.Gn(),
                       e.next = 3,
-                      n.e(8860).then(n.bind(n, 28860));
+                      Promise.all([n.e(8860), n.e(2780)]).then(n.bind(n, 28860));
                   case 3:
                     return o = e.sent,
                       i = o.WebInterfaceSdk,
@@ -2180,13 +1795,15 @@ window.danmaku_reload_interval = setInterval(() => {
     }
   }
   ,
-  97050: (e,t,n)=>{
+  96336: (e,t,n)=>{
     n.r(t),
       n.d(t, {
-        default: ()=>G,
-        loginPanelInfo: ()=>H,
-        navShowAccount: ()=>q,
-        showAccountPage: ()=>K
+        default: ()=>X,
+        disturbShowAccount: ()=>$,
+        loginPanelInfo: ()=>Y,
+        navShowAccount: ()=>J,
+        removeLoginPanel: ()=>ee,
+        showAccountPage: ()=>Q
       });
     var r = n(32781)
       , o = n(30906)
@@ -2196,9 +1813,9 @@ window.danmaku_reload_interval = setInterval(() => {
       , s = n.n(l)
       , c = n(88677)
       , u = n.n(c)
-      , d = n(21805)
+      , d = n(80051)
       , m = n.n(d)
-      , v = n(80051)
+      , v = n(21805)
       , f = n.n(v)
       , h = n(44503)
       , p = n(9)
@@ -2207,23 +1824,24 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = n(90414)
       , _ = n(88287)
       , E = n(37541)
-      , k = n(43478)
-      , x = n(52252)
-      , b = n(51652)
-      , C = n(53540)
+      , x = n(43478)
+      , k = n(52252)
+      , b = n(92557)
+      , C = n(51652)
+      , T = n(53540)
       , N = n(88438)
-      , T = n.n(N)
-      , Z = n(36539)
-      , S = n(1021)
+      , Z = n.n(N)
+      , S = n(36539)
+      , L = n(1021)
       , I = n(76659)
-      , L = n(25083)
-      , D = n(82016)
-      , M = n(47482)
-      , B = n(45627)
-      , A = n(4592)
-      , P = n(4014)
-      , O = ["success", "host", "next", "ScanCodeDescription", "enterMethod", "isActive", "teaEvtParams", "isUnion", "mobileLoginOnly", "isHaveAvatar", "loginTabStyle", "checkQrCodeDelayTime", "isAuto", "gearName", "clarity", "currentUserInfo", "isAllowTrust", "isFirstTrust"]
-      , V = [{
+      , D = n(25083)
+      , M = n(82016)
+      , B = n(47482)
+      , A = n(45627)
+      , P = n(4592)
+      , O = n(4014)
+      , V = ["success", "host", "next", "ScanCodeDescription", "enterMethod", "isActive", "teaEvtParams", "isUnion", "mobileLoginOnly", "isHaveAvatar", "loginTabStyle", "checkQrCodeDelayTime", "isAuto", "gearName", "clarity", "currentUserInfo", "isAllowTrust", "isFirstTrust"]
+      , W = [{
       key: "LOGIN_SCAN_CODE",
       existOn: ["LOGIN_ACCOUNT_PWD", "LOGIN_MOBILE_CODE", "LOGIN_SCAN_CODE"]
     }, {
@@ -2233,17 +1851,17 @@ window.danmaku_reload_interval = setInterval(() => {
       key: "LOGIN_ACCOUNT_PWD",
       existOn: ["LOGIN_ACCOUNT_PWD", "LOGIN_MOBILE_CODE", "LOGIN_SCAN_CODE"]
     }]
-      , W = [{
+      , R = [{
       key: "login",
       existOn: ["PASSWORD_RESET"],
       text: "\u8fd4\u56de\u767b\u5f55",
       type: "page",
       clickToPage: "LOGIN_ACCOUNT_PWD"
     }];
-    const R = function() {
+    const F = function() {
       var e = (0,
         a.Z)(s().mark((function e(t) {
-          var n, r, a, l, c, u, d, m, v, f, h, p, g, y, _, k, N, R, F, U, H, G, j, K, q, Y, X, z, Q, J, $, ee, te, ne, re, oe;
+          var n, r, a, l, c, u, d, m, v, f, h, p, g, y, _, x, b, N, F, U, H, G, j, K, q, Y, X, z, Q, J, $, ee, te, ne, re, oe;
           return s().wrap((function(e) {
               for (; ; )
                 switch (e.prev = e.next) {
@@ -2258,10 +1876,10 @@ window.danmaku_reload_interval = setInterval(() => {
                       g = void 0 === p ? {} : p,
                       y = t.isUnion,
                       _ = void 0 !== y && y,
-                      k = t.mobileLoginOnly,
-                      N = void 0 !== k && k,
-                      R = t.isHaveAvatar,
-                      F = void 0 === R ? "0" : R,
+                      x = t.mobileLoginOnly,
+                      b = void 0 !== x && x,
+                      N = t.isHaveAvatar,
+                      F = void 0 === N ? "0" : N,
                       U = t.loginTabStyle,
                       void 0 === U ? 1 : U,
                       H = t.checkQrCodeDelayTime,
@@ -2279,10 +1897,10 @@ window.danmaku_reload_interval = setInterval(() => {
                       te = t.isFirstTrust,
                       ne = void 0 !== te && te,
                       re = (0,
-                        i.Z)(t, O),
+                        i.Z)(t, V),
                       e.next = 3,
                       (0,
-                        C.Q4)();
+                        T.Q4)();
                   case 3:
                     return oe = e.sent,
                       e.abrupt("return", (0,
@@ -2292,13 +1910,13 @@ window.danmaku_reload_interval = setInterval(() => {
                         device_id: null === (n = I.Es()) || void 0 === n ? void 0 : n.user_unique_id,
                         slardarContext: {
                           enter_method: f,
-                          enter_from: L.vM() || "",
-                          page_type: L.yW() || ""
+                          enter_from: D.vM() || "",
+                          page_type: D.yW() || ""
                         },
                         currentUserInfo: J,
                         isAllowTrust: ee,
                         isFirstTrust: ne,
-                        lastPage: w.$o(b.LocalStorageKeys.LastLoginWay),
+                        lastPage: w.$o(C.LocalStorageKeys.LastLoginWay),
                         refreshNumber: 5,
                         teaConfig: {
                           appId: 6383,
@@ -2306,29 +1924,29 @@ window.danmaku_reload_interval = setInterval(() => {
                             evtParams: (0,
                               o.Z)((0,
                               o.Z)({
-                              page_type: L.yW() || "",
+                              page_type: D.yW() || "",
                               enter_method: f || "",
-                              enter_from: L.vM() || "",
+                              enter_from: D.vM() || "",
                               is_guide: "0",
-                              url_path: x.p() ? "" : null === (r = window) || void 0 === r || null === (a = r.location) || void 0 === a ? void 0 : a.pathname,
-                              video_detail_enter_from: D.z("web_link"),
-                              previous_page: M.Rs("previous_page"),
+                              url_path: k.p() ? "" : null === (r = window) || void 0 === r || null === (a = r.location) || void 0 === a ? void 0 : a.pathname,
+                              video_detail_enter_from: M.z("web_link"),
+                              previous_page: B.Rs("previous_page"),
                               is_active: h,
                               is_video_guide: "0",
                               is_topknot: F,
                               is_full_screen: E.r() ? "1" : "0",
-                              is_full_webscreen: P.s.getIsPageFullscreen() ? "1" : "0",
+                              is_full_webscreen: O.s.getIsPageFullscreen() ? "1" : "0",
                               is_auto: K,
                               gear_name: Y,
                               clarity: z
                             }, g), re),
-                            ug_source: M.Rs("ug_source"),
-                            sem_keyword: M.Rs("sem_keyword"),
-                            browser_is_360: B.a2() ? "1" : "0"
+                            ug_source: B.Rs("ug_source"),
+                            sem_keyword: B.Rs("sem_keyword"),
+                            browser_is_360: A.a2() ? "1" : "0"
                           }
                         },
-                        host: d || (null == Z || null === (l = A.k4) || void 0 === l ? void 0 : l.sso) || "https://sso.douyin.com",
-                        next: m || (null == Z || null === (c = A.k4) || void 0 === c ? void 0 : c.next) || "https://www.douyin.com/",
+                        host: d || (null == S || null === (l = P.k4) || void 0 === l ? void 0 : l.sso) || "https://sso.douyin.com",
+                        next: m || (null == S || null === (c = P.k4) || void 0 === c ? void 0 : c.next) || "https://www.douyin.com/",
                         loginType: _ ? ["LOGIN_MOBILE_CODE", "LOGIN_ACCOUNT_PWD"] : ["LOGIN_SCAN_CODE", "LOGIN_MOBILE_CODE", "LOGIN_ACCOUNT_PWD"],
                         ScanCodeDescription: v,
                         bindConflictType: "create_account",
@@ -2338,7 +1956,7 @@ window.danmaku_reload_interval = setInterval(() => {
                             title: "\u9a8c\u8bc1\u7801\u767b\u5f55",
                             mobilePlaceholder: "\u624b\u673a\u53f7",
                             codePlaceholder: "\u8bf7\u8f93\u5165\u9a8c\u8bc1\u7801",
-                            buttonText: N ? "\u767b\u5f55" : "\u767b\u5f55/\u6ce8\u518c",
+                            buttonText: b ? "\u767b\u5f55" : "\u767b\u5f55/\u6ce8\u518c",
                             confirmInfoBeforeText: "\u540c\u610f"
                           },
                           accountPwdLoginText: {
@@ -2374,19 +1992,19 @@ window.danmaku_reload_interval = setInterval(() => {
                         },
                         unionLoginPanel: _,
                         linkAreaPosition: "top",
-                        loginTab: V,
+                        loginTab: W,
                         loginOnly: {
-                          mobileCode: N
+                          mobileCode: b
                         },
-                        linkList: W,
+                        linkList: R,
                         accountType: ["mobile"],
                         success: function(e) {
                           var t = e.currentPage;
-                          w.qQ(b.LocalStorageKeys.LastLoginWay, t),
+                          w.qQ(C.LocalStorageKeys.LastLoginWay, t),
                             u(e),
-                            T()((function() {
+                            Z()((function() {
                                 (0,
-                                  S.tokenBeatInit)()
+                                  L.tokenBeatInit)()
                               }
                             ), 800)
                         },
@@ -2463,22 +2081,121 @@ window.danmaku_reload_interval = setInterval(() => {
         return e.apply(this, arguments)
       }
     }();
-    var F = n(66019)
-      , U = ["success", "host", "next", "enterMethod", "headerText", "isPage", "isActive", "onClose", "isCanClose", "teaEvtParams", "disabledABTest", "isGuide", "isAuto", "gearName", "clarity"]
-      , H = {
+    var U = n(66019)
+      , H = n(70676)
+      , G = n.n(H);
+    const j = function(e) {
+      var t = (e || {}).headerText
+        , n = void 0 === t ? "\u8bf7\u5148\u767b\u5f55" : t
+        , i = (0,
+        h.useState)(!0)
+        , l = (0,
+        r.Z)(i, 2)
+        , c = l[0]
+        , u = l[1]
+        , d = (0,
+        h.useRef)(null)
+        , m = function() {
+        var t = (0,
+          a.Z)(s().mark((function t() {
+            var n, r, i;
+            return s().wrap((function(t) {
+                for (; ; )
+                  switch (t.prev = t.next) {
+                    case 0:
+                      return u(!0),
+                        t.next = 3,
+                        (0,
+                          T.gE)(e);
+                    case 3:
+                      return r = t.sent,
+                        t.next = 6,
+                        (0,
+                          T.j1)();
+                    case 6:
+                      i = t.sent,
+                        d.current = new i((0,
+                          o.Z)((0,
+                          o.Z)({}, r), {}, {
+                          success: function(e) {
+                            null != e && e.redirect_url && G().get(null == e ? void 0 : e.redirect_url).then((function() {
+                                var t;
+                                Z()(ee, 500),
+                                null == r || null === (t = r.success) || void 0 === t || t.call(r, e)
+                              }
+                            )).catch((function() {
+                                ee()
+                              }
+                            )),
+                              ee()
+                          }
+                        })),
+                      null === (n = d.current) || void 0 === n || n.setTeaConfig({
+                        ug_source: B.Rs("uc_source"),
+                        sem_keyword: B.Rs("sem_keyword"),
+                        browser_is_360: A.a2() ? "1" : "0",
+                        enterMethod: null == e ? void 0 : e.enterMethod,
+                        enterFrom: D.vM()
+                      }),
+                        u(!1);
+                    case 10:
+                    case "end":
+                      return t.stop()
+                  }
+              }
+            ), t)
+          }
+        )));
+        return function() {
+          return t.apply(this, arguments)
+        }
+      }();
+      (0,
+        h.useEffect)((function() {
+          m()
+        }
+      ), []);
+      var v = (0,
+        h.useCallback)((function() {
+          var e, t;
+          return null !== (e = d.current) && void 0 !== e && e.LoginContainer ? null === (t = d.current) || void 0 === t ? void 0 : t.LoginContainer({}) : h.createElement("div", null)
+        }
+      ), []);
+      return h.createElement("div", {
+        id: "scan-code-login-panel"
+      }, h.createElement("i", {
+        className: "scan-code-login-panel__close",
+        onClick: function() {
+          ee()
+        }
+      }), h.createElement("div", {
+        className: "scan-code-login-panel__content"
+      }, h.createElement("div", {
+        className: "content-title"
+      }, n), h.createElement("div", {
+        className: "content-qrcode"
+      }, c ? null : h.createElement(v, null)), h.createElement("div", {
+        className: "content-desc"
+      }, "\u6253\u5f00\u6296\u97f3APP"), h.createElement("div", {
+        className: "content-info"
+      }, "\u626b\u63cf\u4e8c\u7ef4\u7801\u767b\u5f55")))
+    };
+    var K = n(55861)
+      , q = ["success", "host", "next", "enterMethod", "headerText", "isPage", "isActive", "onClose", "isCanClose", "teaEvtParams", "disabledABTest", "isGuide", "isAuto", "gearName", "clarity"]
+      , Y = {
       isShowingAccount: !1,
       isInAccountPage: !1,
       accountPageParams: {
         enterMethod: ""
       }
     };
-    function G(e, t) {
-      return j.apply(this, arguments)
+    function X(e, t) {
+      return z.apply(this, arguments)
     }
-    function j() {
-      return j = (0,
+    function z() {
+      return z = (0,
         a.Z)(s().mark((function e(t, n) {
-          var o, l, c, u, d, v, x, C, N, T, Z, S, I, L, D, M, B, A, P, O, V, W, G, j, K, q, Y, X, z, Q, J, $, ee, te, ne;
+          var o, l, c, u, d, v, k, b, T, N, Z, S, L, I, D, M, B, A, P, O, V, W, R, H, G, j, K, X, z, Q, J, $, te, ne, re;
           return s().wrap((function(e) {
               for (; ; )
                 switch (e.prev = e.next) {
@@ -2489,14 +2206,14 @@ window.danmaku_reload_interval = setInterval(() => {
                       u = void 0 === c ? null : c,
                       d = t.next,
                       v = void 0 === d ? null : d,
-                      x = t.enterMethod,
-                      C = void 0 === x ? "" : x,
-                      N = t.headerText,
-                      T = void 0 === N ? "" : N,
+                      k = t.enterMethod,
+                      b = void 0 === k ? "" : k,
+                      T = t.headerText,
+                      N = void 0 === T ? "" : T,
                       Z = t.isPage,
                       S = void 0 !== Z && Z,
-                      I = t.isActive,
-                      L = void 0 === I ? "1" : I,
+                      L = t.isActive,
+                      I = void 0 === L ? "1" : L,
                       D = t.onClose,
                       M = void 0 === D ? null : D,
                       B = t.isCanClose,
@@ -2506,25 +2223,26 @@ window.danmaku_reload_interval = setInterval(() => {
                       V = t.disabledABTest,
                     void 0 !== V && V,
                       W = t.isGuide,
-                      G = void 0 !== W && W,
-                      j = t.isAuto,
-                      K = void 0 === j ? 1 : j,
-                      q = t.gearName,
-                      Y = void 0 === q ? "" : q,
+                      R = void 0 !== W && W,
+                      H = t.isAuto,
+                      G = void 0 === H ? 1 : H,
+                      j = t.gearName,
+                      K = void 0 === j ? "" : j,
                       X = t.clarity,
                       z = void 0 === X ? "" : X,
                       (0,
-                        i.Z)(t, U),
+                        i.Z)(t, q),
                       e.next = 3,
                       (0,
-                        F.SJ)();
+                        U.SJ)();
                   case 3:
-                    if (S) {
-                      e.next = 7;
+                    if (ee(),
+                      S) {
+                      e.next = 8;
                       break
                     }
-                    if (!(H.isShowingAccount || null !== (Q = document) && void 0 !== Q && null !== (J = Q.querySelector) && void 0 !== J && J.call(Q, "#login-pannel"))) {
-                      e.next = 7;
+                    if (!(Y.isShowingAccount || null !== (Q = document) && void 0 !== Q && null !== (J = Q.querySelector) && void 0 !== J && J.call(Q, "#login-pannel"))) {
+                      e.next = 8;
                       break
                     }
                     return null == M || M(),
@@ -2532,45 +2250,45 @@ window.danmaku_reload_interval = setInterval(() => {
                           return null
                         }
                       ));
-                  case 7:
+                  case 8:
                     return $ = function(e) {
                       e.stopPropagation()
                     }
                       ,
-                    A || null === (ee = document) || void 0 === ee || ee.addEventListener("keydown", $, !0),
-                      te = "https://p3-pc-weboff.byteimg.com/tos-cn-i-9r5gewecjs/login-resetpwd-bg.png",
-                      H.isShowingAccount = !0,
-                      H.isInAccountPage = !1,
-                      ne = function() {
+                    A || null === (te = document) || void 0 === te || te.addEventListener("keydown", $, !0),
+                      ne = "https://p3-pc-weboff.byteimg.com/tos-cn-i-9r5gewecjs/login-resetpwd-bg.png",
+                      Y.isShowingAccount = !0,
+                      Y.isInAccountPage = !1,
+                      re = function() {
                         var e = (0,
                           a.Z)(s().mark((function e(t) {
-                            var r, o, i, a, c, d, f, y, x, N, Z, I, D, B, P, V, W, U, G, j, q, X, Q, J, ee, ne, re, oe, ie, ae, le, se, ce, ue, de, me;
+                            var r, o, i, a, c, d, m, y, k, T, Z, L, D, B, P, V, W, R, H, j, q, X, Q, J, ee, te, re, oe, ie, ae, le, se, ce, ue, de, me;
                             return s().wrap((function(e) {
                                 for (; ; )
                                   switch (e.prev = e.next) {
                                     case 0:
                                       return c = t.avatarLoginGuide,
                                         d = void 0 === c ? 0 : c,
-                                        f = t.checkQrCodeDelayTime,
-                                        y = void 0 === f ? 0 : f,
-                                        x = t.loginBgImg,
-                                        N = void 0 === x ? te : x,
+                                        m = t.checkQrCodeDelayTime,
+                                        y = void 0 === m ? 0 : m,
+                                        k = t.loginBgImg,
+                                        T = void 0 === k ? ne : k,
                                         Z = t.isFirstTrust,
-                                        I = void 0 === Z ? 0 : Z,
+                                        L = void 0 === Z ? 0 : Z,
                                         D = t.isAllowTrust,
                                         B = void 0 === D ? 0 : D,
                                         P = t.scanLoginText,
                                         V = void 0 === P ? 0 : P,
                                         W = t.coldStartPanelTitle,
-                                        U = void 0 === W ? "" : W,
-                                        G = t.subTitle,
-                                        j = void 0 === G ? [] : G,
-                                        q = m()(r = ["cold_start", "cold_start_full"]).call(r, C) && 1 === d && !(F.u % 3 == 0 && F.Vg),
-                                        X = m()(o = ["cold_start", "cold_start_full"]).call(o, C) && 2 === d && !F.Vg && F.u < 5,
-                                        Q = !(m()(i = ["cold_start", "cold_start_full"]).call(i, C) || 1 !== d || F.FT % 3 == 0 && F.q5),
-                                        J = !m()(a = ["cold_start", "cold_start_full"]).call(a, C) && 2 === d && !F.q5 && F.FT < 5,
+                                        R = void 0 === W ? "" : W,
+                                        H = t.subTitle,
+                                        j = void 0 === H ? [] : H,
+                                        q = f()(r = ["cold_start", "cold_start_full"]).call(r, b) && 1 === d && !(U.u % 3 == 0 && U.Vg),
+                                        X = f()(o = ["cold_start", "cold_start_full"]).call(o, b) && 2 === d && !U.Vg && U.u < 5,
+                                        Q = !(f()(i = ["cold_start", "cold_start_full"]).call(i, b) || 1 !== d || U.FT % 3 == 0 && U.q5),
+                                        J = !f()(a = ["cold_start", "cold_start_full"]).call(a, b) && 2 === d && !U.q5 && U.FT < 5,
                                         ee = String(Number(q || X || Q || J)),
-                                        ne = T || (m()(re = ["cold_start_full", "cold_start", "auto", "navigation_bar"]).call(re, C) ? U : ""),
+                                        te = N || (f()(re = ["cold_start_full", "cold_start", "auto", "navigation_bar"]).call(re, b) ? R : ""),
                                         oe = function() {
                                           return h.createElement("div", {
                                             className: "web-login-scan-desc-text"
@@ -2617,23 +2335,23 @@ window.danmaku_reload_interval = setInterval(() => {
                                         }(),
                                         !1,
                                         e.next = 15,
-                                        R({
+                                        F({
                                           success: l,
                                           host: u,
                                           next: v,
                                           ScanCodeDescription: le,
-                                          enterMethod: C,
+                                          enterMethod: b,
                                           isUnion: false,
-                                          isActive: L,
+                                          isActive: I,
                                           teaEvtParams: O,
                                           isHaveAvatar: ee,
                                           checkQrCodeDelayTime: y,
-                                          isAuto: K,
-                                          gearName: Y,
+                                          isAuto: G,
+                                          gearName: K,
                                           clarity: z,
-                                          currentUserInfo: w.$o(b.LocalStorageKeys.UserInfo),
-                                          isAllowTrust: Boolean(B) && 1 === w.$o(b.LocalStorageKeys.IsAllowTrust),
-                                          isFirstTrust: Boolean(I),
+                                          currentUserInfo: w.$o(C.LocalStorageKeys.UserInfo),
+                                          isAllowTrust: Boolean(B) && 1 === w.$o(C.LocalStorageKeys.IsAllowTrust),
+                                          isFirstTrust: Boolean(L),
                                           mobileLoginOnly: _.X()
                                         });
                                     case 15:
@@ -2654,20 +2372,20 @@ window.danmaku_reload_interval = setInterval(() => {
                                         }
                                         ,
                                         document.body.style.overflow = "hidden",
-                                        k.IX(),
-                                        p.render(h.createElement(F.ZP, {
+                                        x.IX(),
+                                        p.render(h.createElement(U.ZP, {
                                           config: se,
                                           destroy: function() {
-                                            H.isShowingAccount = !1,
+                                            Y.isShowingAccount = !1,
                                               me()
                                           },
-                                          text: ne,
+                                          text: te,
                                           isPage: S,
                                           onClose: M,
-                                          enterMethod: C,
+                                          enterMethod: b,
                                           isCanClose: A,
                                           avatarAbtest: d,
-                                          loginBgImg: N,
+                                          loginBgImg: T,
                                           scanLoginText: V,
                                           subTitle: j
                                         }), ce),
@@ -2684,7 +2402,7 @@ window.danmaku_reload_interval = setInterval(() => {
                           return e.apply(this, arguments)
                         }
                       }(),
-                      f().all([y.h.getVar({
+                      m().all([y.h.getVar({
                         name: "avatar_login_guide",
                         defaultValue: 0
                       }), y.h.getVar({
@@ -2692,7 +2410,7 @@ window.danmaku_reload_interval = setInterval(() => {
                         defaultValue: g.CheckQrCodeDelayTimeABVal.Normal
                       }), y.h.getVar({
                         name: "login_bg_img",
-                        defaultValue: te
+                        defaultValue: ne
                       }), y.h.getVar({
                         name: "is_first_trust",
                         defaultValue: 0
@@ -2716,7 +2434,7 @@ window.danmaku_reload_interval = setInterval(() => {
                             , i = t[1]
                             , a = void 0 === i ? 0 : i
                             , l = t[2]
-                            , s = void 0 === l ? te : l
+                            , s = void 0 === l ? ne : l
                             , c = t[3]
                             , u = void 0 === c ? 0 : c
                             , d = t[4]
@@ -2726,9 +2444,9 @@ window.danmaku_reload_interval = setInterval(() => {
                             , h = t[6]
                             , p = void 0 === h ? "" : h
                             , g = t[7];
-                          return ne({
+                          return re({
                             avatarLoginGuide: o,
-                            checkQrCodeDelayTime: G ? a : 0,
+                            checkQrCodeDelayTime: R ? a : 0,
                             loginBgImg: s,
                             isFirstTrust: u,
                             isAllowTrust: m,
@@ -2738,10 +2456,10 @@ window.danmaku_reload_interval = setInterval(() => {
                           })
                         }
                       )).catch((function() {
-                          return ne({
+                          return re({
                             avatarLoginGuide: 0,
                             checkQrCodeDelayTime: 0,
-                            loginBgImg: te,
+                            loginBgImg: ne,
                             isFirstTrust: 0,
                             isAllowTrust: 0,
                             scanLoginText: 0,
@@ -2754,7 +2472,7 @@ window.danmaku_reload_interval = setInterval(() => {
                           return null
                         }
                       ));
-                  case 15:
+                  case 16:
                   case "end":
                     return e.stop()
                 }
@@ -2762,33 +2480,80 @@ window.danmaku_reload_interval = setInterval(() => {
           ), e)
         }
       ))),
-        j.apply(this, arguments)
+        z.apply(this, arguments)
     }
-    function K(e) {
-      G((0,
+    function Q(e) {
+      X((0,
         o.Z)({
         isPage: !0,
         next: (0,
-          C.pL)()
+          T.pL)()
       }, e)),
-        H.accountPageParams = e,
-        H.isInAccountPage = !0
+        Y.accountPageParams = e,
+        Y.isInAccountPage = !0
     }
-    function q(e) {
-      H.isShowingAccount = !1;
-      var t = H.isInAccountPage ? u()(K).call(K, null, H.accountPageParams) : function() {
+    function J(e) {
+      Y.isShowingAccount = !1;
+      var t = Y.isInAccountPage ? u()(Q).call(Q, null, Y.accountPageParams) : function() {
           return null
         }
       ;
-      G((0,
+      X((0,
         o.Z)((0,
         o.Z)({}, e), {}, {
         next: (null == e ? void 0 : e.next) || (0,
-          C.pL)(),
+          T.pL)(),
         onClose: t
       }))
     }
-    x.p() || (window.showAccount = G)
+    k.p() || (window.showAccount = X);
+    var $ = function() {
+      var e = (0,
+        a.Z)(s().mark((function e(t, n, i) {
+          var a, l, c, u, d;
+          return s().wrap((function(e) {
+              for (; ; )
+                switch (e.prev = e.next) {
+                  case 0:
+                    return ee(),
+                    null !== K.n && void 0 !== K.n && K.n.loginGuideShowed && K.n.destroy(),
+                      a = !1,
+                      e.next = 5,
+                      m().all([y.h.getVar({
+                        name: "no_disturb_v2",
+                        defaultValue: g.NoDisturbSecondTest.Default
+                      })]);
+                  case 5:
+                    l = e.sent,
+                      c = (0,
+                        r.Z)(l, 1),
+                      u = c[0],
+                    2 !== (d = void 0 === u ? 0 : u) && 3 !== d || (a = !0),
+                      a && i ? (b.emit(b.EVENT.videoStopPlayNext),
+                        b.emit(b.EVENT.showDisturbLoginPanel, !0),
+                        p.render(h.createElement(j, (0,
+                          o.Z)({}, t)), i)) : X(t, n);
+                  case 11:
+                  case "end":
+                    return e.stop()
+                }
+            }
+          ), e)
+        }
+      )));
+      return function(t, n, r) {
+        return e.apply(this, arguments)
+      }
+    }()
+      , ee = function() {
+      var e = document.querySelectorAll(".disturb-login-panel");
+      if (0 !== e.length) {
+        for (var t = 0; t < e.length; t++)
+          e[t] && p.unmountComponentAtNode(e[t]);
+        b.emit(b.EVENT.showDisturbLoginPanel, !1),
+          b.emit(b.EVENT.videoRemoveStopPlayNext)
+      }
+    }
   }
   ,
   22459: (e,t,n)=>{
@@ -2817,9 +2582,9 @@ window.danmaku_reload_interval = setInterval(() => {
       pendant: "ScZNxJWS"
     };
     function d(e) {
-      var t, n = e.type, i = void 0 === n ? "default" : n, s = e.src, d = e.alt, m = void 0 === d ? "" : d, v = e.isSpider, f = void 0 !== v && v, h = e.isSelf, p = void 0 !== h && h, g = e.showImageInSSR, y = void 0 !== g && g, w = e.className, _ = e.defaultClassName, E = e.imgClassName, k = e.maskConf, x = e.onMouseEnter, b = e.onMouseLeave, C = (0,
-        l.useState)(0), N = (0,
-        o.Z)(C, 2), T = N[0], Z = N[1], S = s && (1 === T || f || y), I = k || {}, L = I.showMask, D = I.MaskItem, M = I.className, B = function() {
+      var t, n = e.type, i = void 0 === n ? "default" : n, s = e.src, d = e.alt, m = void 0 === d ? "" : d, v = e.isSpider, f = void 0 !== v && v, h = e.isSelf, p = void 0 !== h && h, g = e.showImageInSSR, y = void 0 !== g && g, w = e.className, _ = e.defaultClassName, E = e.imgClassName, x = e.maskConf, k = e.onMouseEnter, b = e.onMouseLeave, C = (0,
+        l.useState)(0), T = (0,
+        o.Z)(C, 2), N = T[0], Z = T[1], S = s && (1 === N || f || y), L = x || {}, I = L.showMask, D = L.MaskItem, M = L.className, B = function() {
         return Z(1)
       };
       return (0,
@@ -2861,10 +2626,10 @@ window.danmaku_reload_interval = setInterval(() => {
             (0,
               r.Z)(t, u.self, p),
             t)),
-          onMouseEnter: x,
+          onMouseEnter: k,
           onMouseLeave: b,
           "data-e2e": "live-avatar"
-        }, L ? l.createElement(D, {
+        }, I ? l.createElement(D, {
           className: M
         }) : null, S ? l.createElement("img", {
           src: globalThis.getFilterXss().filterUrl(s, null, {
@@ -2957,10 +2722,10 @@ window.danmaku_reload_interval = setInterval(() => {
     });
     var f = n(14001);
     function h(e) {
-      var t, n = e.type, i = void 0 === n ? "normal" : n, h = e.src, p = e.alt, g = void 0 === p ? "" : p, y = e.uid, w = void 0 === y ? "" : y, _ = e.liveRoomUrl, E = e.isNeedSeoOpt, k = void 0 !== E && E, x = e.isNeedSendLog, b = void 0 !== x && x, C = e.liveRoomParam, N = void 0 === C ? {
+      var t, n = e.type, i = void 0 === n ? "normal" : n, h = e.src, p = e.alt, g = void 0 === p ? "" : p, y = e.uid, w = void 0 === y ? "" : y, _ = e.liveRoomUrl, E = e.isNeedSeoOpt, x = void 0 !== E && E, k = e.isNeedSendLog, b = void 0 !== k && k, C = e.liveRoomParam, T = void 0 === C ? {
         logId: ""
-      } : C, T = e.isShow, Z = void 0 === T || T, S = e.isFirstLive, I = void 0 !== S && S, L = e.onClick, D = void 0 === L ? function() {}
-        : L, M = e.groupId, B = (0,
+      } : C, N = e.isShow, Z = void 0 === N || N, S = e.isFirstLive, L = void 0 !== S && S, I = e.onClick, D = void 0 === I ? function() {}
+        : I, M = e.groupId, B = (0,
         o.useMemo)((function() {
           return "String" !== l.tQ(_) ? null : s.D(_.split("?", 2)[1])
         }
@@ -2990,37 +2755,37 @@ window.danmaku_reload_interval = setInterval(() => {
                 vs_episode_stage: u ? (null == s || null === (o = s.episodeExtra) || void 0 === o || null === (i = o.mod) || void 0 === i ? void 0 : i.episode_stage) === c.W.FirstLive ? "premiere" : "live" : ""
               })
             }
-          }(w, B, N)
+          }(w, B, T)
         }
-      ), [b, D, w, B, N]);
+      ), [b, D, w, B, T]);
       return (0,
         o.useEffect)((function() {
-          if (B && null != N && N.logId && !A.current && Z) {
-            var e, t, n, r, o, i = null == N ? void 0 : N.episodeExtra;
+          if (B && null != T && T.logId && !A.current && Z) {
+            var e, t, n, r, o, i = null == T ? void 0 : T.episodeExtra;
             v.sendLog("livesdkLiveShow", {
               anchor_id: w,
               room_id: B.room_id,
               action_type: B.action_type,
               enter_from_merge: B.enter_from_merge,
               enter_method: B.enter_method,
-              request_id: null == N ? void 0 : N.logId,
+              request_id: null == T ? void 0 : T.logId,
               video_id: M,
               is_vs: i ? 1 : 0,
-              vs_episode_id: i ? null == N || null === (e = N.episodeExtra) || void 0 === e ? void 0 : e.episode_id_str : "",
-              vs_ep_group_id: i ? null == N || null === (t = N.episodeExtra) || void 0 === t ? void 0 : t.item_id : "",
-              vs_season_id: i ? null == N || null === (n = N.episodeExtra) || void 0 === n ? void 0 : n.season_id_str : "",
-              vs_episode_stage: i ? (null == N || null === (r = N.episodeExtra) || void 0 === r || null === (o = r.mod) || void 0 === o ? void 0 : o.episode_stage) === c.W.FirstLive ? "premiere" : "live" : ""
+              vs_episode_id: i ? null == T || null === (e = T.episodeExtra) || void 0 === e ? void 0 : e.episode_id_str : "",
+              vs_ep_group_id: i ? null == T || null === (t = T.episodeExtra) || void 0 === t ? void 0 : t.item_id : "",
+              vs_season_id: i ? null == T || null === (n = T.episodeExtra) || void 0 === n ? void 0 : n.season_id_str : "",
+              vs_episode_stage: i ? (null == T || null === (r = T.episodeExtra) || void 0 === r || null === (o = r.mod) || void 0 === o ? void 0 : o.episode_stage) === c.W.FirstLive ? "premiere" : "live" : ""
             }),
               A.current = !0
           }
         }
-      ), [N, Z]),
+      ), [T, Z]),
         o.createElement(f.a, {
           href: globalThis.getFilterXss().filterUrl(_, null, {
             logType: "js.href/src",
             reportOnly: !1
           }),
-          isNeedSeoOpt: k,
+          isNeedSeoOpt: x,
           target: "_blank",
           refEl: P,
           rel: "noopener noreferrer",
@@ -3029,7 +2794,7 @@ window.danmaku_reload_interval = setInterval(() => {
         }, o.createElement("div", {
           className: a()(m.avatarContainer, (t = {},
             (0,
-              r.Z)(t, m.isFirstLive, I),
+              r.Z)(t, m.isFirstLive, L),
             (0,
               r.Z)(t, m.small, "small" === i),
             (0,
@@ -3053,11 +2818,11 @@ window.danmaku_reload_interval = setInterval(() => {
         }, o.createElement("span", {
           className: m.liveTagText,
           "data-e2e": "user-info-living"
-        }, I ? "\u9996\u64ad\u4e2d" : "\u76f4\u64ad\u4e2d")) : o.createElement("div", {
+        }, L ? "\u9996\u64ad\u4e2d" : "\u76f4\u64ad\u4e2d")) : o.createElement("div", {
           className: m.liveTagInner
         }, o.createElement("img", {
           className: m.liveTagInnerImg,
-          src: globalThis.getFilterXss().filterUrl(I ? d : u, null, {
+          src: globalThis.getFilterXss().filterUrl(L ? d : u, null, {
             logType: "js.href/src",
             reportOnly: !1
           }),
@@ -3105,7 +2870,7 @@ window.danmaku_reload_interval = setInterval(() => {
         , w = void 0 === y ? "solid" : y
         , _ = e.disabled
         , E = void 0 !== _ && _
-        , k = (0,
+        , x = (0,
         i.Z)(e, m);
       return a.createElement("button", (0,
         o.Z)({
@@ -3117,7 +2882,7 @@ window.danmaku_reload_interval = setInterval(() => {
           o.Z)({
           width: p && "".concat(p, "px")
         }, g)
-      }, k), d)
+      }, x), d)
     }
     !function(e) {
       e.small = "small",
@@ -3193,16 +2958,16 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = n.n(y)
       , _ = n(59440)
       , E = n.n(_)
-      , k = n(81711)
-      , x = n.n(k)
+      , x = n(81711)
+      , k = n.n(x)
       , b = n(88438)
       , C = n.n(b)
-      , N = n(79705)
-      , T = n.n(N)
+      , T = n(79705)
+      , N = n.n(T)
       , Z = n(44503)
       , S = n(89176)
-      , I = n(78867)
-      , L = n(72983)
+      , L = n(78867)
+      , I = n(72983)
       , D = n(81300)
       , M = n(25083)
       , B = n(82226)
@@ -3217,25 +2982,29 @@ window.danmaku_reload_interval = setInterval(() => {
     const H = "n9PPTk22"
       , G = "N_HNXA04"
       , j = "gtbObvwD"
-      , K = "HQwsRJFy"
-      , q = "RzBzzWsU"
-      , Y = "Bo1o4KGi"
-      , X = "XFvPYpcw"
-      , z = "iViO9oMI"
-      , Q = "BmcsyffA"
-      , J = "kQ2JnIMK"
-      , $ = "S9ST96Zy"
-      , ee = "a9jyVZQj"
-      , te = "c4FOEjLr"
-      , ne = "YrFhKzRI"
-      , re = "bFNyxfOF"
-      , oe = "pi5uYseT"
-      , ie = "JVPLvXh3"
+      , K = "JVPLvXh3"
+      , q = "HQwsRJFy"
+      , Y = "RzBzzWsU"
+      , X = "Bo1o4KGi"
+      , z = "XFvPYpcw"
+      , Q = "iViO9oMI"
+      , J = "BmcsyffA"
+      , $ = "kQ2JnIMK"
+      , ee = "S9ST96Zy"
+      , te = "a9jyVZQj"
+      , ne = "c4FOEjLr"
+      , re = "YrFhKzRI"
+      , oe = "bFNyxfOF"
+      , ie = "pi5uYseT"
       , ae = "gaIgCiUy";
     var le = n(96608)
       , se = n(94610)
       , ce = n.n(se)
-      , ue = [{
+      , ue = n(67201)
+      , de = n.n(ue)
+      , me = n(46989)
+      , ve = n(90147)
+      , fe = [{
       url: "https://www.oceanengine.com/resource/douyin",
       title: "\u5e7f\u544a\u6295\u653e"
     }, {
@@ -3269,7 +3038,7 @@ window.danmaku_reload_interval = setInterval(() => {
       url: "https://mix.jinritemai.com/falcon/mix_page/index.html?__live_platform__=webcast&allowMediaAutoPlay=1&enter_from=others&hide_nav_bar=1&hide_system_video_poster=1&id=7117178766052294949&origin_type=others&should_full_screen=1&trans_status_bar=1&ttwebview_extension_mixrender=1&hide_nav_bar=1&should_full_screen=1&trans_status_bar=1&web_bg_color=#ffffffff",
       title: "\u6296\u97f3\u7535\u5546"
     }]
-      , de = [[{
+      , he = [[{
       title: "".concat((new Date).getFullYear(), " \xa9 \u6296\u97f3")
     }, {
       url: "https://beian.miit.gov.cn/",
@@ -3301,16 +3070,15 @@ window.danmaku_reload_interval = setInterval(() => {
       title: "\u7b97\u6cd5\u63a8\u8350\u4e13\u9879\u4e3e\u62a5 sfjubao@bytedance.com"
     }, {
       title: "\u7f51\u7edc\u5185\u5bb9\u4ece\u4e1a\u4eba\u5458\u8fdd\u6cd5\u8fdd\u89c4\u884c\u4e3a\u4e3e\u62a5 feedback@douyin.com"
-    }]]
-      , me = n(14001);
-    const ve = "NRSpjbcb"
-      , fe = "wQmC940F"
-      , he = "yA0rrc2M"
-      , pe = "o1h2uP_i"
-      , ge = "YfdKaFoj"
-      , ye = "h9hROuDG"
-      , we = "eb9O5iw_";
-    const _e = new (n(37485).hD)({
+    }]];
+    const pe = "NRSpjbcb"
+      , ge = "wQmC940F"
+      , ye = "yA0rrc2M"
+      , we = "o1h2uP_i"
+      , _e = "YfdKaFoj"
+      , Ee = "h9hROuDG"
+      , xe = "eb9O5iw_";
+    const ke = new (n(37485).hD)({
       pageClick: {
         eventName: "page_click",
         params: {
@@ -3318,43 +3086,40 @@ window.danmaku_reload_interval = setInterval(() => {
         }
       }
     });
-    var Ee = n(62305)
-      , ke = n.n(Ee)
-      , xe = n(46989)
-      , be = n(90147);
+    var be = n(14001);
     function Ce(e) {
       var t = e.linkItems
         , n = e.subLinkItems
         , r = e.specTheme
-        , o = t || ue
-        , i = n || de
+        , o = t || fe
+        , i = n || he
         , a = function(e) {
         var t = e.links;
         return Z.createElement("div", {
-          className: he
+          className: ye
         }, ce()(t).call(t, (function(e, t) {
             var n = e.url;
             return Z.createElement("div", {
               key: "link_".concat(t),
-              className: ge
-            }, e.url ? Z.createElement(me.a, {
+              className: _e
+            }, e.url ? Z.createElement(be.a, {
               href: globalThis.getFilterXss().filterUrl(n, null, {
                 logType: "js.href/src",
                 reportOnly: !1
               }),
               onClick: function(t) {
                 if ("\u7ad9\u70b9\u5730\u56fe" === e.title) {
-                  var r, o, i, a, l, s, c, u, d, m = n, v = ke().parse(null !== (r = null === (o = window) || void 0 === o || null === (i = o.location) || void 0 === i ? void 0 : i.search) && void 0 !== r ? r : "");
+                  var r, o, i, a, l, s, c, u, d, m = n, v = de().parse(null !== (r = null === (o = window) || void 0 === o || null === (i = o.location) || void 0 === i ? void 0 : i.search) && void 0 !== r ? r : "");
                   v.from = null === (a = window) || void 0 === a || null === (l = a.location) || void 0 === l ? void 0 : l.pathname,
-                  null !== (s = window) && void 0 !== s && null !== (c = s.location) && void 0 !== c && w()(u = c.href).call(u, be.LIVE_DOMAIN) && (v.from = "live"),
-                    m += "".concat(decodeURIComponent("?".concat(ke().stringify(v)))),
+                  null !== (s = window) && void 0 !== s && null !== (c = s.location) && void 0 !== c && w()(u = c.href).call(u, ve.LIVE_DOMAIN) && (v.from = "live"),
+                    m += "".concat(decodeURIComponent("?".concat(de().stringify(v)))),
                   null === (d = window) || void 0 === d || d.open(m, "_blank"),
-                    _e.sendLog("pageClick"),
+                    ke.sendLog("pageClick"),
                     t.preventDefault()
                 }
               },
               target: "_blank",
-              rel: "noopener noreferrer".concat(xe.P(e.title))
+              rel: "noopener noreferrer ".concat(me.P(e.title))
             }, e.title) : Z.createElement("span", null, e.title))
           }
         )))
@@ -3362,8 +3127,8 @@ window.danmaku_reload_interval = setInterval(() => {
         , s = function(e) {
         var t = e.sublink;
         return Z.createElement("div", {
-          className: ye
-        }, t.url ? Z.createElement(me.a, {
+          className: Ee
+        }, t.url ? Z.createElement(be.a, {
           href: globalThis.getFilterXss().filterUrl(t.url, null, {
             logType: "js.href/src",
             reportOnly: !1
@@ -3371,7 +3136,7 @@ window.danmaku_reload_interval = setInterval(() => {
           target: "_blank",
           rel: "noopener noreferrer"
         }, t.icon && Z.createElement("img", {
-          className: we,
+          className: xe,
           src: globalThis.getFilterXss().filterUrl(t.icon, null, {
             logType: "js.href/src",
             reportOnly: !1
@@ -3384,7 +3149,7 @@ window.danmaku_reload_interval = setInterval(() => {
         return Z.createElement(Z.Fragment, null, ce()(t).call(t, (function(e, t) {
             return Z.createElement("div", {
               key: "g_".concat(t),
-              className: pe
+              className: we
             }, ce()(e).call(e, (function(e, t) {
                 return Z.createElement(s, {
                   key: "sublink_".concat(t),
@@ -3396,20 +3161,20 @@ window.danmaku_reload_interval = setInterval(() => {
         )))
       };
       return Z.createElement("footer", null, Z.createElement("div", {
-        className: T()(fe, (0,
-          l.Z)({}, ve, null == r ? void 0 : r.themeFurtherSwitch))
+        className: N()(ge, (0,
+          l.Z)({}, pe, null == r ? void 0 : r.themeFurtherSwitch))
       }, Z.createElement(c, {
         sublinksGroup: i
       }), Z.createElement(a, {
         links: o
       })))
     }
-    var Ne = n(3748)
-      , Te = n(76659)
+    var Te = n(3748)
+      , Ne = n(76659)
       , Ze = n(8841);
     const Se = "HLKZ9U4X"
-      , Ie = "r62Yt4yT"
-      , Le = "qoKzjoSV"
+      , Le = "r62Yt4yT"
+      , Ie = "qoKzjoSV"
       , De = "L4Q5Pfp6";
     var Me = function(e) {
       var t, n = e.list, i = e.current, s = e.onChange, u = e.className, d = e.activeClickable, m = e.userInfo, f = e.abTestData, h = e.customProps, p = Z.useRef(null), g = (0,
@@ -3426,12 +3191,12 @@ window.danmaku_reload_interval = setInterval(() => {
                     switch (t.prev = t.next) {
                       case 0:
                         return t.next = 2,
-                          Ne.U();
+                          Te.U();
                       case 2:
                         n = t.sent,
-                        e || (r = Te.Le.getConfig(Te.gI.TabPointCache),
+                        e || (r = Ne.Le.getConfig(Ne.gI.TabPointCache),
                           o = n,
-                          Te.Le.setConfig(Te.gI.TabPointCache, {
+                          Ne.Le.setConfig(Ne.gI.TabPointCache, {
                             followCount: "follow" === i ? 0 : (null == o ? void 0 : o.count) || (null == r ? void 0 : r.followCount),
                             followHasLive: "follow" !== i && ((null == o ? void 0 : o.hasLive) || (null == r ? void 0 : r.followHasNotice)),
                             followHasNotice: "follow" !== i && ((null == o ? void 0 : o.hasNotice) || (null == r ? void 0 : r.followHasLive)),
@@ -3458,7 +3223,7 @@ window.danmaku_reload_interval = setInterval(() => {
         }
       ), [i]),
         Z.createElement("div", {
-          className: T()(Se, u, (0,
+          className: N()(Se, u, (0,
             l.Z)({}, De, null == h ? void 0 : h.isSearchSideNav)),
           ref: p
         }, ce()(t = v()(n).call(n, (function(e) {
@@ -3467,14 +3232,14 @@ window.danmaku_reload_interval = setInterval(() => {
         ))).call(t, (function(e) {
             return "divider" === e.value ? Z.createElement("div", {
               key: e.value,
-              className: Ie
+              className: Le
             }) : Z.createElement(Ze.G, (0,
               r.Z)({
               abTestData: f,
               userInfo: m,
               active: e.value === i,
               activeClickable: d,
-              className: Le,
+              className: Ie,
               onClick: s,
               customProps: (0,
                 r.Z)((0,
@@ -3554,15 +3319,15 @@ window.danmaku_reload_interval = setInterval(() => {
         ), [n, r, o, i, s, c, u, m]);
         var g = t === U.pC.Animation && !h;
         return Z.createElement("div", {
-          className: T()(He),
+          className: N()(He),
           onMouseEnter: function() {
             p(!0)
           }
         }, Z.createElement("div", {
-          className: T()(Ge, Ke, (0,
+          className: N()(Ge, Ke, (0,
             l.Z)({}, Ye, g))
         }), Z.createElement("div", {
-          className: T()(Ge, je, (0,
+          className: N()(Ge, je, (0,
             l.Z)({}, Ye, !g))
         }), Z.createElement("div", {
           className: qe
@@ -3638,9 +3403,9 @@ window.danmaku_reload_interval = setInterval(() => {
             null === (e = document.getElementsByClassName(Pe)) || void 0 === e || null === (t = e[0]) || void 0 === t || null === (n = t.setAttribute) || void 0 === n || n.call(t, "style", a)
           }
         ), [m, u, i, o, c, s, v, f, null == h ? void 0 : h.vsEntryAnimate]);
-        var k = n === U.pC.Animation && !_;
+        var x = n === U.pC.Animation && !_;
         return Z.createElement("div", {
-          className: T()(Pe, (0,
+          className: N()(Pe, (0,
             l.Z)({}, Fe, null == p || null === (t = p.pathname) || void 0 === t ? void 0 : w()(t).call(t, "/search"))),
           onMouseEnter: function() {
             E(!0)
@@ -3649,11 +3414,11 @@ window.danmaku_reload_interval = setInterval(() => {
           className: Ue
         }, Z.createElement(ze, (0,
           r.Z)({}, e))), Z.createElement("div", {
-          className: T()(Oe, We, (0,
-            l.Z)({}, Re, k))
+          className: N()(Oe, We, (0,
+            l.Z)({}, Re, x))
         }), Z.createElement("div", {
-          className: T()(Oe, Ve, (0,
-            l.Z)({}, Re, !k))
+          className: N()(Oe, Ve, (0,
+            l.Z)({}, Re, !x))
         }), Z.createElement("img", {
           className: Re,
           src: globalThis.getFilterXss().filterUrl(i, null, {
@@ -3682,19 +3447,19 @@ window.danmaku_reload_interval = setInterval(() => {
       }
     )), Je = n(16340), $e = n(9070), et = n(73750), tt = R, nt = tt.commonChannelMenu, rt = tt.channelMenu, ot = tt.commonChannelMenuWithSelfLandingFavoriteCollection, it = tt.commonChannelMenuWithSelfLandingLike, at = (Xe = {},
       (0,
-        l.Z)(Xe, I.SelfTabABVal.LandingLike, it()),
+        l.Z)(Xe, L.SelfTabABVal.LandingLike, it()),
       (0,
-        l.Z)(Xe, I.SelfTabABVal.LandingFavoriteCollection, ot()),
+        l.Z)(Xe, L.SelfTabABVal.LandingFavoriteCollection, ot()),
       Xe), lt = (0,
       l.Z)({
       hot: "trend"
     }, "user_self", "personal_tab"), st = function(e) {
-      var t, n, s, u, m, f, p, y, _, k = Z.useState(!1), b = (0,
-        a.Z)(k, 2), N = b[0], I = b[1], se = Z.useState(!1), ce = (0,
-        a.Z)(se, 2), ue = ce[0], de = ce[1], ve = Z.useState(void 0), fe = (0,
-        a.Z)(ve, 2), he = fe[0], pe = fe[1], ge = Z.useState(!1), ye = (0,
-        a.Z)(ge, 2), we = ye[0], _e = ye[1], Ee = Z.useState((null == e || null === (t = e.customProps) || void 0 === t ? void 0 : t.isClient) || !1), ke = (0,
-        a.Z)(Ee, 1)[0], xe = Z.useRef(null), be = Z.useRef(null), Ne = Z.useRef(null), Te = Z.useRef(null), Ze = Z.useRef(null), Se = function() {
+      var t, n, s, u, m, f, p, y, _, x = Z.useState(!1), b = (0,
+        a.Z)(x, 2), T = b[0], L = b[1], se = Z.useState(!1), ce = (0,
+        a.Z)(se, 2), ue = ce[0], de = ce[1], me = Z.useState(void 0), ve = (0,
+        a.Z)(me, 2), fe = ve[0], he = ve[1], pe = Z.useState(!1), ge = (0,
+        a.Z)(pe, 2), ye = ge[0], we = ge[1], _e = Z.useState((null == e || null === (t = e.customProps) || void 0 === t ? void 0 : t.isClient) || !1), Ee = (0,
+        a.Z)(_e, 1)[0], xe = Z.useRef(null), ke = Z.useRef(null), Te = Z.useRef(null), Ne = Z.useRef(null), Ze = Z.useRef(null), Se = function() {
         var e = (0,
           Z.useState)(U.pC.Hide)
           , t = (0,
@@ -3724,19 +3489,19 @@ window.danmaku_reload_interval = setInterval(() => {
           , _ = (0,
           a.Z)(w, 2)
           , E = _[0]
-          , k = _[1]
-          , x = (0,
+          , x = _[1]
+          , k = (0,
           Z.useState)("")
           , b = (0,
-          a.Z)(x, 2)
+          a.Z)(k, 2)
           , C = b[0]
-          , N = b[1]
-          , T = (0,
+          , T = b[1]
+          , N = (0,
           Z.useState)("")
           , S = (0,
-          a.Z)(T, 2)
-          , I = S[0]
-          , L = S[1]
+          a.Z)(N, 2)
+          , L = S[0]
+          , I = S[1]
           , D = (0,
           Z.useState)("")
           , M = (0,
@@ -3802,14 +3567,14 @@ window.danmaku_reload_interval = setInterval(() => {
           , _e = (0,
           a.Z)(we, 2)
           , Ee = _e[0]
-          , ke = _e[1]
-          , xe = (0,
+          , xe = _e[1]
+          , ke = (0,
           Ae.TH)();
         return (0,
           Z.useEffect)((function() {
             (0,
               o.Z)(c().mark((function e() {
-                var t, n, o, i, a, l, s, d, m, v, h, p, g, w, _, E, x, b, C;
+                var t, n, o, i, a, l, s, d, m, v, h, p, g, w, _, E, k, b, C;
                 return c().wrap((function(e) {
                     for (; ; )
                       switch (e.prev = e.next) {
@@ -3844,20 +3609,20 @@ window.danmaku_reload_interval = setInterval(() => {
                             u(null !== (n = C.location) && void 0 !== n ? n : U.CN.Origin),
                             f(null !== (o = C.imageLight) && void 0 !== o ? o : ""),
                             y(null !== (i = C.imageDark) && void 0 !== i ? i : ""),
-                            k(null !== (a = C.imageLightHover) && void 0 !== a ? a : ""),
-                            N(null !== (l = C.imageDarkHover) && void 0 !== l ? l : ""),
+                            x(null !== (a = C.imageLightHover) && void 0 !== a ? a : ""),
+                            T(null !== (l = C.imageDarkHover) && void 0 !== l ? l : ""),
                             Y(null !== (s = C.animationLight) && void 0 !== s ? s : ""),
                             J(null !== (d = C.animationDark) && void 0 !== d ? d : ""),
                             ne(null !== (m = C.animationLightV2) && void 0 !== m ? m : ""),
                             ae(null !== (v = C.animationDarkV2) && void 0 !== v ? v : ""),
-                            L(null !== (h = C.miniImageLight) && void 0 !== h ? h : ""),
+                            I(null !== (h = C.miniImageLight) && void 0 !== h ? h : ""),
                             A(null !== (p = C.miniImageDark) && void 0 !== p ? p : ""),
                             W(null !== (g = C.miniImageLightHover) && void 0 !== g ? g : ""),
                             G(null !== (w = C.miniImageDarkHover) && void 0 !== w ? w : ""),
                             ue(null !== (_ = C.miniAnimationLight) && void 0 !== _ ? _ : ""),
                             fe(null !== (E = C.miniAnimationDark) && void 0 !== E ? E : ""),
-                            ye(null !== (x = C.miniTextLight) && void 0 !== x ? x : ""),
-                            ke(null !== (b = C.miniTextDark) && void 0 !== b ? b : "");
+                            ye(null !== (k = C.miniTextLight) && void 0 !== k ? k : ""),
+                            xe(null !== (b = C.miniTextDark) && void 0 !== b ? b : "");
                         case 21:
                         case "end":
                           return e.stop()
@@ -3869,7 +3634,7 @@ window.danmaku_reload_interval = setInterval(() => {
           }
         ), []),
           {
-            showType: "/vs" === (null == xe ? void 0 : xe.pathname) ? U.pC.Text : n,
+            showType: "/vs" === (null == ke ? void 0 : ke.pathname) ? U.pC.Text : n,
             location: s,
             imageLight: v,
             imageDark: g,
@@ -3879,7 +3644,7 @@ window.danmaku_reload_interval = setInterval(() => {
             animationDark: Q,
             animationLightV2: te,
             animationDarkV2: ie,
-            miniImageLight: I,
+            miniImageLight: L,
             miniImageDark: B,
             miniImageLightHover: V,
             miniImageDarkHover: H,
@@ -3888,17 +3653,17 @@ window.danmaku_reload_interval = setInterval(() => {
             miniTextLight: ge,
             miniTextDark: Ee
           }
-      }(), Ie = e.abTestData, Le = e.refEl, De = Z.useMemo((function() {
+      }(), Le = e.abTestData, Ie = e.refEl, De = Z.useMemo((function() {
           var e, t, n = d()(e = []).call(e, (0,
-            i.Z)(null !== (t = at[null == Ie ? void 0 : Ie.selfTab]) && void 0 !== t ? t : nt()), [{
+            i.Z)(null !== (t = at[null == Le ? void 0 : Le.selfTab]) && void 0 !== t ? t : nt()), [{
             value: "divider"
           }], (0,
-            i.Z)((null == Ie ? void 0 : Ie.selfTab) > 0 ? (0,
+            i.Z)((null == Le ? void 0 : Le.selfTab) > 0 ? (0,
             R.channelMenuWithSelf)() : rt())), r = v()(n).call(n, (function(e) {
               return e.value === R.NavigationMenuItemVal.Vs
             }
           ))[0];
-          if (r && Se.location === U.CN.BelowRecommend && Se.showType !== U.pC.Hide && null != Ie && Ie.vsSpring) {
+          if (r && Se.location === U.CN.BelowRecommend && Se.showType !== U.pC.Hide && null != Le && Le.vsSpring) {
             var o = v()(n).call(n, (function(e) {
                 return e.value !== R.NavigationMenuItemVal.Vs
               }
@@ -3913,7 +3678,7 @@ window.danmaku_reload_interval = setInterval(() => {
           }
           return n
         }
-      ), [null == Ie ? void 0 : Ie.selfTab, Se.location, null == Ie ? void 0 : Ie.vsSpring, Se.showType]);
+      ), [null == Le ? void 0 : Le.selfTab, Se.location, null == Le ? void 0 : Le.vsSpring, Se.showType]);
       Z.useEffect((function() {
           (0,
             o.Z)(c().mark((function e() {
@@ -3923,13 +3688,13 @@ window.danmaku_reload_interval = setInterval(() => {
                     switch (e.prev = e.next) {
                       case 0:
                         return e.next = 2,
-                          L.h.getVar({
+                          I.h.getVar({
                             name: "showNewTab",
                             defaultValue: 0
                           });
                       case 2:
                         t = e.sent,
-                          pe(t);
+                          he(t);
                       case 4:
                       case "end":
                         return e.stop()
@@ -3967,17 +3732,17 @@ window.danmaku_reload_interval = setInterval(() => {
         , Ve = (0,
         D.D)((function() {
           var e, t, n, r;
-          we && (((null === (e = Te.current) || void 0 === e || null === (t = e.getBoundingClientRect()) || void 0 === t ? void 0 : t.bottom) || 0) - ((null === (n = xe.current) || void 0 === n || null === (r = n.getBoundingClientRect()) || void 0 === r ? void 0 : r.bottom) || 0) >= 140 ? (I(!0),
-          A.i7() || Te.current.addEventListener("mousewheel", Oe)) : I(!1))
+          ye && (((null === (e = Ne.current) || void 0 === e || null === (t = e.getBoundingClientRect()) || void 0 === t ? void 0 : t.bottom) || 0) - ((null === (n = xe.current) || void 0 === n || null === (r = n.getBoundingClientRect()) || void 0 === r ? void 0 : r.bottom) || 0) >= 140 ? (L(!0),
+          A.i7() || Ne.current.addEventListener("mousewheel", Oe)) : L(!1))
         }
       ), 50, {
         leading: !0
       })
         , We = (0,
         D.D)((function() {
-          var e, t, n, r, o = (null === (e = Te.current) || void 0 === e || null === (t = e.getBoundingClientRect()) || void 0 === t ? void 0 : t.bottom) || 0, i = ((null === (n = Ne.current) || void 0 === n || null === (r = n.getBoundingClientRect()) || void 0 === r ? void 0 : r.bottom) || 0) - o;
+          var e, t, n, r, o = (null === (e = Ne.current) || void 0 === e || null === (t = e.getBoundingClientRect()) || void 0 === t ? void 0 : t.bottom) || 0, i = ((null === (n = Te.current) || void 0 === n || null === (r = n.getBoundingClientRect()) || void 0 === r ? void 0 : r.bottom) || 0) - o;
           399.9 <= i && i <= 400.1 ? (de(!0),
-          A.i7() || Te.current.removeEventListener("mousewheel", Oe)) : de(!1)
+          A.i7() || Ne.current.removeEventListener("mousewheel", Oe)) : de(!1)
         }
       ), 50, {
         leading: !0
@@ -3986,7 +3751,7 @@ window.danmaku_reload_interval = setInterval(() => {
         S.Z)((function(t) {
           var n, r, o, i, a;
           (null != e && null !== (n = e.customProps) && void 0 !== n && n.isSearchSideNav ? window.innerWidth <= 1452 : window.innerWidth <= 1240) || (t.preventDefault(),
-            !N || ue && t.deltaY < 0 ? null === (r = be.current) || void 0 === r || null === (o = r.scrollBy) || void 0 === o || o.call(r, 0, t.deltaY) : null === (i = Te.current) || void 0 === i || null === (a = i.scrollBy) || void 0 === a || a.call(i, 0, t.deltaY))
+            !T || ue && t.deltaY < 0 ? null === (r = ke.current) || void 0 === r || null === (o = r.scrollBy) || void 0 === o || o.call(r, 0, t.deltaY) : null === (i = Ne.current) || void 0 === i || null === (a = i.scrollBy) || void 0 === a || a.call(i, 0, t.deltaY))
         }
       ))
         , Fe = (0,
@@ -3999,7 +3764,7 @@ window.danmaku_reload_interval = setInterval(() => {
         trailing: !0
       })
         , Ue = Z.useMemo((function() {
-          if (he) {
+          if (fe) {
             var e = E()(De).call(De, (function(e) {
                 return "channel_300203" === e.value
               }
@@ -4016,12 +3781,12 @@ window.danmaku_reload_interval = setInterval(() => {
               t.hideTab = !1,
               n.hideTab = !1
           }
-          return x()(De).call(De, (function(e) {
+          return k()(De).call(De, (function(e) {
               if (e.value === R.NavigationMenuItemVal.Vs) {
                 var t;
                 if (!P.p() && null !== (t = window.TTE_ENV) && void 0 !== t && t.isMas)
                   return void (e.hideTab = !0);
-                if ((null == Ie || !Ie.vsSpring) && Se.showType !== U.pC.Hide)
+                if ((null == Le || !Le.vsSpring) && Se.showType !== U.pC.Hide)
                   return e.hideTab = !1,
                     e.type = "text",
                     void (e.renderLabel = void 0);
@@ -4038,7 +3803,7 @@ window.danmaku_reload_interval = setInterval(() => {
                         return Z.createElement(Qe, (0,
                           r.Z)((0,
                           r.Z)({}, Se), {}, {
-                          abtest: Ie
+                          abtest: Le
                         }))
                       }
                 }
@@ -4051,7 +3816,7 @@ window.danmaku_reload_interval = setInterval(() => {
             )),
             De
         }
-      ), [he, Fe, De, Se, null == Ie ? void 0 : Ie.vsSpring])
+      ), [fe, Fe, De, Se, null == Le ? void 0 : Le.vsSpring])
         , He = Z.useCallback((0,
         o.Z)(c().mark((function e() {
           var t, n;
@@ -4060,7 +3825,7 @@ window.danmaku_reload_interval = setInterval(() => {
                 switch (e.prev = e.next) {
                   case 0:
                     n = null !== (t = O.FJ().awemePcClient) && void 0 !== t ? t : "",
-                      ke && V.y(n, ">=", "1.2.0") ? _e(!1) : _e(!0);
+                      Ee && V.y(n, ">=", "1.2.0") ? we(!1) : we(!0);
                   case 2:
                   case "end":
                     return e.stop()
@@ -4068,17 +3833,17 @@ window.danmaku_reload_interval = setInterval(() => {
             }
           ), e)
         }
-      ))), [ke]);
+      ))), [Ee]);
       Z.useEffect((function() {
           He()
         }
       ), [He]),
         Z.useEffect((function() {
             var e;
-            return null === (e = Te.current) || void 0 === e || e.addEventListener("wheel", Re),
+            return null === (e = Ne.current) || void 0 === e || e.addEventListener("wheel", Re),
               function() {
                 var e;
-                null === (e = Te.current) || void 0 === e || e.removeEventListener("wheel", Re)
+                null === (e = Ne.current) || void 0 === e || e.removeEventListener("wheel", Re)
               }
           }
         ), []),
@@ -4086,12 +3851,12 @@ window.danmaku_reload_interval = setInterval(() => {
             var e, t, n = function(e) {
               "ArrowDown" !== e.key && "ArrowUp" !== e.key || null == e || e.preventDefault()
             };
-            return null === (e = Te.current) || void 0 === e || e.setAttribute("tabindex", 0),
-            null === (t = Te.current) || void 0 === t || t.addEventListener("keydown", n),
+            return null === (e = Ne.current) || void 0 === e || e.setAttribute("tabindex", 0),
+            null === (t = Ne.current) || void 0 === t || t.addEventListener("keydown", n),
               window.addEventListener("resize", Fe),
               function() {
                 var e;
-                null === (e = Te.current) || void 0 === e || e.removeEventListener("keydown", n),
+                null === (e = Ne.current) || void 0 === e || e.removeEventListener("keydown", n),
                   window.removeEventListener("resize", Fe)
               }
           }
@@ -4107,31 +3872,31 @@ window.danmaku_reload_interval = setInterval(() => {
         }
       ), [je, Ke]);
       return Z.createElement("div", {
-        className: T()(G, null == e ? void 0 : e.className, (0,
-          l.Z)({}, ie, null == e || null === (n = e.customProps) || void 0 === n ? void 0 : n.isSearchSideNav)),
+        className: N()(G, null == e ? void 0 : e.className, (0,
+          l.Z)({}, K, null == e || null === (n = e.customProps) || void 0 === n ? void 0 : n.isSearchSideNav)),
         ref: function(e) {
-          Le && (Le.current = e)
+          Ie && (Ie.current = e)
         }
       }, Z.createElement("div", {
-        className: T()(K, (m = {},
+        className: N()(q, (m = {},
           (0,
-            l.Z)(m, Y, null == e || null === (s = e.customProps) || void 0 === s ? void 0 : s.isLogoFixed),
+            l.Z)(m, X, null == e || null === (s = e.customProps) || void 0 === s ? void 0 : s.isLogoFixed),
           (0,
-            l.Z)(m, q, ke),
+            l.Z)(m, Y, Ee),
           (0,
-            l.Z)(m, X, null == e || null === (u = e.customProps) || void 0 === u ? void 0 : u.isSearchLogoFixed),
+            l.Z)(m, z, null == e || null === (u = e.customProps) || void 0 === u ? void 0 : u.isSearchLogoFixed),
           (0,
             l.Z)(m, j, null == e ? void 0 : e.needGrayscale),
           m))
-      }, !(ke && "Mac" === (null == e || null === (f = e.customProps) || void 0 === f || null === (p = f.os) || void 0 === p ? void 0 : p.os)) && Z.createElement("div", {
+      }, !(Ee && "Mac" === (null == e || null === (f = e.customProps) || void 0 === f || null === (p = f.os) || void 0 === p ? void 0 : p.os)) && Z.createElement("div", {
         ref: Ze,
-        className: T()(z)
-      }, Z.createElement(me.a, {
+        className: N()(Q)
+      }, Z.createElement(be.a, {
         href: globalThis.getFilterXss().filterUrl(W.kj(), null, {
           logType: "js.href/src",
           reportOnly: !1
         }),
-        className: Q,
+        className: J,
         onClick: function() {
           le.Z.sendLog("clickAwemeLogo", {
             enter_from: M.yW()
@@ -4139,26 +3904,26 @@ window.danmaku_reload_interval = setInterval(() => {
         }
       }))), Z.createElement("div", {
         "data-e2e": "douyin-navigation",
-        className: T()(J, $, (0,
+        className: N()($, ee, (0,
           l.Z)({}, j, null == e ? void 0 : e.needGrayscale)),
         onScroll: We,
         style: qe,
-        ref: Te
+        ref: Ne
       }, Z.createElement("div", {
-        className: T()(ee, (y = {},
+        className: N()(te, (y = {},
           (0,
-            l.Z)(y, $, ue || !we),
+            l.Z)(y, ee, ue || !ye),
           (0,
-            l.Z)(y, te, null == je ? void 0 : je.themeFurtherSwitch),
+            l.Z)(y, ne, null == je ? void 0 : je.themeFurtherSwitch),
           y)),
         onScroll: Ve,
-        ref: be
+        ref: ke
       }, Z.createElement("div", {
-        className: T()(ne, (_ = {},
+        className: N()(re, (_ = {},
           (0,
-            l.Z)(_, oe, !we),
+            l.Z)(_, ie, !ye),
           (0,
-            l.Z)(_, re, A.vU()),
+            l.Z)(_, oe, A.vU()),
           _)),
         ref: xe
       }, Z.createElement(Me, (0,
@@ -4178,10 +3943,10 @@ window.danmaku_reload_interval = setInterval(() => {
         className: e.className,
         list: Ue,
         customProps: null == e ? void 0 : e.customProps
-      })))), we && Z.createElement("div", {
-        className: T()(H, (0,
+      })))), ye && Z.createElement("div", {
+        className: N()(H, (0,
           l.Z)({}, ae, null == je ? void 0 : je.themeFurtherSwitch)),
-        ref: Ne
+        ref: Te
       }, Z.createElement(Ce, {
         specTheme: je
       }))))
@@ -4333,16 +4098,16 @@ window.danmaku_reload_interval = setInterval(() => {
       url: "http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=11000002002046",
       title: "\u4eac\u516c\u7f51\u5b89\u5907 11000002002046\u53f7"
     }]];
-    const k = "VRcJSlv6"
-      , x = "uy0xcb2o"
+    const x = "VRcJSlv6"
+      , k = "uy0xcb2o"
       , b = "Es34a3Bm"
       , C = "JXaUfgsM"
-      , N = "cHlCoDpR"
-      , T = "OqamRr48"
+      , T = "cHlCoDpR"
+      , N = "OqamRr48"
       , Z = "WltbFpmM"
       , S = "SBRU08_v"
-      , I = "FipJiH3x"
-      , L = "RWEDYsSQ";
+      , L = "FipJiH3x"
+      , I = "RWEDYsSQ";
     var D, M = n(26637);
     function B(e) {
       var t = e.theme
@@ -4424,9 +4189,9 @@ window.danmaku_reload_interval = setInterval(() => {
         h.createElement("footer", {
           className: g()(D[t], p)
         }, h.createElement("div", {
-          className: k
-        }, h.createElement("div", {
           className: x
+        }, h.createElement("div", {
+          className: k
         }, Boolean(V.length) && f()(V).call(V, (function(e, t) {
             return h.createElement("div", {
               className: b,
@@ -4437,7 +4202,7 @@ window.danmaku_reload_interval = setInterval(() => {
                 reportOnly: !1
               }),
               target: "_blank",
-              rel: "noopener noreferrer".concat(y.P(e.title))
+              rel: "noopener noreferrer ".concat(y.P(e.title))
             }, e.title))
           }
         ))), Boolean(W.length) && f()(W).call(W, (function(e, t) {
@@ -4446,10 +4211,10 @@ window.danmaku_reload_interval = setInterval(() => {
               className: C
             }, Boolean(e.length) && f()(e).call(e, (function(e, t) {
                 return h.createElement("div", {
-                  className: N,
+                  className: T,
                   key: t
                 }, e.icon && h.createElement("img", {
-                  className: T,
+                  className: N,
                   src: globalThis.getFilterXss().filterUrl(e.icon, null, {
                     logType: "js.href/src",
                     reportOnly: !1
@@ -4471,10 +4236,10 @@ window.danmaku_reload_interval = setInterval(() => {
         }, h.createElement("span", {
           className: S
         }), h.createElement("span", {
-          className: I
+          className: L
         }, "\u70ed\u95e8\uff1a"), f()(P).call(P, (function(e) {
             return h.createElement("span", {
-              className: L,
+              className: I,
               key: e.url
             }, h.createElement("a", {
               href: globalThis.getFilterXss().filterUrl(e.url, null, {
@@ -4496,7 +4261,7 @@ window.danmaku_reload_interval = setInterval(() => {
   47285: (e,t,n)=>{
     n.d(t, {
       z: ()=>D,
-      g: ()=>L
+      g: ()=>I
     });
     var r, o = n(44503), i = n(78867), a = n(66231);
     function l() {
@@ -4580,16 +4345,16 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = "m0IxXQmQ"
       , _ = "jFKE9ldv"
       , E = "LWqS0cLw"
-      , k = "q_a7MQn1"
-      , x = "gLBz9LCQ"
+      , x = "q_a7MQn1"
+      , k = "gLBz9LCQ"
       , b = "Dr88hd68"
       , C = "Px9YAX9F"
-      , N = "YOxtKc6u";
-    var T = n(52255)
+      , T = "YOxtKc6u";
+    var N = n(52255)
       , Z = n(51382)
       , S = n(12164)
-      , I = a.Q() ? "command" : "ctrl"
-      , L = (0,
+      , L = a.Q() ? "command" : "ctrl"
+      , I = (0,
       o.memo)((function(e) {
         var t = e.collectionGuideType
           , n = (void 0 === t ? i.CollectionGuide.StressShortcut : t) === i.CollectionGuide.StressCollect;
@@ -4600,16 +4365,16 @@ window.danmaku_reload_interval = setInterval(() => {
         }, o.createElement("div", {
           className: E
         }, o.createElement("span", {
-          className: k
-        }, "\u6536\u85cf\u7f51\u9875\u770b\u6296\u97f3\u89c6\u9891\u66f4\u65b9\u4fbf "), o.createElement("span", {
           className: x
-        }, "\u201c", I, "+D\u201d\u6216 \u70b9\u51fb\u6d4f\u89c8\u5668\u201c\u6536\u85cf\u6309\u94ae\ufe0f\u201d ")), o.createElement("div", {
+        }, "\u6536\u85cf\u7f51\u9875\u770b\u6296\u97f3\u89c6\u9891\u66f4\u65b9\u4fbf "), o.createElement("span", {
+          className: k
+        }, "\u201c", L, "+D\u201d\u6216 \u70b9\u51fb\u6d4f\u89c8\u5668\u201c\u6536\u85cf\u6309\u94ae\ufe0f\u201d ")), o.createElement("div", {
           className: y
         }, n ? o.createElement("div", {
           className: b
         }, o.createElement("span", {
           className: C
-        }, "www.douyin.com"), o.createElement(T.Z, {
+        }, "www.douyin.com"), o.createElement(N.Z, {
           src: globalThis.getFilterXss().filterUrl(d, null, {
             logType: "js.href/src",
             reportOnly: !1
@@ -4621,8 +4386,8 @@ window.danmaku_reload_interval = setInterval(() => {
           className: w
         }, o.createElement("div", {
           className: _
-        }, I), o.createElement(T.Z, {
-          className: N,
+        }, L), o.createElement(N.Z, {
+          className: T,
           src: globalThis.getFilterXss().filterUrl(f, null, {
             logType: "js.href/src",
             reportOnly: !1
@@ -4666,7 +4431,7 @@ window.danmaku_reload_interval = setInterval(() => {
           transparent: c
         }, v && o.createElement("div", {
           className: h
-        }, o.createElement(L, {
+        }, o.createElement(I, {
           collectionGuideType: n
         })))
       }
@@ -4714,7 +4479,7 @@ window.danmaku_reload_interval = setInterval(() => {
   ,
   51382: (e,t,n)=>{
     n.d(t, {
-      Y: ()=>k
+      Y: ()=>x
     });
     var r = n(30906)
       , o = n(65146)
@@ -4764,10 +4529,10 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = n(16340)
       , _ = n(14001);
     function E(e) {
-      var t, n, r, i, l, s, u, m = e.className, p = e.avatarUrl, E = e.text, k = e.avatarHeight, x = e.avatarWidth, b = e.badge, C = e.badgeText, N = e.onMouseEnter, T = e.onMouseLeave, Z = e.onMouseOver, S = e.onMouseOut, I = e.onClick, L = e.viewBox, D = e.activityName, M = e.badgeIconSvg, B = e.badgeIconHeight, A = e.badgeIconWidth, P = e.badgeIconViewbox, O = e.headerPopupName, V = e.circleButtonContainerClassName, W = e.children, R = e.svgContainerClassName, F = e.showBadge, U = void 0 !== F && F, H = e.url, G = e.downloadAttr, j = e.target, K = e.transparent, q = e.icon, Y = e.iconHeight, X = e.iconWidth;
+      var t, n, r, i, l, s, u, m = e.className, p = e.avatarUrl, E = e.text, x = e.avatarHeight, k = e.avatarWidth, b = e.badge, C = e.badgeText, T = e.onMouseEnter, N = e.onMouseLeave, Z = e.onMouseOver, S = e.onMouseOut, L = e.onClick, I = e.viewBox, D = e.activityName, M = e.badgeIconSvg, B = e.badgeIconHeight, A = e.badgeIconWidth, P = e.badgeIconViewbox, O = e.headerPopupName, V = e.circleButtonContainerClassName, W = e.children, R = e.svgContainerClassName, F = e.showBadge, U = void 0 !== F && F, H = e.url, G = e.downloadAttr, j = e.target, K = e.transparent, q = e.icon, Y = e.iconHeight, X = e.iconWidth;
       q = null !== (t = q) && void 0 !== t ? t : p,
-        X = null !== (n = X) && void 0 !== n ? n : x,
-        Y = null !== (r = Y) && void 0 !== r ? r : k;
+        X = null !== (n = X) && void 0 !== n ? n : k,
+        Y = null !== (r = Y) && void 0 !== r ? r : x;
       var z = (0,
         y.P)({
         delayShow: 100
@@ -4795,20 +4560,20 @@ window.danmaku_reload_interval = setInterval(() => {
             }),
             width: X,
             height: Y,
-            viewBox: L || a()(e = "0 0 ".concat(X, " ")).call(e, Y),
+            viewBox: I || a()(e = "0 0 ".concat(X, " ")).call(e, Y),
             className: h.iconSvg
           })
         }
-      ), [q, X, Y, L])
+      ), [q, X, Y, I])
         , $ = (0,
         w.Z)().specTheme;
       return c.createElement("div", {
         className: d()(h.circleButtonWrapper, V),
         onMouseEnter: function(e) {
-          null == N || N(e)
+          null == T || T(e)
         },
         onMouseLeave: function(e) {
-          null == T || T(e)
+          null == N || N(e)
         },
         onMouseOver: function(e) {
           null == Z || Z(e)
@@ -4823,7 +4588,7 @@ window.danmaku_reload_interval = setInterval(() => {
         }),
         download: G,
         target: j,
-        onClick: I,
+        onClick: L,
         className: d()(h.circleButton, h.circleButtonWithText, (i = {
           isDark: Boolean(D) || K
         },
@@ -4839,7 +4604,7 @@ window.danmaku_reload_interval = setInterval(() => {
       }, J), c.createElement("p", {
         className: h.text
       }, E)), !H && c.createElement("div", {
-        onClick: I,
+        onClick: L,
         className: d()(h.circleButton, h.circleButtonWithText, (l = {
           isDark: Boolean(D) || K
         },
@@ -4879,7 +4644,7 @@ window.danmaku_reload_interval = setInterval(() => {
         viewBox: P || a()(u = "0 0 ".concat(A, " ")).call(u, B)
       })), W)
     }
-    var k = (0,
+    var x = (0,
       c.memo)((function e(t) {
         var n = t.type
           , i = t.className
@@ -4890,38 +4655,38 @@ window.danmaku_reload_interval = setInterval(() => {
           , g = t.onMouseOver
           , w = t.onMouseOut
           , _ = t.children
-          , k = t.itemsContainerClassName
-          , x = t.headerPopupName
+          , x = t.itemsContainerClassName
+          , k = t.headerPopupName
           , b = (0,
           y.P)({
           delayDisappear: 200,
           delayShow: 100
         })
           , C = b.type
-          , N = b.changeType
-          , T = (0,
+          , T = b.changeType
+          , N = (0,
           c.useCallback)((function(e) {
-            "hover" === a && N("active"),
+            "hover" === a && T("active"),
             null == u || u(e)
           }
-        ), [a, u, N])
+        ), [a, u, T])
           , Z = (0,
           c.useCallback)((function(e) {
-            "hover" === a && N(),
+            "hover" === a && T(),
             null == v || v(e)
           }
-        ), [a, v, N])
+        ), [a, v, T])
           , S = (0,
           c.useCallback)((function(e) {
             return null == g ? void 0 : g(e)
           }
         ), [g])
-          , I = (0,
+          , L = (0,
           c.useCallback)((function(e) {
             return null == w ? void 0 : w(e)
           }
         ), [w])
-          , L = (0,
+          , I = (0,
           c.useMemo)((function() {
             var t;
             return "hover" === a && l && l.length ? c.createElement("div", {
@@ -4929,7 +4694,7 @@ window.danmaku_reload_interval = setInterval(() => {
                 (0,
                   o.Z)(t, h.active, Boolean(C)),
                 (0,
-                  o.Z)(t, k, Boolean(C && void 0 !== k)),
+                  o.Z)(t, x, Boolean(C && void 0 !== x)),
                 t))
             }, c.createElement("ul", {
               "data-e2e": "cooperate-list"
@@ -4941,45 +4706,45 @@ window.danmaku_reload_interval = setInterval(() => {
               }
             )))) : []
           }
-        ), [l, a, C, k]);
+        ), [l, a, C, x]);
         (0,
           c.useEffect)((function() {
-            return x && f.listen(f.EVENT.showHeaderPopUp, (function(e) {
-                "active" === C && e.type !== x && e.isShow && N("", !0)
+            return k && f.listen(f.EVENT.showHeaderPopUp, (function(e) {
+                "active" === C && e.type !== k && e.isShow && T("", !0)
               }
             ))
           }
-        ), [N, C, x]);
+        ), [T, C, k]);
         var D = (0,
           m.Z)(C);
         return (0,
           c.useEffect)((function() {
-            D !== C && x && f.emit(f.EVENT.showHeaderPopUp, {
-              type: x,
+            D !== C && k && f.emit(f.EVENT.showHeaderPopUp, {
+              type: k,
               isShow: Boolean(C)
             })
           }
-        ), [C, x, D]),
+        ), [C, k, D]),
           c.createElement(c.Fragment, null, "textLink" !== n && c.createElement(E, (0,
             r.Z)({}, (0,
             r.Z)((0,
             r.Z)({}, t), {}, {
             className: i,
-            onMouseEnter: T,
+            onMouseEnter: N,
             onMouseLeave: Z,
             onMouseOver: S,
-            onMouseOut: I
-          })), L, _), "textLink" === n && c.createElement("div", null, c.createElement(p.h, (0,
+            onMouseOut: L
+          })), I, _), "textLink" === n && c.createElement("div", null, c.createElement(p.h, (0,
             r.Z)({}, (0,
             r.Z)((0,
             r.Z)({}, t), {}, {
             className: i,
-            onMouseEnter: T,
+            onMouseEnter: N,
             onMouseLeave: Z,
             onMouseOver: S,
-            onMouseOut: I,
+            onMouseOut: L,
             aLinkStyle: h.textLinkALink
-          })), L, _)))
+          })), I, _)))
       }
     ))
   }
@@ -5007,16 +4772,16 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = n(25083)
       , _ = n(92557)
       , E = n(64644)
-      , k = n(61936);
-    const x = "EAnZYE_A"
+      , x = n(61936);
+    const k = "EAnZYE_A"
       , b = "wl54lwxY"
       , C = "vT3pEATX"
-      , N = "lhN14CeY"
-      , T = "KFtP7bgM"
+      , T = "lhN14CeY"
+      , N = "KFtP7bgM"
       , Z = "FUBL0LO9"
       , S = "Qqv8ONZm"
-      , I = "XVAncFKz";
-    var L;
+      , L = "XVAncFKz";
+    var I;
     function D() {
       return D = Object.assign ? Object.assign.bind() : function(e) {
         for (var t = 1; t < arguments.length; t++) {
@@ -5036,7 +4801,7 @@ window.danmaku_reload_interval = setInterval(() => {
         viewBox: "0 0 20 20",
         fill: "none",
         xmlns: "http://www.w3.org/2000/svg"
-      }, e), L || (L = g.createElement("path", {
+      }, e), I || (I = g.createElement("path", {
         d: "M13.667 13.667a.757.757 0 01-1.07 0l-2.32-2.32-2.318 2.32a.757.757 0 01-1.07-1.07l2.318-2.32-2.319-2.319a.757.757 0 111.07-1.07l2.32 2.319 2.319-2.32a.757.757 0 111.07 1.071l-2.319 2.32 2.32 2.318a.757.757 0 010 1.07z"
       })))
     };
@@ -5067,7 +4832,7 @@ window.danmaku_reload_interval = setInterval(() => {
         ));
         return (0,
           g.useEffect)((function() {
-            k.i.sendLog("appointmentPushShow", {
+            x.i.sendLog("appointmentPushShow", {
               enter_from: f,
               room_id: d,
               anchor_id: m
@@ -5083,7 +4848,7 @@ window.danmaku_reload_interval = setInterval(() => {
             }
           ), []),
           g.createElement("div", {
-            className: x,
+            className: k,
             onMouseEnter: function() {
               clearTimeout(v.current)
             },
@@ -5097,7 +4862,7 @@ window.danmaku_reload_interval = setInterval(() => {
             className: b,
             onClick: function() {
               var e;
-              k.i.sendLog("appointmentPushClick", {
+              x.i.sendLog("appointmentPushClick", {
                 enter_from: f,
                 room_id: d,
                 anchor_id: m
@@ -5117,9 +4882,9 @@ window.danmaku_reload_interval = setInterval(() => {
               return e.preventDefault()
             }
           })), g.createElement("div", {
-            className: N
-          }, g.createElement("div", {
             className: T
+          }, g.createElement("div", {
+            className: N
           }, l), c && g.createElement("div", {
             className: Z
           }, c)), g.createElement("div", {
@@ -5128,7 +4893,7 @@ window.danmaku_reload_interval = setInterval(() => {
             onClick: function() {
               n(o)
             },
-            className: I,
+            className: L,
             src: globalThis.getFilterXss().filterUrl(M, null, {
               logType: "js.href/src",
               reportOnly: !1
@@ -5191,7 +4956,7 @@ window.danmaku_reload_interval = setInterval(() => {
   69234: (e,t,n)=>{
     n.d(t, {
       h: ()=>w,
-      j: ()=>T
+      j: ()=>N
     });
     var r = n(65146)
       , o = n(32781)
@@ -5217,9 +4982,8 @@ window.danmaku_reload_interval = setInterval(() => {
     var g = n(14001)
       , y = "\u5f00\u64ad\u5b9e\u65f6\u6570\u636e";
     function w(e) {
-      var t, i = e.className, s = e.onClick, v = e.isLogin, h = e.url, w = e.text, _ = e.clickToLogin, E = e.loginSuccess, k = e.onMouseEnter, x = e.onMouseLeave, b = e.onMouseOver, C = e.onMouseOut, N = e.loginHeaderText, T = e.jumpAfterLogin, Z = e.loginEventParams, S = e.badge, I = e.activityName, L = e.aLinkStyle, D = e.children, M = e.childrenContainerClassName, B = e.downloadAttr, A = e.target, P = (e.key,
-        (0,
-          l.useState)(!0)), O = (0,
+      var t, i = e.className, s = e.onClick, v = e.isLogin, h = e.url, w = e.text, _ = e.clickToLogin, E = e.loginSuccess, x = e.onMouseEnter, k = e.onMouseLeave, b = e.onMouseOver, C = e.onMouseOut, T = e.loginHeaderText, N = e.jumpAfterLogin, Z = e.loginEventParams, S = e.badge, L = e.activityName, I = e.aLinkStyle, D = e.children, M = e.childrenContainerClassName, B = e.downloadAttr, A = e.target, P = (0,
+        l.useState)(!0), O = (0,
         o.Z)(P, 2), V = O[0], W = O[1], R = function(e) {
         var t, r, o = null == s ? void 0 : s(e);
         _ && !1 === v && (n.e(1674).then(n.bind(n, 61674)).then((function(e) {
@@ -5227,12 +4991,12 @@ window.danmaku_reload_interval = setInterval(() => {
             (0,
               e.navShowAccount)({
               success: function() {
-                T && window.open(h, "_blank"),
+                N && window.open(h, "_blank"),
                 null == E || E()
               },
               enterMethod: "navigation_bar",
               next: a()(t = "".concat(null == u ? void 0 : d.tJ)).call(t, null === (n = window) || void 0 === n || null === (r = n.location) || void 0 === r ? void 0 : r.host),
-              headerText: N,
+              headerText: T,
               teaEvtParams: Z
             })
           }
@@ -5244,10 +5008,10 @@ window.danmaku_reload_interval = setInterval(() => {
       return w !== y && F.push("noreferrer"),
         l.createElement("div", {
           onMouseEnter: function(e) {
-            null == k || k(e)
+            null == x || x(e)
           },
           onMouseLeave: function(e) {
-            null == x || x(e)
+            null == k || k(e)
           },
           onMouseOver: function(e) {
             W(!1),
@@ -5257,12 +5021,12 @@ window.danmaku_reload_interval = setInterval(() => {
             null == C || C(e)
           },
           className: c()(p.aLinkWrapper, p.hoverBold, i, (t = {
-            isDark: Boolean(I)
+            isDark: Boolean(L)
           },
             (0,
-              r.Z)(t, p.activity, Boolean(I)),
+              r.Z)(t, p.activity, Boolean(L)),
             (0,
-              r.Z)(t, null == p ? void 0 : p[I], I),
+              r.Z)(t, null == p ? void 0 : p[L], L),
             t))
         }, h ? l.createElement(g.a, {
           target: A || "_blank",
@@ -5272,11 +5036,11 @@ window.danmaku_reload_interval = setInterval(() => {
             reportOnly: !1
           }),
           onClick: R,
-          className: L,
+          className: I,
           download: B,
           "data-e2e": "alink-item"
         }, w) : l.createElement("span", {
-          className: L,
+          className: I,
           onClick: R
         }, w), V && ("round" === S || "text" === S) && l.createElement(f.C, {
           className: p.badge,
@@ -5298,12 +5062,12 @@ window.danmaku_reload_interval = setInterval(() => {
       jumpAfterLogin: !0,
       loginHeaderText: "\u767b\u5f55\u540e\u5373\u53ef\u67e5\u770b\u201c\u76f4\u64ad\u4f34\u4fa3\u201d"
     }
-      , k = {
+      , x = {
       key: "creator",
       text: "\u521b\u4f5c\u8005\u670d\u52a1",
       url: "//".concat(h.CREATOR_DOMAIN)
     }
-      , x = {
+      , k = {
       key: "rule",
       text: "\u89c4\u5219\u4e2d\u5fc3",
       url: "//".concat(h.HOME_DOMAIN, "/rule")
@@ -5318,12 +5082,12 @@ window.danmaku_reload_interval = setInterval(() => {
       text: "\u6296\u97f3\u5f00\u653e\u5e73\u53f0",
       url: "//".concat(h.OPRNPLATFORM_DOMAIN)
     }
-      , N = {
+      , T = {
       key: "certification",
       text: "\u8ba4\u8bc1\u4e0e\u5408\u4f5c",
       url: "//".concat(h.HOME_DOMAIN, "/certification/#certification")
     }
-      , T = {
+      , N = {
       recharge: _,
       homepage: {
         key: "personal_panel",
@@ -5336,8 +5100,8 @@ window.danmaku_reload_interval = setInterval(() => {
         key: "logout",
         text: "\u9000\u51fa\u767b\u5f55"
       },
-      creator: k,
-      rule: x,
+      creator: x,
+      rule: k,
       aboutDouyin: b,
       marketing: {
         key: "marketing",
@@ -5349,7 +5113,7 @@ window.danmaku_reload_interval = setInterval(() => {
         url: "//".concat(h.DOUYIN_EC_DOMAIN, "/"),
         key: "ecommerce"
       },
-      certification: N,
+      certification: T,
       platform: C,
       publish: {
         key: "publish",
@@ -5398,7 +5162,7 @@ window.danmaku_reload_interval = setInterval(() => {
   ,
   16141: (e,t,n)=>{
     n.d(t, {
-      DK: ()=>k,
+      DK: ()=>x,
       RG: ()=>C,
       zV: ()=>b
     });
@@ -5500,7 +5264,7 @@ window.danmaku_reload_interval = setInterval(() => {
     E.HOME_DOMAIN,
       E.CREATOR_DOMAIN,
       E.OPRNPLATFORM_DOMAIN;
-    function k(e) {
+    function x(e) {
       var t = e.className
         , n = e.success
         , o = e.onMouseEnter
@@ -5539,7 +5303,7 @@ window.danmaku_reload_interval = setInterval(() => {
         onMouseLeave: i
       }), " ", "\u767b\u5f55", " "))
     }
-    function x(e) {
+    function k(e) {
       var t, n = e.className, r = e.isActivity, i = e.theme, a = e.success, s = e.customProps, u = e.onMouseEnter, d = e.onMouseLeave, m = e.headerText;
       return l.createElement("div", {
         className: c()(n, null == f ? void 0 : f[null == s ? void 0 : s.activityName], (t = {},
@@ -5575,7 +5339,7 @@ window.danmaku_reload_interval = setInterval(() => {
         , s = e.displayAvatar
         , c = e.onMouseEnter
         , u = e.onMouseLeave;
-      return n ? l.createElement(x, (0,
+      return n ? l.createElement(k, (0,
         r.Z)({}, {
         success: o,
         className: i,
@@ -5584,7 +5348,7 @@ window.danmaku_reload_interval = setInterval(() => {
         theme: null == a ? void 0 : a.theme,
         onMouseEnter: c,
         onMouseLeave: u
-      })) : l.createElement(k, (0,
+      })) : l.createElement(x, (0,
         r.Z)({}, {
         success: o,
         className: i,
@@ -5650,15 +5414,15 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = "Bb0OfhbR"
       , _ = "Zmyd68GR"
       , E = "nhILhCdm";
-    function k(e) {
+    function x(e) {
       var t = e.downloadAttr
         , n = e.downloadHref
         , r = e.children
         , o = e.withClose
         , a = e.onClose
         , s = e.buttonText
-        , k = e.withEffect
-        , x = e.onDownload
+        , x = e.withEffect
+        , k = e.onDownload
         , b = e.downloadPWA
         , C = e.shouldDownloadPWA;
       return i.createElement("div", {
@@ -5685,25 +5449,25 @@ window.danmaku_reload_interval = setInterval(() => {
         className: c()(w, y),
         onClick: function(e) {
           null == b || b(),
-          null == x || x(e)
+          null == k || k(e)
         }
       }, s), !C && i.createElement("a", {
         className: c()(w, y),
-        onClick: x,
+        onClick: k,
         download: t,
         href: globalThis.getFilterXss().filterUrl(n, null, {
           logType: "js.href/src",
           reportOnly: !1
         })
-      }, s), k && i.createElement("div", {
+      }, s), x && i.createElement("div", {
         className: _
-      }), k && i.createElement("div", {
+      }), x && i.createElement("div", {
         className: E
       }))))
     }
-    const x = "OJheq9Ab"
+    const k = "OJheq9Ab"
       , b = "Z19CJIKl";
-    var C, N, T;
+    var C, T, N;
     function Z() {
       return Z = Object.assign ? Object.assign.bind() : function(e) {
         for (var t = 1; t < arguments.length; t++) {
@@ -5727,10 +5491,10 @@ window.danmaku_reload_interval = setInterval(() => {
         opacity: .1,
         d: "M0 9a9 9 0 1118 0A9 9 0 010 9z",
         fill: "#FE2C55"
-      })), N || (N = i.createElement("path", {
+      })), T || (T = i.createElement("path", {
         d: "M3 11.071v.78c0 .22.18.399.4.399h1.189a.4.4 0 00.4-.4V9.831H6.438v2.02c0 .22.179.399.4.399h1.188a.4.4 0 00.4-.4V6.93v-.78a.4.4 0 00-.4-.399H6.838a.4.4 0 00-.4.4v1.904H4.989V6.929v-.78a.4.4 0 00-.4-.399H3.4a.4.4 0 00-.4.4v4.921zM9.735 9.988v1.863c0 .22.179.399.4.399h2.28c1.165 0 2.045-.468 2.386-1.51.152-.469.199-.851.199-1.74s-.047-1.271-.199-1.74c-.34-1.042-1.222-1.51-2.386-1.51h-2.28a.4.4 0 00-.4.4v3.838zm1.988.484V7.528H12.007c.512 0 .777.115.9.497.066.2.085.373.085.975s-.019.774-.085.975c-.123.382-.388.497-.9.497H11.723z",
         fill: "#FE2C55"
-      })), T || (T = i.createElement("defs", null, i.createElement("linearGradient", {
+      })), N || (N = i.createElement("defs", null, i.createElement("linearGradient", {
         id: "hd_svg__paint0_linear_31317_137960",
         x1: 3,
         y1: 5.75,
@@ -5756,7 +5520,7 @@ window.danmaku_reload_interval = setInterval(() => {
         stopColor: "#ED3495"
       })))))
     };
-    var I, L, D;
+    var L, I, D;
     function M() {
       return M = Object.assign ? Object.assign.bind() : function(e) {
         for (var t = 1; t < arguments.length; t++) {
@@ -5776,11 +5540,11 @@ window.danmaku_reload_interval = setInterval(() => {
         viewBox: "0 0 18 18",
         fill: "none",
         xmlns: "http://www.w3.org/2000/svg"
-      }, e), I || (I = i.createElement("path", {
+      }, e), L || (L = i.createElement("path", {
         opacity: .1,
         d: "M0 9a9 9 0 1118 0A9 9 0 010 9z",
         fill: "#FE2C55"
-      })), L || (L = i.createElement("path", {
+      })), I || (I = i.createElement("path", {
         d: "M13.25 11.083c-.016.04-.22.726-.72 1.426-.44.61-.888 1.22-1.598 1.23-.7.01-.924-.4-1.723-.4s-1.05.39-1.713.41c-.684.025-1.211-.665-1.65-1.27-.892-1.23-1.582-3.507-.657-5.027a2.582 2.582 0 012.161-1.26c.668-.01 1.31.434 1.718.434.418 0 1.19-.54 2.005-.46.34.015 1.295.135 1.905.99-.046.03-1.138.65-1.127 1.906.01 1.516 1.383 2.016 1.399 2.021zm-2.715-5.727c.365-.43.61-1.02.543-1.606-.522.02-1.164.335-1.54.76-.334.37-.632.97-.548 1.551.58.03 1.18-.295 1.545-.705z",
         fill: "#FE2C55"
       })), D || (D = i.createElement("defs", null, i.createElement("linearGradient", {
@@ -5888,7 +5652,7 @@ window.danmaku_reload_interval = setInterval(() => {
         , o = e.svgHeight
         , a = e.svgViewBox;
       return i.createElement("div", {
-        className: x
+        className: k
       }, i.createElement(d.Z, {
         src: globalThis.getFilterXss().filterUrl(t, null, {
           logType: "js.href/src",
@@ -5982,7 +5746,7 @@ window.danmaku_reload_interval = setInterval(() => {
           })
         }
       ), [t]),
-        i.createElement("div", null, t && i.createElement(k, {
+        i.createElement("div", null, t && i.createElement(x, {
           buttonText: "\u4e0b\u8f7d\u7535\u8111\u5ba2\u6237\u7aef",
           downloadAttr: o,
           downloadHref: l,
@@ -6039,7 +5803,7 @@ window.danmaku_reload_interval = setInterval(() => {
         ), []),
         i.createElement("div", {
           className: Q
-        }, l !== oe.xj.None && i.createElement(k, {
+        }, l !== oe.xj.None && i.createElement(x, {
           buttonText: l === oe.xj.Client ? "\u4e0b\u8f7d\u7535\u8111\u5ba2\u6237\u7aef" : "\u6dfb\u52a0\u5230\u684c\u9762",
           downloadAttr: s,
           downloadHref: c,
@@ -6072,7 +5836,7 @@ window.danmaku_reload_interval = setInterval(() => {
     n.d(t, {
       Z: ()=>H
     });
-    var r = n(30906), o = n(65146), i = n(32781), a = n(79705), l = n.n(a), s = n(44503), c = n(24260), u = n(21857), d = n.n(u), m = n(52172), v = n(80212), f = n(92557), h = n(25083), p = n(52252), g = n(85938), y = n(76659), w = n(78867), _ = n(14484), E = n(67255), k = n(44420), x = n(50790), b = n(25725), C = n(14001), N = n(83484), T = n(52491), Z = n(28796), S = n(2143), I = n(98853), L = n(27117), D = n(67594), M = n(16340), B = n(98767), A = n(34276), P = n(89543), O = n(95680), V = n(69343), W = n(66470), R = n(91881), F = (0,
+    var r = n(30906), o = n(65146), i = n(32781), a = n(79705), l = n.n(a), s = n(44503), c = n(24260), u = n(21857), d = n.n(u), m = n(36565), v = n(80212), f = n(92557), h = n(25083), p = n(52252), g = n(85938), y = n(76659), w = n(78867), _ = n(14484), E = n(67255), x = n(44420), k = n(50790), b = n(25725), C = n(14001), T = n(83484), N = n(52491), Z = n(28796), S = n(2143), L = n(98853), I = n(27117), D = n(67594), M = n(16340), B = n(98767), A = n(45083), P = n(89543), O = n(95680), V = n(69343), W = n(66470), R = n(91881), F = (0,
       c.default)({
       resolved: {},
       chunkName: function() {
@@ -6083,7 +5847,7 @@ window.danmaku_reload_interval = setInterval(() => {
         return !0 === this.resolved[t] && !!n.m[t]
       },
       importAsync: function() {
-        return Promise.all([n.e(3973), n.e(9684), n.e(434), n.e(6515), n.e(2520), n.e(1115), n.e(1779), n.e(7774), n.e(2045), n.e(8930)]).then(n.bind(n, 15101))
+        return Promise.all([n.e(3973), n.e(7282), n.e(6252), n.e(6515), n.e(4049), n.e(1115), n.e(6495), n.e(1040), n.e(9259), n.e(8930)]).then(n.bind(n, 15101))
       },
       requireAsync: function(e) {
         var t = this
@@ -6119,7 +5883,7 @@ window.danmaku_reload_interval = setInterval(() => {
         , ie = K.activityName
         , ae = K.disableSpecTheme
         , le = (0,
-        T.T)({
+        N.T)({
         userInfo: H,
         redirectFrom: te
       }).handleHiddenLog
@@ -6145,19 +5909,19 @@ window.danmaku_reload_interval = setInterval(() => {
         s.useState)(!1)
         , Ee = (0,
         i.Z)(_e, 2)
-        , ke = Ee[0]
-        , xe = Ee[1]
+        , xe = Ee[0]
+        , ke = Ee[1]
         , be = (0,
         s.useState)(null)
         , Ce = (0,
         i.Z)(be, 2)
-        , Ne = Ce[0]
-        , Te = Ce[1]
+        , Te = Ce[0]
+        , Ne = Ce[1]
         , Ze = (0,
         s.useRef)()
         , Se = oe
-        , Ie = ie
-        , Le = ae || Se
+        , Le = ie
+        , Ie = ae || Se
         , De = m.a.wrapClientOsInfo($, ee).isMac
         , Me = (0,
         P.c)()
@@ -6173,7 +5937,7 @@ window.danmaku_reload_interval = setInterval(() => {
         }
       ), [ne, re])
         , We = (0,
-        L.L)()
+        I.L)()
         , Re = We.setModalCardInfo
         , Fe = We.restoreModalCardInfo
         , Ue = (0,
@@ -6200,8 +5964,8 @@ window.danmaku_reload_interval = setInterval(() => {
               }
             ))
               , t = f.listen(f.EVENT.openNoticeAwemeModal, (function(e) {
-                Te(e),
-                  xe(!0),
+                Ne(e),
+                  ke(!0),
                   f.emit(f.EVENT.videoPause),
                   f.emit(f.EVENT.livePause)
               }
@@ -6234,15 +5998,15 @@ window.danmaku_reload_interval = setInterval(() => {
         , Ke = Ge.isDark
         , qe = (0,
         s.useMemo)((function() {
-          if (Le)
+          if (Ie)
             return {};
           var e = h.yW();
           return "vs" === e || "vschannel" === e || "download" === e ? {} : null != je && je.themeSwitch ? {
             backgroundImage: "url(".concat(Ke ? null == je ? void 0 : je.headerDark : null == je ? void 0 : je.headerLight, ")")
           } : {}
         }
-      ), [je, Ke, Le])
-        , Ye = !p.p() && !Le && (null == je ? void 0 : je.themeSwitch);
+      ), [je, Ke, Ie])
+        , Ye = !p.p() && !Ie && (null == je ? void 0 : je.themeSwitch);
       (0,
         s.useEffect)((function() {
           var e = g.Bj(h.yW());
@@ -6268,44 +6032,44 @@ window.danmaku_reload_interval = setInterval(() => {
       ), [null == j ? void 0 : j.searchBarStyleOpt]);
       return s.createElement("div", {
         onDoubleClick: He,
-        className: l()(U[Ze.current], x.Z.container, (n = {},
+        className: l()(U[Ze.current], k.Z.container, (n = {},
           (0,
-            o.Z)(n, x.Z.activity, Se || Ue),
+            o.Z)(n, k.Z.activity, Se || Ue),
           (0,
-            o.Z)(n, x.Z.transparent, Ue),
+            o.Z)(n, k.Z.transparent, Ue),
           (0,
             o.Z)(n, q, q),
           (0,
-            o.Z)(n, x.Z.isVsHeader, ne),
+            o.Z)(n, k.Z.isVsHeader, ne),
           (0,
-            o.Z)(n, x.Z.isNormalHeader, ne && !Ve),
+            o.Z)(n, k.Z.isNormalHeader, ne && !Ve),
           (0,
-            o.Z)(n, x.Z.transmode, Ve),
+            o.Z)(n, k.Z.transmode, Ve),
           (0,
-            o.Z)(n, x.Z.blur, (Se || Ue) && Pe),
+            o.Z)(n, k.Z.blur, (Se || Ue) && Pe),
           (0,
-            o.Z)(n, x.Z.searchBarCenterLayout, ze),
+            o.Z)(n, k.Z.searchBarCenterLayout, ze),
           n))
       }, s.createElement("div", {
-        className: l()(x.Z.fixed, (0,
-          o.Z)({}, x.Z.grayscale, X)),
+        className: l()(k.Z.fixed, (0,
+          o.Z)({}, k.Z.grayscale, X)),
         id: "douyin-header",
         "data-click": "doubleClick"
       }, s.createElement("header", {
-        className: l()(x.Z.header, (a = {},
+        className: l()(k.Z.header, (a = {},
           (0,
-            o.Z)(a, x.Z.electron, $),
+            o.Z)(a, k.Z.electron, $),
           (0,
-            o.Z)(a, x.Z.electronDrag, $ && !Me),
+            o.Z)(a, k.Z.electronDrag, $ && !Me),
           (0,
-            o.Z)(a, x.Z.electronMacInner, De),
+            o.Z)(a, k.Z.electronMacInner, De),
           a))
       }, $ && s.createElement(s.Fragment, null, s.createElement("div", {
-        className: x.Z.headerNoDragArea
-      }), s.createElement(N.ReturnButton, {
+        className: k.Z.headerNoDragArea
+      }), s.createElement(T.ReturnButton, {
         transparent: Ue
       })), !$ && s.createElement("div", {
-        className: l()(x.Z.logoCt, {
+        className: l()(k.Z.logoCt, {
           isDark: Se || Ve || Ue
         }),
         onClick: function() {
@@ -6318,22 +6082,22 @@ window.danmaku_reload_interval = setInterval(() => {
           logType: "js.href/src",
           reportOnly: !1
         }),
-        className: x.Z.logo
+        className: k.Z.logo
       })), s.createElement("div", {
-        className: x.Z.rightContent,
+        className: k.Z.rightContent,
         "data-click": "doubleClick",
         style: qe
       }, s.createElement("div", {
-        className: x.Z.searchCt
+        className: k.Z.searchCt
       }, s.createElement("div", {
-        className: l()(x.Z.searchBar, (0,
-          o.Z)({}, x.Z.newSearchBar, Qe))
+        className: l()(k.Z.searchBar, (0,
+          o.Z)({}, k.Z.newSearchBar, Qe))
       }, s.createElement("div", {
-        className: x.Z.searchBlank
+        className: k.Z.searchBlank
       }), s.createElement(A.SearchBar, {
         customProps: {
           isActivity: Se || Ve,
-          activityName: Ie || (Ve ? "vsTransMode" : ""),
+          activityName: Le || (Ve ? "vsTransMode" : ""),
           transparent: Ue,
           isSearchPage: Boolean(null == J ? void 0 : J.match(/^\/search/)),
           pathname: J,
@@ -6353,15 +6117,15 @@ window.danmaku_reload_interval = setInterval(() => {
             return le(t)
         }
       }))), s.createElement("div", {
-        className: l()(x.Z.menuCt, {
+        className: l()(k.Z.menuCt, {
           isDark: Se
         })
       }, s.createElement("div", {
-        className: x.Z.floatRight
+        className: k.Z.floatRight
       }, s.createElement(O.R.Provider, {
         value: {
           isActivity: Se || Ve || (null == K ? void 0 : K.isActivity),
-          activityName: Ie || (Ve ? "vsTransMode" : "") || (null == K ? void 0 : K.activityName),
+          activityName: Le || (Ve ? "vsTransMode" : "") || (null == K ? void 0 : K.activityName),
           isVsTransmode: Ve
         }
       }, s.createElement(Z.Z, {
@@ -6369,16 +6133,16 @@ window.danmaku_reload_interval = setInterval(() => {
           r.Z)((0,
           r.Z)({}, K), {}, {
           isActivity: Se || Ve,
-          activityName: Ie || (Ve ? "vsTransMode" : "")
+          activityName: Le || (Ve ? "vsTransMode" : "")
         }),
         success: G,
         userInfo: H,
         abTestData: j,
         transparent: Ue
       })))))), ue && s.createElement("div", {
-        className: x.Z.pwaDivider
+        className: k.Z.pwaDivider
       }), fe && s.createElement(F, {
-        className: x.Z.imModalVideo,
+        className: k.Z.imModalVideo,
         awemeIds: null == ye ? void 0 : ye.videoMsgList,
         clientId: null == ye ? void 0 : ye.msgClientId,
         fetchAwemeIds: null == ye ? void 0 : ye.getMoreVideo,
@@ -6387,7 +6151,7 @@ window.danmaku_reload_interval = setInterval(() => {
         defaultCommentShow: null == ye ? void 0 : ye.commentId,
         disableAutoPlay: !0,
         abtestData: j,
-        anyHooks: I.Z,
+        anyHooks: L.Z,
         useOldModal: !0,
         moreBoxShowList: {
           notInterestingIcon: !1,
@@ -6403,13 +6167,13 @@ window.danmaku_reload_interval = setInterval(() => {
           dispatch: function() {}
         },
         modalEnterFrom: "im",
-        shortCutFilteredList: [null === (c = k.getShortcut().dislike) || void 0 === c ? void 0 : c.key]
-      }), ke && s.createElement(F, {
-        className: x.Z.imModalVideo,
-        awemeId: null == Ne ? void 0 : Ne.awemeId,
-        insertCommentId: null == Ne ? void 0 : Ne.cid,
-        logParams: null == Ne ? void 0 : Ne.logParams,
-        defaultCommentShow: null == Ne ? void 0 : Ne.cid,
+        shortCutFilteredList: [null === (c = x.getShortcut().dislike) || void 0 === c ? void 0 : c.key]
+      }), xe && s.createElement(F, {
+        className: k.Z.imModalVideo,
+        awemeId: null == Te ? void 0 : Te.awemeId,
+        insertCommentId: null == Te ? void 0 : Te.cid,
+        logParams: null == Te ? void 0 : Te.logParams,
+        defaultCommentShow: null == Te ? void 0 : Te.cid,
         disableSwitch: !0,
         disableAutoPlay: !0,
         abtestData: j,
@@ -6421,17 +6185,17 @@ window.danmaku_reload_interval = setInterval(() => {
           report: !0
         },
         close: function() {
-          xe(!1)
+          ke(!1)
         },
         userContext: {
           userInfo: H,
           dispatch: function() {}
         },
-        danmakuInfo: null == Ne ? void 0 : Ne.danmakuInfo,
+        danmakuInfo: null == Te ? void 0 : Te.danmakuInfo,
         modalEnterFrom: "im",
-        shortCutFilteredList: [null === (u = k.getShortcut().dislike) || void 0 === u ? void 0 : u.key]
+        shortCutFilteredList: [null === (u = x.getShortcut().dislike) || void 0 === u ? void 0 : u.key]
       }), s.createElement("div", {
-        className: x.Z.pushMessageEntry
+        className: k.Z.pushMessageEntry
       }, s.createElement(W.H, null))))
     }
     !function(e) {
@@ -6468,7 +6232,7 @@ window.danmaku_reload_interval = setInterval(() => {
       , c = n(24260)
       , u = n(21857)
       , d = n.n(u)
-      , m = n(52172)
+      , m = n(36565)
       , v = n(80212)
       , f = n(92557)
       , h = n(25083)
@@ -6476,20 +6240,20 @@ window.danmaku_reload_interval = setInterval(() => {
       , g = n(78867)
       , y = n(14484)
       , w = n(67255)
-      , _ = n(96411)
+      , _ = n(27796)
       , E = n(44420)
-      , k = n(74474)
-      , x = n(52491)
+      , x = n(74474)
+      , k = n(52491)
       , b = n(28796)
       , C = n(96608)
-      , N = n(2143)
-      , T = n(98853)
+      , T = n(2143)
+      , N = n(98853)
       , Z = n(16340)
       , S = n(14001)
-      , I = n(27117)
-      , L = n(98767)
+      , L = n(27117)
+      , I = n(98767)
       , D = n(67594)
-      , M = n(34276)
+      , M = n(45083)
       , B = n(91881)
       , A = n(89543)
       , P = n(69343)
@@ -6505,7 +6269,7 @@ window.danmaku_reload_interval = setInterval(() => {
         return !0 === this.resolved[t] && !!n.m[t]
       },
       importAsync: function() {
-        return Promise.all([n.e(3973), n.e(9684), n.e(434), n.e(6515), n.e(2520), n.e(1115), n.e(1779), n.e(7774), n.e(2045), n.e(8930)]).then(n.bind(n, 15101))
+        return Promise.all([n.e(3973), n.e(7282), n.e(6252), n.e(6515), n.e(4049), n.e(1115), n.e(6495), n.e(1040), n.e(9259), n.e(8930)]).then(n.bind(n, 15101))
       },
       requireAsync: function(e) {
         var t = this
@@ -6535,9 +6299,9 @@ window.danmaku_reload_interval = setInterval(() => {
     function R(e) {
       var t, n, l, c, u, R, F, U, H, G, j = e.userInfo, K = e.onChangeLoginStatus, q = e.abTestData, Y = void 0 === q ? {} : q, X = e.customProps, z = e.className, Q = e.needGrayscale, J = e.loginPopupStatus, $ = void 0 === J ? D.T.Off : J;
       (0,
-        L.i)();
+        I.i)();
       var ee = (0,
-        x.T)({
+        k.T)({
         userInfo: j,
         redirectFrom: null == X ? void 0 : X.redirectFrom
       }).handleHiddenLog
@@ -6567,29 +6331,29 @@ window.danmaku_reload_interval = setInterval(() => {
         , we = ye[0]
         , _e = ye[1]
         , Ee = a.useState(null)
-        , ke = (0,
+        , xe = (0,
         i.Z)(Ee, 2)
-        , xe = ke[0]
-        , be = ke[1]
+        , ke = xe[0]
+        , be = xe[1]
         , Ce = (0,
         B.j)().transparent
-        , Ne = X.isClient
-        , Te = X.os
+        , Te = X.isClient
+        , Ne = X.os
         , Ze = (0,
         a.useMemo)((function() {
-          return m.a.wrapClientOsInfo(Ne, Te)
+          return m.a.wrapClientOsInfo(Te, Ne)
         }
-      ), [Ne, Te]).isMac
+      ), [Te, Ne]).isMac
         , Se = (0,
         A.c)()
-        , Ie = a.useMemo((function() {
+        , Le = a.useMemo((function() {
           return (null == X ? void 0 : X.isVsTab) && (null == X ? void 0 : X.isVsTabTrans)
         }
       ), [X])
-        , Le = (0,
-        I.L)()
-        , De = Le.setModalCardInfo
-        , Me = Le.restoreModalCardInfo;
+        , Ie = (0,
+        L.L)()
+        , De = Ie.setModalCardInfo
+        , Me = Ie.restoreModalCardInfo;
       (0,
         D.S)({
         isLogin: null == j ? void 0 : j.isLogin,
@@ -6660,79 +6424,79 @@ window.danmaku_reload_interval = setInterval(() => {
       ), [null == Y ? void 0 : Y.searchBarStyleOpt]);
       return a.createElement("div", {
         onDoubleClick: Be,
-        className: s()(k.Z.container, k.Z.containerNew, (n = {},
+        className: s()(x.Z.container, x.Z.containerNew, (n = {},
           (0,
-            o.Z)(n, k.Z.activity, (null == X ? void 0 : X.isActivity) || Ce),
+            o.Z)(n, x.Z.activity, (null == X ? void 0 : X.isActivity) || Ce),
           (0,
-            o.Z)(n, k.Z.transparent, Ce),
+            o.Z)(n, x.Z.transparent, Ce),
           (0,
-            o.Z)(n, k.Z.changeColor, le),
+            o.Z)(n, x.Z.changeColor, le),
           (0,
             o.Z)(n, z, z),
           (0,
-            o.Z)(n, k.Z.isFixed, null == X ? void 0 : X.isFixed),
+            o.Z)(n, x.Z.isFixed, null == X ? void 0 : X.isFixed),
           (0,
-            o.Z)(n, k.Z.isVsHeader, X.isVsTab),
+            o.Z)(n, x.Z.isVsHeader, X.isVsTab),
           (0,
-            o.Z)(n, k.Z.isNormalHeader, X.isVsTab && !Ie),
+            o.Z)(n, x.Z.isNormalHeader, X.isVsTab && !Le),
           (0,
-            o.Z)(n, k.Z.transmode, Ie),
+            o.Z)(n, x.Z.transmode, Le),
           (0,
-            o.Z)(n, k.Z.isVideoOrVsHeader, null == X ? void 0 : X.isVsOrVideo),
+            o.Z)(n, x.Z.isVideoOrVsHeader, null == X ? void 0 : X.isVsOrVideo),
           (0,
-            o.Z)(n, k.Z.isSearchHeader, null == X ? void 0 : X.isSearchResult),
+            o.Z)(n, x.Z.isSearchHeader, null == X ? void 0 : X.isSearchResult),
           (0,
-            o.Z)(n, k.Z.grayscale, Q),
+            o.Z)(n, x.Z.grayscale, Q),
           (0,
-            o.Z)(n, k.Z.searchBarCenterLayout, Re),
+            o.Z)(n, x.Z.searchBarCenterLayout, Re),
           n)),
         id: "douyin-header",
         "data-click": "doubleClick"
       }, a.createElement("div", {
-        className: s()(k.Z.fixed, (0,
-          o.Z)({}, k.Z.searchLightActivity, null == X ? void 0 : X.searchLightActivity)),
+        className: s()(x.Z.fixed, (0,
+          o.Z)({}, x.Z.searchLightActivity, null == X ? void 0 : X.searchLightActivity)),
         style: Ve,
         "data-click": "doubleClick"
       }, a.createElement("header", {
-        className: s()(k.Z.header)
+        className: s()(x.Z.header)
       }, a.createElement("div", {
-        className: s()(k.Z.rightContent, (l = {},
+        className: s()(x.Z.rightContent, (l = {},
           (0,
-            o.Z)(l, k.Z.clientRightContent, Ne),
+            o.Z)(l, x.Z.clientRightContent, Te),
           (0,
-            o.Z)(l, k.Z.electronDrag, Ne && !Se),
+            o.Z)(l, x.Z.electronDrag, Te && !Se),
           l)),
         "data-click": "doubleClick"
       }, Ze && a.createElement("div", {
-        className: k.Z.basicHeight
+        className: x.Z.basicHeight
       }, a.createElement("div", {
-        className: s()(k.Z.logoCt)
+        className: s()(x.Z.logoCt)
       }, a.createElement(S.a, {
         href: globalThis.getFilterXss().filterUrl(y.kj(), null, {
           logType: "js.href/src",
           reportOnly: !1
         }),
-        className: s()(k.Z.logo, (0,
-          o.Z)({}, k.Z.transparentLogo, Ce)),
+        className: s()(x.Z.logo, (0,
+          o.Z)({}, x.Z.transparentLogo, Ce)),
         onClick: function() {
           C.Z.sendLog("clickAwemeLogo", {
             enter_from: h.yW()
           })
         }
       }))), a.createElement("div", {
-        className: s()(k.Z.rightContentInner, k.Z.rightContentInnerNew),
+        className: s()(x.Z.rightContentInner, x.Z.rightContentInnerNew),
         "data-click": "doubleClick"
       }, a.createElement("div", {
-        className: s()(k.Z.searchCt)
+        className: s()(x.Z.searchCt)
       }, a.createElement("div", {
-        className: s()(k.Z.searchBar, (0,
-          o.Z)({}, k.Z.newSearchBar, Fe))
+        className: s()(x.Z.searchBar, (0,
+          o.Z)({}, x.Z.newSearchBar, Fe))
       }, a.createElement("div", {
-        className: k.Z.searchBlank
+        className: x.Z.searchBlank
       }), a.createElement("div", null, a.createElement(M.SearchBar, {
         customProps: {
-          isActivity: Ie || (null == X ? void 0 : X.isActivity),
-          activityName: (Ie ? "vsTransMode" : "") || (null == X ? void 0 : X.activityName),
+          isActivity: Le || (null == X ? void 0 : X.isActivity),
+          activityName: (Le ? "vsTransMode" : "") || (null == X ? void 0 : X.activityName),
           isSearchPage: Boolean(null == X || null === (c = X.pathname) || void 0 === c ? void 0 : c.match(/^\/search/)),
           pathname: null == X ? void 0 : X.pathname,
           themeSwitch: null == Pe ? void 0 : Pe.themeSwitch,
@@ -6752,21 +6516,21 @@ window.danmaku_reload_interval = setInterval(() => {
             return ee(t)
         }
       })))), a.createElement("div", {
-        className: s()(k.Z.menuCt)
+        className: s()(x.Z.menuCt)
       }, a.createElement("div", {
-        className: k.Z.floatRight
+        className: x.Z.floatRight
       }, a.createElement(W.Provider, {
         value: {
-          isActivity: Ie || (null == X ? void 0 : X.isActivity),
-          activityName: (Ie ? "vsTransMode" : "") || (null == X ? void 0 : X.activityName),
-          isVsTransmode: Ie
+          isActivity: Le || (null == X ? void 0 : X.isActivity),
+          activityName: (Le ? "vsTransMode" : "") || (null == X ? void 0 : X.activityName),
+          isVsTransmode: Le
         }
       }, a.createElement(b.Z, {
         customProps: (0,
           r.Z)((0,
           r.Z)({}, X), {}, {
-          isActivity: Ie || (null == X ? void 0 : X.isActivity),
-          activityName: (Ie ? "vsTransMode" : "") || (null == X ? void 0 : X.activityName),
+          isActivity: Le || (null == X ? void 0 : X.isActivity),
+          activityName: (Le ? "vsTransMode" : "") || (null == X ? void 0 : X.activityName),
           landingPage: X.landingPage
         }),
         transparent: Ce,
@@ -6774,9 +6538,9 @@ window.danmaku_reload_interval = setInterval(() => {
         userInfo: j,
         abTestData: Y
       }))))))), re && a.createElement("div", {
-        className: k.Z.pwaDivider
+        className: x.Z.pwaDivider
       }), de && a.createElement(V, {
-        className: k.Z.imModalVideo,
+        className: x.Z.imModalVideo,
         awemeIds: null == he ? void 0 : he.videoMsgList,
         clientId: null == he ? void 0 : he.msgClientId,
         fetchAwemeIds: null == he ? void 0 : he.getMoreVideo,
@@ -6785,7 +6549,7 @@ window.danmaku_reload_interval = setInterval(() => {
         defaultCommentShow: null == he ? void 0 : he.commentId,
         disableAutoPlay: !0,
         abtestData: Y,
-        anyHooks: T.Z,
+        anyHooks: N.Z,
         useOldModal: !0,
         moreBoxShowList: {
           notInterestingIcon: !1,
@@ -6803,15 +6567,15 @@ window.danmaku_reload_interval = setInterval(() => {
         shortCutFilteredList: [null == _ || null === (u = E) || void 0 === u || null === (R = u.getShortcut()) || void 0 === R || null === (F = R.dislike) || void 0 === F ? void 0 : F.key],
         modalEnterFrom: "im"
       }), we && a.createElement(V, {
-        className: k.Z.imModalVideo,
-        awemeId: null == xe ? void 0 : xe.awemeId,
-        insertCommentId: null == xe ? void 0 : xe.cid,
-        logParams: null == xe ? void 0 : xe.logParams,
-        defaultCommentShow: null == xe ? void 0 : xe.cid,
+        className: x.Z.imModalVideo,
+        awemeId: null == ke ? void 0 : ke.awemeId,
+        insertCommentId: null == ke ? void 0 : ke.cid,
+        logParams: null == ke ? void 0 : ke.logParams,
+        defaultCommentShow: null == ke ? void 0 : ke.cid,
         disableSwitch: !0,
         disableAutoPlay: !0,
         abtestData: Y,
-        anyHooks: N.Z,
+        anyHooks: T.Z,
         useOldModal: !0,
         moreBoxShowList: {
           notInterestingIcon: !1,
@@ -6825,11 +6589,11 @@ window.danmaku_reload_interval = setInterval(() => {
           userInfo: j,
           dispatch: function() {}
         },
-        danmakuInfo: null == xe ? void 0 : xe.danmakuInfo,
+        danmakuInfo: null == ke ? void 0 : ke.danmakuInfo,
         modalEnterFrom: "im",
         shortCutFilteredList: [null == _ || null === (U = E) || void 0 === U || null === (H = U.getShortcut()) || void 0 === H || null === (G = H.dislike) || void 0 === G ? void 0 : G.key]
       })), a.createElement("div", {
-        className: k.Z.pushMessageEntry
+        className: x.Z.pushMessageEntry
       }, a.createElement(O.H, null)))
     }
   }
@@ -6860,8 +6624,8 @@ window.danmaku_reload_interval = setInterval(() => {
         h.P)({
         delayDisappear: 100,
         delayShow: 100
-      }), a = n.type, _ = n.changeType, E = e.secUid, k = e.avatarUrl, x = e.awemeCount, b = e.favoritingCount, C = e.awemeCollectCount, N = e.className, T = e.isClient, Z = e.abtest, S = (0,
-        p.o)(null !== (t = null == Z ? void 0 : Z.hasHorizontalHeader) && void 0 !== t ? t : s.HasHorizontalHeader.Default, T).isHorizontalLayout;
+      }), a = n.type, _ = n.changeType, E = e.secUid, x = e.avatarUrl, k = e.awemeCount, b = e.favoritingCount, C = e.awemeCollectCount, T = e.className, N = e.isClient, Z = e.abtest, S = (0,
+        p.o)(null !== (t = null == Z ? void 0 : Z.hasHorizontalHeader) && void 0 !== t ? t : s.HasHorizontalHeader.Default, N).isHorizontalLayout;
       return (0,
         i.useEffect)((function() {
           var e = c.listen(c.EVENT.showHeaderPopUp, (function(e) {
@@ -6887,8 +6651,8 @@ window.danmaku_reload_interval = setInterval(() => {
         i.createElement(w.p, {
           headerPopupName: "userDetail"
         }, i.createElement("div", {
-          className: l()(m.Z.avataUserCt, m.Z.avataUserMini, N, (0,
-            o.Z)({}, m.Z.clientAvatarLi, T)),
+          className: l()(m.Z.avataUserCt, m.Z.avataUserMini, T, (0,
+            o.Z)({}, m.Z.clientAvatarLi, N)),
           onMouseEnter: function() {
             _("active")
           },
@@ -6906,8 +6670,8 @@ window.danmaku_reload_interval = setInterval(() => {
         }, i.createElement(v.q, {
           type: "extraExtraSmall",
           className: l()((0,
-            o.Z)({}, m.Z.clientAvatr, T)),
-          src: globalThis.getFilterXss().filterUrl(k, null, {
+            o.Z)({}, m.Z.clientAvatr, N)),
+          src: globalThis.getFilterXss().filterUrl(x, null, {
             logType: "js.href/src",
             reportOnly: !1
           }),
@@ -6926,7 +6690,7 @@ window.danmaku_reload_interval = setInterval(() => {
           }
         }, i.createElement("ul", null, i.createElement(y.Y, (0,
           r.Z)({}, {
-          awemeCount: x,
+          awemeCount: k,
           favoritingCount: b,
           awemeCollectCount: C,
           secUid: E,
@@ -6936,7 +6700,7 @@ window.danmaku_reload_interval = setInterval(() => {
             return _()
           },
           abtest: Z,
-          isClient: T
+          isClient: N
         }))))))
     }
   }
@@ -6968,13 +6732,13 @@ window.danmaku_reload_interval = setInterval(() => {
         , w = e.className
         , _ = e.isClient
         , E = e.abtest
-        , k = (0,
+        , x = (0,
         d.P)({
         delayDisappear: 100,
         delayShow: 100
       })
-        , x = k.type
-        , b = k.changeType;
+        , k = x.type
+        , b = x.changeType;
       (0,
         i.useEffect)((function() {
           var e = s.listen(s.EVENT.showHeaderPopUp, (function(e) {
@@ -6991,20 +6755,20 @@ window.danmaku_reload_interval = setInterval(() => {
       ), []),
         (0,
           i.useEffect)((function() {
-            "active" === x && (s.emit(s.EVENT.showHeaderPopUp, {
+            "active" === k && (s.emit(s.EVENT.showHeaderPopUp, {
               type: "userDetail",
               isShow: !0
             }),
             null !== f.n && void 0 !== f.n && f.n.loginGuideShowed && f.n.destroy())
           }
-        ), [x]);
-      var C, N, T, Z = (C = (0,
+        ), [k]);
+      var C, T, N, Z = (C = (0,
         i.useState)(!0),
-        N = (0,
+        T = (0,
           g.Z)(C, 2),
-        T = N[0],
-        N[1],
-        T);
+        N = T[0],
+        T[1],
+        N);
       return i.createElement(p.p, {
         headerPopupName: "userDetail"
       }, i.createElement("div", {
@@ -7026,7 +6790,7 @@ window.danmaku_reload_interval = setInterval(() => {
         success: t
       }), i.createElement("div", {
         className: l()(u.Z.dropdownContainer, u.Z.userPanelCollect, (0,
-          o.Z)({}, u.Z.active, Boolean(x))),
+          o.Z)({}, u.Z.active, Boolean(k))),
         onMouseEnter: function() {
           b("active"),
             m.Z.sendLog("personalPanelShow", {
@@ -7097,12 +6861,12 @@ window.danmaku_reload_interval = setInterval(() => {
       , m = n(16340)
       , v = (0,
       a.memo)((function(e) {
-        var t, n, o, l, v = e.activityName, f = e.className, h = e.text, p = e.icon, g = e.iconHeight, y = e.iconViewBox, w = e.showBadge, _ = e.badge, E = e.badgeText, k = e.badgeIconHeight, x = e.badgeIconSvg, b = e.badgeIconViewBox, C = e.badgeIconWidth, N = e.iconWidth, T = e.onClick, Z = e.transparent, S = (0,
+        var t, n, o, l, v = e.activityName, f = e.className, h = e.text, p = e.icon, g = e.iconHeight, y = e.iconViewBox, w = e.showBadge, _ = e.badge, E = e.badgeText, x = e.badgeIconHeight, k = e.badgeIconSvg, b = e.badgeIconViewBox, C = e.badgeIconWidth, T = e.iconWidth, N = e.onClick, Z = e.transparent, S = (0,
           m.Z)().specTheme;
         return a.createElement("div", {
           className: s()(u.circleButtonWrapper, f)
         }, a.createElement("div", {
-          onClick: T,
+          onClick: N,
           className: s()(u.circleButton, u.circleButtonWithText, (t = {
             isDark: Boolean(v) || Z
           },
@@ -7121,9 +6885,9 @@ window.danmaku_reload_interval = setInterval(() => {
             logType: "js.href/src",
             reportOnly: !1
           }),
-          width: N,
+          width: T,
           height: g,
-          viewBox: y || i()(n = "0 0 ".concat(N, " ")).call(n, g),
+          viewBox: y || i()(n = "0 0 ".concat(T, " ")).call(n, g),
           className: u.iconSvg
         })), a.createElement("p", {
           className: u.text
@@ -7142,13 +6906,13 @@ window.danmaku_reload_interval = setInterval(() => {
           className: s()(u.imageBadge, u.circleButtonWithTextImageBadge, (0,
             r.Z)({}, u.themeSwitch, null == S ? void 0 : S.themeSwitch))
         }, a.createElement(d.Z, {
-          src: globalThis.getFilterXss().filterUrl(x, null, {
+          src: globalThis.getFilterXss().filterUrl(k, null, {
             logType: "js.href/src",
             reportOnly: !1
           }),
           width: C,
-          height: k,
-          viewBox: b || i()(l = "0 0 ".concat(C, " ")).call(l, k)
+          height: x,
+          viewBox: b || i()(l = "0 0 ".concat(C, " ")).call(l, x)
         })))
       }
     ))
@@ -7167,7 +6931,7 @@ window.danmaku_reload_interval = setInterval(() => {
       , c = n(79705)
       , u = n.n(c)
       , d = n(24260)
-      , m = n(52172)
+      , m = n(36565)
       , v = n(14484)
       , f = n(25083)
       , h = n(37541)
@@ -7177,16 +6941,16 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = n(20445)
       , _ = n(41967)
       , E = n(1946)
-      , k = n(35709)
-      , x = n(85922)
+      , x = n(35709)
+      , k = n(85922)
       , b = n(90147)
       , C = n(2758)
-      , N = n(54187)
-      , T = n(58801)
+      , T = n(54187)
+      , N = n(58801)
       , Z = n(36788)
       , S = n(1392)
-      , I = n(69234)
-      , L = n(51382)
+      , L = n(69234)
+      , I = n(51382)
       , D = n(58704)
       , M = n(73969)
       , B = n(57023)
@@ -7245,7 +7009,7 @@ window.danmaku_reload_interval = setInterval(() => {
         return !0 === this.resolved[t] && !!n.m[t]
       },
       importAsync: function() {
-        return Promise.all([n.e(4490), n.e(9707), n.e(5019), n.e(6780)]).then(n.bind(n, 34490))
+        return Promise.all([n.e(4490), n.e(9707), n.e(3233), n.e(6780)]).then(n.bind(n, 34490))
       },
       requireAsync: function(e) {
         var t = this
@@ -7278,7 +7042,7 @@ window.danmaku_reload_interval = setInterval(() => {
         return !0 === this.resolved[t] && !!n.m[t]
       },
       importAsync: function() {
-        return Promise.all([n.e(2520), n.e(8617)]).then(n.bind(n, 83484))
+        return Promise.all([n.e(4049), n.e(8617)]).then(n.bind(n, 83484))
       },
       requireAsync: function(e) {
         var t = this
@@ -7313,7 +7077,7 @@ window.danmaku_reload_interval = setInterval(() => {
         return !0 === this.resolved[t] && !!n.m[t]
       },
       importAsync: function() {
-        return Promise.all([n.e(2520), n.e(8617)]).then(n.bind(n, 24819))
+        return Promise.all([n.e(4049), n.e(8617)]).then(n.bind(n, 24819))
       },
       requireAsync: function(e) {
         var t = this
@@ -7348,7 +7112,7 @@ window.danmaku_reload_interval = setInterval(() => {
         return !0 === this.resolved[t] && !!n.m[t]
       },
       importAsync: function() {
-        return Promise.all([n.e(2520), n.e(8617)]).then(n.bind(n, 19204))
+        return Promise.all([n.e(4049), n.e(8617)]).then(n.bind(n, 19204))
       },
       requireAsync: function(e) {
         var t = this
@@ -7384,7 +7148,7 @@ window.danmaku_reload_interval = setInterval(() => {
       }).newWallpaperShow, _e = (0,
         A.GZ)({
         isLogin: n
-      }), Ee = _e.onDownloadGuideEnter, ke = _e.onDownloadGuideLeave, xe = _e.show, be = _e.downloadPWA, Ce = _e.withClose, Ne = _e.withEffect, Te = _e.shouldShowGuideType, Ze = _e.clientDownloadHref, Se = _e.clientDownloadAttr, Ie = _e.showDownloadGuide, Le = _e.hideDownloadGuide, De = _e.onDownloadGuideEntryEnter, Me = _e.onDownloadGuideEntryLeave, Be = _e.onDownloadGuideVisibleChange, Ae = _e.showType, Pe = _e.showClientBadge, Oe = Boolean(me || !(null != a && a.click2Download)), Ve = Oe ? v.rV() : Ze, We = !Oe && Se, Re = Oe ? "_blank" : "_self";
+      }), Ee = _e.onDownloadGuideEnter, xe = _e.onDownloadGuideLeave, ke = _e.show, be = _e.downloadPWA, Ce = _e.withClose, Te = _e.withEffect, Ne = _e.shouldShowGuideType, Ze = _e.clientDownloadHref, Se = _e.clientDownloadAttr, Le = _e.showDownloadGuide, Ie = _e.hideDownloadGuide, De = _e.onDownloadGuideEntryEnter, Me = _e.onDownloadGuideEntryLeave, Be = _e.onDownloadGuideVisibleChange, Ae = _e.showType, Pe = _e.showClientBadge, Oe = Boolean(me || !(null != a && a.click2Download)), Ve = Oe ? v.rV() : Ze, We = !Oe && Se, Re = Oe ? "_blank" : "_self";
       (0,
         s.useEffect)((function() {
           return ve(/live/.test(location.host))
@@ -7428,12 +7192,12 @@ window.danmaku_reload_interval = setInterval(() => {
           var e;
           return l()(e = [le ? (0,
             o.Z)((0,
-            o.Z)({}, I.j.backToHome), {}, {
+            o.Z)({}, L.j.backToHome), {}, {
             type: "textLink",
             onClick: je
           }) : void 0, Ke ? (0,
             o.Z)((0,
-            o.Z)({}, I.j.collectionGuide), {}, {
+            o.Z)({}, L.j.collectionGuide), {}, {
             type: "textLink",
             onMouseEnter: Ye,
             onMouseLeave: Xe,
@@ -7448,7 +7212,7 @@ window.danmaku_reload_interval = setInterval(() => {
             })))]
           }) : void 0, (0,
             o.Z)((0,
-            o.Z)({}, I.j.cooperation), {}, {
+            o.Z)({}, L.j.cooperation), {}, {
             type: "textLink",
             items: He,
             trigger: "hover",
@@ -7461,7 +7225,7 @@ window.danmaku_reload_interval = setInterval(() => {
           }), (0,
             o.Z)((0,
             o.Z)((0,
-            o.Z)({}, I.j.downloadClient), {}, {
+            o.Z)({}, L.j.downloadClient), {}, {
             type: "textLink",
             onMouseEnter: De,
             onMouseLeave: Me
@@ -7480,7 +7244,7 @@ window.danmaku_reload_interval = setInterval(() => {
                   S.v)(),
                 is_full_screen: h.r() ? "1" : "0",
                 type: "icon",
-                platform: Te === A.xj.PWA ? "pwa" : "client"
+                platform: Ne === A.xj.PWA ? "pwa" : "client"
               })
             }
           }), {}, {
@@ -7490,26 +7254,26 @@ window.danmaku_reload_interval = setInterval(() => {
             }, s.createElement("div", {
               className: C.Z.hoverToShowMiniDownloadGuide,
               key: "downloadMenuInMiniscreen"
-            }, xe && s.createElement(B.E6, (0,
+            }, ke && s.createElement(B.E6, (0,
               o.Z)({
               isLogin: n
             }, {
               downloadPWA: be,
               withClose: Ce,
-              withEffect: Ne,
+              withEffect: Te,
               clientDownloadAttr: Se,
               showType: Ae,
-              shouldShowGuideType: Te,
+              shouldShowGuideType: Ne,
               clientDownloadHref: Ze,
-              showDownloadGuide: Ie,
-              onClose: Le
+              showDownloadGuide: Le,
+              onClose: Ie
             }))))]
           })]).call(e, (function(e) {
               return e
             }
           ))
         }
-      ), [He, le, je, n, be, Ce, Ne, Te, Ze, Ie, Le, xe, De, Me, Ae, Se, ze, Ye, Xe, Ke, ie, me, null == a ? void 0 : a.click2Download]);
+      ), [He, le, je, n, be, Ce, Te, Ne, Ze, Le, Ie, ke, De, Me, Ae, Se, ze, Ye, Xe, Ke, ie, me, null == a ? void 0 : a.click2Download]);
       (0,
         s.useEffect)((function() {
           return p.listen(p.EVENT.showHeaderPopUp, (function(e) {
@@ -7548,10 +7312,10 @@ window.danmaku_reload_interval = setInterval(() => {
         className: C.Z.menuItem
       }, s.createElement(G.p, {
         headerPopupName: "more"
-      }, s.createElement(L.Y, {
+      }, s.createElement(I.Y, {
         text: "\u66f4\u591a",
         type: "circleButtonWithText",
-        avatarUrl: k.Z,
+        avatarUrl: x.Z,
         activityName: ge,
         avatarHeight: 12.44,
         avatarWidth: 12.44,
@@ -7564,26 +7328,26 @@ window.danmaku_reload_interval = setInterval(() => {
         transparent: oe
       }))), !fe && !Ge && s.createElement(s.Fragment, null, s.createElement(F.J, {
         position: "bottom",
-        visible: xe,
+        visible: ke,
         onVisibleChange: Be,
         mouseEnterDelay: 100,
         mouseLeaveDelay: 200,
         content: s.createElement("div", {
           onMouseEnter: Ee,
-          onMouseLeave: ke
+          onMouseLeave: xe
         }, s.createElement(B.E6, (0,
           o.Z)({
           isLogin: n
         }, {
           downloadPWA: be,
           withClose: Ce,
-          withEffect: Ne,
+          withEffect: Te,
           showType: Ae,
-          shouldShowGuideType: Te,
+          shouldShowGuideType: Ne,
           clientDownloadHref: Ze,
           clientDownloadAttr: Se,
-          showDownloadGuide: Ie,
-          onClose: Le
+          showDownloadGuide: Le,
+          onClose: Ie
         })))
       }, s.createElement("div", {
         className: C.Z.menuItem
@@ -7602,10 +7366,10 @@ window.danmaku_reload_interval = setInterval(() => {
               S.v)(),
             is_full_screen: h.r() ? "1" : "0",
             type: "icon",
-            platform: Te === A.xj.PWA ? "pwa" : "client"
+            platform: Ne === A.xj.PWA ? "pwa" : "client"
           })
         }
-      }, s.createElement(N.E, {
+      }, s.createElement(T.E, {
         activityName: null == d ? void 0 : d.activityName,
         text: "\u5ba2\u6237\u7aef",
         icon: _.Z,
@@ -7614,7 +7378,7 @@ window.danmaku_reload_interval = setInterval(() => {
         iconViewBox: "0 -0.5 18.83 12.91",
         showBadge: Pe,
         badge: "image",
-        badgeIconSvg: x.Z,
+        badgeIconSvg: k.Z,
         badgeIconHeight: 15,
         badgeIconWidth: 28,
         badgeIconViewBox: "0 0 28 15",
@@ -7625,7 +7389,7 @@ window.danmaku_reload_interval = setInterval(() => {
         className: C.Z.goToRecommendTip
       }, s.createElement("div", {
         className: C.Z.delta
-      }), "\u70b9\u51fb\u8fd9\u91cc\u524d\u5f80\u63a8\u8350\u9875\uff0c\u89c6\u9891\u66f4\u597d\u770b"), s.createElement(L.Y, {
+      }), "\u70b9\u51fb\u8fd9\u91cc\u524d\u5f80\u63a8\u8350\u9875\uff0c\u89c6\u9891\u66f4\u597d\u770b"), s.createElement(I.Y, {
         text: "\u63a8\u8350",
         type: "circleButtonWithText",
         avatarUrl: y.Z,
@@ -7649,7 +7413,7 @@ window.danmaku_reload_interval = setInterval(() => {
         className: C.Z.menuItem
       }, s.createElement(G.p, {
         headerPopupName: "cooperation"
-      }, s.createElement(L.Y, {
+      }, s.createElement(I.Y, {
         text: "\u5408\u4f5c",
         type: "circleButtonWithText",
         avatarUrl: w.Z,
@@ -7719,7 +7483,7 @@ window.danmaku_reload_interval = setInterval(() => {
         className: C.Z.menuItem
       }, s.createElement(G.p, {
         headerPopupName: "post"
-      }, s.createElement(L.Y, {
+      }, s.createElement(I.Y, {
         text: "\u6295\u7a3f",
         type: "circleButtonWithText",
         avatarUrl: E.Z,
@@ -7742,7 +7506,7 @@ window.danmaku_reload_interval = setInterval(() => {
           (0,
             r.Z)(t, C.Z.hidden, fe),
           t))
-      }), n && s.createElement(T.a, (0,
+      }), n && s.createElement(N.a, (0,
         o.Z)({}, {
         uid: Q,
         secUid: J,
@@ -7772,24 +7536,24 @@ window.danmaku_reload_interval = setInterval(() => {
         className: C.Z.isLogout
       })), Ae === A.KK.Auto && s.createElement("div", {
         className: C.Z.miniScreen
-      }, Ge && xe && s.createElement("div", {
+      }, Ge && ke && s.createElement("div", {
         className: C.Z.fixedToHeaderBelow
       }, s.createElement("div", {
         className: C.Z.miniScreenDownloadGuideContainer
       }, s.createElement(B.E6, (0,
         o.Z)({
         isLogin: n,
-        isShow: xe
+        isShow: ke
       }, {
         showType: Ae,
         downloadPWA: be,
         withClose: Ce,
-        withEffect: Ne,
-        shouldShowGuideType: Te,
+        withEffect: Te,
+        shouldShowGuideType: Ne,
         clientDownloadAttr: Se,
         clientDownloadHref: Ze,
-        showDownloadGuide: Ie,
-        onClose: Le
+        showDownloadGuide: Le,
+        onClose: Ie
       }))))), fe && s.createElement(X, (0,
         o.Z)({}, {
         osInfo: pe,
@@ -7799,10 +7563,10 @@ window.danmaku_reload_interval = setInterval(() => {
       })))
     }
     function J(e) {
-      var t, n, i = e.success, a = e.userInfo, c = e.showYear100, d = e.abTestData, m = e.customProps, v = e.transparent, f = a || {}, h = f.isLogin, p = f.info, g = p || {}, y = g.avatarUrl, w = g.secUid, _ = g.awemeCount, E = void 0 === _ ? 0 : _, k = g.favoritingCount, x = void 0 === k ? 0 : k, b = g.userCollectCount, N = void 0 === b ? {} : b, T = g.uid, Z = void 0 === T ? "" : T, S = null == N || null === (t = N.collectCountList) || void 0 === t ? void 0 : l()(t).call(t, (function(e) {
+      var t, n, i = e.success, a = e.userInfo, c = e.showYear100, d = e.abTestData, m = e.customProps, v = e.transparent, f = a || {}, h = f.isLogin, p = f.info, g = p || {}, y = g.avatarUrl, w = g.secUid, _ = g.awemeCount, E = void 0 === _ ? 0 : _, x = g.favoritingCount, k = void 0 === x ? 0 : x, b = g.userCollectCount, T = void 0 === b ? {} : b, N = g.uid, Z = void 0 === N ? "" : N, S = null == T || null === (t = T.collectCountList) || void 0 === t ? void 0 : l()(t).call(t, (function(e) {
           return 2 === e.itemType
         }
-      ))[0], I = null !== (n = null == S ? void 0 : S.collectCount) && void 0 !== n ? n : 0;
+      ))[0], L = null !== (n = null == S ? void 0 : S.collectCount) && void 0 !== n ? n : 0;
       return s.createElement("div", {
         className: u()((0,
           r.Z)({}, C.Z.year100, c))
@@ -7816,8 +7580,8 @@ window.danmaku_reload_interval = setInterval(() => {
         secUid: w,
         avatarUrl: y,
         awemeCount: E,
-        favoritingCount: x,
-        awemeCollectCount: I,
+        favoritingCount: k,
+        awemeCollectCount: L,
         success: i,
         transparent: v
       })))
@@ -7847,16 +7611,16 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = n(53607)
       , _ = n(14484)
       , E = n(25083)
-      , k = n(85938)
-      , x = n(43478)
+      , x = n(85938)
+      , k = n(43478)
       , b = n(90414)
       , C = n(68094)
-      , N = n(51652)
-      , T = n(90147)
+      , T = n(51652)
+      , N = n(90147)
       , Z = n(70038)
       , S = n(72389)
-      , I = n(78595)
-      , L = n(89784)
+      , L = n(78595)
+      , I = n(89784)
       , D = n(88287);
     const M = "QYL6YoEb"
       , B = "xOYQgf3L"
@@ -7890,14 +7654,14 @@ window.danmaku_reload_interval = setInterval(() => {
       , se = "AalWIHiD";
     var ce = n(92024)
       , ue = function() {
-      var e = N
+      var e = T
         , t = e.CookieKeys
         , n = e.ThemeValues
         , r = oe.EVENT
         , o = w.Q.getItem({
         sKey: t.Theme
       })
-        , i = k.Dr(o) === n.Dark
+        , i = x.Dr(o) === n.Dark
         , l = (0,
         v.useState)(i)
         , s = (0,
@@ -7980,7 +7744,7 @@ window.danmaku_reload_interval = setInterval(() => {
         })
       }, {
         key: "favorite_collection",
-        iconSvg: I.Z,
+        iconSvg: L.Z,
         title: "\u6211\u7684\u6536\u85cf",
         count: d,
         clickPosition: "favorite_collection",
@@ -7992,7 +7756,7 @@ window.danmaku_reload_interval = setInterval(() => {
         })
       }, {
         key: "record",
-        iconSvg: L.Z,
+        iconSvg: I.Z,
         title: "\u89c2\u770b\u5386\u53f2",
         count: 0,
         clickPosition: "record",
@@ -8029,11 +7793,11 @@ window.danmaku_reload_interval = setInterval(() => {
         isLogin: y,
         loginSuccess: w,
         onClick: te
-      })], ge = k.Bj(E.yW()), ye = function(e) {
+      })], ge = x.Bj(E.yW()), ye = function(e) {
         fe.setItem("LOGIN_STATUS", 0, 1 / 0, "/", "douyin.com", ""),
           e.preventDefault(),
-          x.JB(),
-          x.kS(location.href),
+          k.JB(),
+          k.kS(location.href),
           J.Z.sendLog("clickLogOut", {
             enter_from: E.vM()
           }),
@@ -8046,8 +7810,8 @@ window.danmaku_reload_interval = setInterval(() => {
                 for (; ; )
                   switch (e.prev = e.next) {
                     case 0:
-                      if (n = b.$o(N.LocalStorageKeys.HasLogoutShow),
-                      1 !== b.$o(N.LocalStorageKeys.IsAllowTrust)) {
+                      if (n = b.$o(T.LocalStorageKeys.HasLogoutShow),
+                      1 !== b.$o(T.LocalStorageKeys.IsAllowTrust)) {
                         e.next = 7;
                         break
                       }
@@ -8066,7 +7830,7 @@ window.danmaku_reload_interval = setInterval(() => {
                         e.next = 17;
                         break
                       }
-                      return b.qQ(N.LocalStorageKeys.HasLogoutShow, 1),
+                      return b.qQ(T.LocalStorageKeys.HasLogoutShow, 1),
                         (0,
                           de.w)({
                           confirmHandler: function() {
@@ -8107,7 +7871,7 @@ window.danmaku_reload_interval = setInterval(() => {
       ))),
         (0,
           v.useEffect)((function() {
-            document.domain !== T.LIVE_DOMAIN && g.h.getVar({
+            document.domain !== N.LIVE_DOMAIN && g.h.getVar({
               name: "is_allow_trust",
               defaultValue: 0
             }).then((function(e) {
@@ -8124,7 +7888,7 @@ window.danmaku_reload_interval = setInterval(() => {
           className: h()(A)
         }, v.createElement("div", {
           className: h()(P)
-        }, (null === (n = b.$o(N.LocalStorageKeys.UserInfo)) || void 0 === n ? void 0 : n.nickname) || "\u672a\u77e5"), ne ? v.createElement(me.Z, {
+        }, (null === (n = b.$o(T.LocalStorageKeys.UserInfo)) || void 0 === n ? void 0 : n.nickname) || "\u672a\u77e5"), ne ? v.createElement(me.Z, {
           pageIndex: "personal_panel"
         }) : null), v.createElement("ul", {
           className: O
@@ -8233,7 +7997,7 @@ window.danmaku_reload_interval = setInterval(() => {
     n.r(t),
       n.d(t, {
         ReturnButton: ()=>C,
-        ReturnToMainWindow: ()=>N
+        ReturnToMainWindow: ()=>T
       });
     var r = n(65146)
       , o = n(32781)
@@ -8265,7 +8029,7 @@ window.danmaku_reload_interval = setInterval(() => {
         ,
         E.apply(this, arguments)
     }
-    const k = function(e) {
+    const x = function(e) {
       return i.createElement("svg", E({
         width: 20,
         height: 20,
@@ -8280,7 +8044,7 @@ window.danmaku_reload_interval = setInterval(() => {
         strokeLinejoin: "round"
       })))
     };
-    var x = n(52255)
+    var k = n(52255)
       , b = n(1392);
     function C(e) {
       var t = e.transparent
@@ -8321,18 +8085,18 @@ window.danmaku_reload_interval = setInterval(() => {
             ))
           }
         }
-      }, i.createElement(x.Z, {
+      }, i.createElement(k.Z, {
         width: 20,
         height: 20,
         viewBox: "-5 0 20 20",
         className: l()(h),
-        src: globalThis.getFilterXss().filterUrl(k, null, {
+        src: globalThis.getFilterXss().filterUrl(x, null, {
           logType: "js.href/src",
           reportOnly: !1
         })
       })) : null
     }
-    function N(e) {
+    function T(e) {
       var t = e.transparent;
       return i.createElement("div", {
         onClick: function() {
@@ -8499,12 +8263,12 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = n(52252)
       , _ = n(25083)
       , E = n(92557)
-      , k = n(67255)
-      , x = n(16655)
+      , x = n(67255)
+      , k = n(16655)
       , b = n(27687)
       , C = n(51652)
-      , N = n(9988)
-      , T = n(74394)
+      , T = n(9988)
+      , N = n(74394)
       , Z = n(95127)
       , S = function() {
       Z.YY.replaceCurrentTask({
@@ -8513,10 +8277,10 @@ window.danmaku_reload_interval = setInterval(() => {
         isBlock: !0
       })
     }
-      , I = function() {
+      , L = function() {
       Z.YY.finishTask(Z.BE.HoverTaskId)
     }
-      , L = {
+      , I = {
       showGuide: !1,
       showUids: [],
       userData: {},
@@ -8535,7 +8299,7 @@ window.danmaku_reload_interval = setInterval(() => {
       , A = function() {
       return (0,
         i.Z)((0,
-        i.Z)({}, L), y.$o(C.LocalStorageKeys.CollectionGuide))
+        i.Z)({}, I), y.$o(C.LocalStorageKeys.CollectionGuide))
     };
     function P() {
       return f()().format("YYYY-MM-DD")
@@ -8616,7 +8380,7 @@ window.danmaku_reload_interval = setInterval(() => {
         , y = (0,
         h.useRef)()
         , w = (0,
-        N.U)({
+        T.U)({
         enterDelay: 200,
         leaveDelay: 200,
         onMouseEnter: function() {
@@ -8638,10 +8402,10 @@ window.danmaku_reload_interval = setInterval(() => {
             V(t, e)),
             c(!1),
             clearTimeout(y.current),
-          n || I()
+          n || L()
         }
       })
-        , x = w.onMouseEnter
+        , k = w.onMouseEnter
         , b = w.onMouseLeave
         , C = function() {
         s || (R(e, t),
@@ -8653,7 +8417,7 @@ window.danmaku_reload_interval = setInterval(() => {
       }
         , Z = (0,
         h.useRef)()
-        , L = (0,
+        , I = (0,
         m.Z)((0,
         r.Z)(l().mark((function n() {
           var r, o;
@@ -8669,7 +8433,7 @@ window.danmaku_reload_interval = setInterval(() => {
                   case 2:
                     return n.next = 4,
                       (0,
-                        T.Tw)();
+                        N.Tw)();
                   case 4:
                     r = n.sent,
                       o = M,
@@ -8689,7 +8453,7 @@ window.danmaku_reload_interval = setInterval(() => {
       (0,
         h.useEffect)((function() {
           if (void 0 !== t && !n)
-            return L(),
+            return I(),
               function() {
                 clearTimeout(y.current),
                   clearTimeout(Z.current)
@@ -8724,8 +8488,8 @@ window.danmaku_reload_interval = setInterval(() => {
         (0,
           h.useEffect)((function() {
             var e = function(e) {
-              k.S(e) && (c(!1),
-              n || I())
+              x.S(e) && (c(!1),
+              n || L())
             };
             return window.addEventListener("keydown", e),
               function() {
@@ -8734,7 +8498,7 @@ window.danmaku_reload_interval = setInterval(() => {
           }
         ), [n]),
         {
-          onCollectionGuideEnter: x,
+          onCollectionGuideEnter: k,
           onCollectionGuideLeave: b,
           collectionPanelVisible: s,
           badgeVisible: f,
@@ -8750,7 +8514,7 @@ window.danmaku_reload_interval = setInterval(() => {
         , a = r[1];
       return (0,
         h.useEffect)((function() {
-          e === g.CollectionGuide.Off || x.DT() || b.Y().then((function(e) {
+          e === g.CollectionGuide.Off || k.DT() || b.Y().then((function(e) {
               a(!e)
             }
           )).catch((function() {
@@ -8808,20 +8572,20 @@ window.danmaku_reload_interval = setInterval(() => {
       xj: ()=>A,
       GZ: ()=>q
     });
-    var r, o = n(64408), i = n(32781), a = n(5594), l = n.n(a), s = n(92012), c = n.n(s), u = n(88438), d = n.n(u), m = n(44503), v = n(7809), f = n.n(v), h = n(89176), p = n(95127), g = n(48387), y = n(53607), w = n(16655), _ = n(80212), E = n(89942), k = n(92557), x = n(51652), b = n(27687), C = n(21805), N = n.n(C), T = n(94610), Z = n.n(T), S = n(52252), I = n(90147), L = n(1392);
+    var r, o = n(64408), i = n(32781), a = n(5594), l = n.n(a), s = n(92012), c = n.n(s), u = n(88438), d = n.n(u), m = n(44503), v = n(7809), f = n.n(v), h = n(89176), p = n(95127), g = n(48387), y = n(53607), w = n(16655), _ = n(80212), E = n(89942), x = n(92557), k = n(51652), b = n(27687), C = n(21805), T = n.n(C), N = n(94610), Z = n.n(N), S = n(52252), L = n(90147), I = n(1392);
     function D() {
       var e;
-      return N()(e = [I.HOME_DOMAIN, I.LIVE_DOMAIN]).call(e, document.domain) ? document.domain === I.HOME_DOMAIN ? x.CookieKeys.HomeCanAddDY2desktop : x.CookieKeys.LiveCanAddDY2desktop : ""
+      return T()(e = [L.HOME_DOMAIN, L.LIVE_DOMAIN]).call(e, document.domain) ? document.domain === L.HOME_DOMAIN ? k.CookieKeys.HomeCanAddDY2desktop : k.CookieKeys.LiveCanAddDY2desktop : ""
     }
     function M(e) {
       if (!S.p()) {
         var t = D();
-        t && y.Q.setItem(t, e ? "1" : "0", x.COOKIE_DEFAULT_EXPIRE_DURATION, "/", x.COOKIE_DOMAIN, "")
+        t && y.Q.setItem(t, e ? "1" : "0", k.COOKIE_DEFAULT_EXPIRE_DURATION, "/", k.COOKIE_DOMAIN, "")
       }
     }
     function B() {
       var e, t;
-      return N()(e = Z()(t = [x.CookieKeys.HomeCanAddDY2desktop, x.CookieKeys.LiveCanAddDY2desktop]).call(t, (function(e) {
+      return T()(e = Z()(t = [k.CookieKeys.HomeCanAddDY2desktop, k.CookieKeys.LiveCanAddDY2desktop]).call(t, (function(e) {
           return function(e) {
             if (S.p())
               return r.CanNotDownload;
@@ -8841,7 +8605,7 @@ window.danmaku_reload_interval = setInterval(() => {
         e[e.CanDownload = 1] = "CanDownload",
         e[e.Unknown = 2] = "Unknown"
     }(r || (r = {}));
-    var A, P, O = n(84696), V = n(74394), W = n(9988), R = x, F = R.COOKIE_DEFAULT_EXPIRE_DURATION, U = R.CookieKeys, H = R.COOKIE_DOMAIN;
+    var A, P, O = n(84696), V = n(74394), W = n(9988), R = k, F = R.COOKIE_DEFAULT_EXPIRE_DURATION, U = R.CookieKeys, H = R.COOKIE_DOMAIN;
     function G() {
       var e = (y.Q.getItem({
         sKey: U.DownloadGuide
@@ -8909,7 +8673,7 @@ window.danmaku_reload_interval = setInterval(() => {
                   e.current.userChoice.then((function(t) {
                       "accepted" === t.outcome && (M(!1),
                         o(!1)),
-                        L.Z.sendLog("installNativePanelClick", {
+                        I.Z.sendLog("installNativePanelClick", {
                           action: "accepted" === t.outcome ? "install" : "cancel"
                         }),
                         e.current = null
@@ -8925,18 +8689,18 @@ window.danmaku_reload_interval = setInterval(() => {
         m.useState)(A.None)
         , y = (0,
         i.Z)(v, 2)
-        , x = y[0]
+        , k = y[0]
         , C = y[1]
-        , N = (0,
-        m.useState)(K)
         , T = (0,
-        i.Z)(N, 2)
-        , Z = T[0]
-        , S = T[1]
-        , I = (0,
+        m.useState)(K)
+        , N = (0,
+        i.Z)(T, 2)
+        , Z = N[0]
+        , S = N[1]
+        , L = (0,
         m.useState)(!1)
         , D = (0,
-        i.Z)(I, 2)
+        i.Z)(L, 2)
         , R = D[0]
         , F = D[1]
         , U = (0,
@@ -9216,7 +8980,7 @@ window.danmaku_reload_interval = setInterval(() => {
       ));
       (0,
         m.useEffect)((function() {
-          return k.listen(k.EVENT.showHeaderPopUp, (function(e) {
+          return x.listen(x.EVENT.showHeaderPopUp, (function(e) {
               return "client" !== e.type && e.isShow && Q && ue()
             }
           ))
@@ -9306,10 +9070,10 @@ window.danmaku_reload_interval = setInterval(() => {
         , _e = ye.onMouseLeave
         , Ee = (0,
         m.useState)(!1)
-        , ke = (0,
+        , xe = (0,
         i.Z)(Ee, 2)
-        , xe = ke[0]
-        , be = ke[1];
+        , ke = xe[0]
+        , be = xe[1];
       return (0,
         m.useEffect)((function() {
           (0,
@@ -9321,7 +9085,7 @@ window.danmaku_reload_interval = setInterval(() => {
         }
       ), [t]),
         {
-          shouldShowGuideType: x,
+          shouldShowGuideType: k,
           clientDownloadHref: a,
           clientDownloadAttr: r,
           downloadPWA: oe,
@@ -9337,7 +9101,7 @@ window.danmaku_reload_interval = setInterval(() => {
           onDownloadGuideEntryLeave: _e,
           onDownloadGuideVisibleChange: ge,
           showType: te,
-          showClientBadge: xe
+          showClientBadge: ke
         }
     }
   }
@@ -9422,10 +9186,10 @@ window.danmaku_reload_interval = setInterval(() => {
         , _ = p[1]
         , E = (0,
         s.useState)("")
-        , k = (0,
+        , x = (0,
         r.Z)(E, 2)
-        , x = k[0]
-        , b = k[1];
+        , k = x[0]
+        , b = x[1];
       return s.useEffect((function() {
           (function() {
               return y.apply(this, arguments)
@@ -9464,7 +9228,7 @@ window.danmaku_reload_interval = setInterval(() => {
         ), [n]),
         {
           downloadHref: g,
-          downloadAttr: x,
+          downloadAttr: k,
           downloadUrl: n
         }
     }
@@ -9654,16 +9418,16 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = n.n(y)
       , _ = n(92289)
       , E = n(80477)
-      , k = n(47482)
-      , x = n(76659)
+      , x = n(47482)
+      , k = n(76659)
       , b = n(15499)
       , C = n(16655)
-      , N = n(25083)
-      , T = n(85938)
+      , T = n(25083)
+      , N = n(85938)
       , Z = n(53607)
       , S = n(8685)
-      , I = n(82226)
-      , L = n(51652)
+      , L = n(82226)
+      , I = n(51652)
       , D = n(7778)
       , M = n(80212)
       , B = n(34301)
@@ -9695,10 +9459,10 @@ window.danmaku_reload_interval = setInterval(() => {
           var e = h.parseUrl(location.href)
             , t = e.url
             , n = e.query || {}
-            , r = k.Rs("sourceid") || (null == n ? void 0 : n.sourceid);
+            , r = x.Rs("sourceid") || (null == n ? void 0 : n.sourceid);
           if (r && !W.current) {
-            var o, i = null === (o = x.Es()) || void 0 === o ? void 0 : o.user_unique_id;
-            if (k.U$(["sourceid"]),
+            var o, i = null === (o = k.Es()) || void 0 === o ? void 0 : o.user_unique_id;
+            if (x.U$(["sourceid"]),
             null != n && n.sourceid) {
               var a, l;
               delete n.sourceid;
@@ -9732,13 +9496,13 @@ window.danmaku_reload_interval = setInterval(() => {
                     }, !1),
                          (-1 !== (null === (r = location) || void 0 === r || null === (o = r.host) || void 0 === o ? void 0 : s()(o).call(o, "live")) || new RegExp(O).test(null === (i = location) || void 0 === i ? void 0 : i.pathname) && !C._Q()) && R(),
                            d = (t || {}).info,
-                           v = null === (l = x.Es()) || void 0 === l ? void 0 : l.user_unique_id,
-                           f = k.Rs("previous_page") || "",
+                           v = null === (l = k.Es()) || void 0 === l ? void 0 : l.user_unique_id,
+                           f = x.Rs("previous_page") || "",
                            p = 0,
                            g = u()(y); p < g.length; p++)
                       E = g[p],
-                      null !== (w = location) && void 0 !== w && null !== (_ = w.pathname) && void 0 !== _ && _.match(new RegExp(E)) && "search_result" !== (h = -1 === (null === (b = location) || void 0 === b || null === (D = b.host) || void 0 === D ? void 0 : s()(D).call(D, "live")) ? y[E] : "/" === (null === (B = location) || void 0 === B ? void 0 : B.pathname) ? "live" : y[E]) && N.TU(h);
-                    "live_detail" === N.yW() && (h = "live_detail"),
+                      null !== (w = location) && void 0 !== w && null !== (_ = w.pathname) && void 0 !== _ && _.match(new RegExp(E)) && "search_result" !== (h = -1 === (null === (b = location) || void 0 === b || null === (D = b.host) || void 0 === D ? void 0 : s()(D).call(D, "live")) ? y[E] : "/" === (null === (B = location) || void 0 === B ? void 0 : B.pathname) ? "live" : y[E]) && T.TU(h);
+                    "live_detail" === T.yW() && (h = "live_detail"),
                       W = {
                         app_code_link: "app_code",
                         web_code_link: "web_code"
@@ -9751,7 +9515,7 @@ window.danmaku_reload_interval = setInterval(() => {
                         uuid: v
                       }),
                       h && (null != d && d.uid || v) ? (U = "/hot" === location.pathname ? "trend" : "",
-                        H = k.Rs("enter_method"),
+                        H = x.Rs("enter_method"),
                         A.Z.sendLog("pageView", {
                           enter_from: h,
                           url: location.href,
@@ -9761,8 +9525,8 @@ window.danmaku_reload_interval = setInterval(() => {
                           enter_method: H,
                           tab_name: U,
                           aweme_type: F,
-                          theme: T.Dr(Z.Q.getItem({
-                            sKey: L.CookieKeys.Theme
+                          theme: N.Dr(Z.Q.getItem({
+                            sKey: I.CookieKeys.Theme
                           })),
                           enter_by_tab: (0,
                             P.S)(),
@@ -9771,18 +9535,18 @@ window.danmaku_reload_interval = setInterval(() => {
                           browser_ratio: window.innerHeight / window.innerWidth,
                           redirect_from: n,
                           from_push: Z.Q.getItem({
-                            sKey: L.CookieKeys.FromClientPush
+                            sKey: I.CookieKeys.FromClientPush
                           }) ? 1 : 0,
                           seo_vids: S.t("seo_vids") || ""
                         }),
                         G = location.href,
                         j = location.pathname,
                         V.current = j,
-                        I.vP({
+                        L.vP({
                           key: j,
                           event: function(e, t) {
-                            t > 0 && N.yW() && A.Z.sendLog("pageStayTime", {
-                              enter_from: N.yW(),
+                            t > 0 && T.yW() && A.Z.sendLog("pageStayTime", {
+                              enter_from: T.yW(),
                               enter_method: H,
                               url: G,
                               url_path: j,
@@ -9812,12 +9576,12 @@ window.danmaku_reload_interval = setInterval(() => {
         p.useEffect)((function() {
           F(),
             v.listen((function() {
-                if (x.Le.setConfig(x.gI.MarkFirstEnter, null),
+                if (k.Le.setConfig(k.gI.MarkFirstEnter, null),
                   V.current) {
                   try {
-                    I.wq()
+                    L.wq()
                   } catch (e) {}
-                  I.xC(V.current)
+                  L.xC(V.current)
                 }
                 F()
               }
@@ -9835,7 +9599,7 @@ window.danmaku_reload_interval = setInterval(() => {
         (0,
           p.useEffect)((function() {
             var e = w()().format("YYYY-MM-DD");
-            return I.vP({
+            return L.vP({
               key: "PAGE_VIEW_EVENTS_TRACKING_UPDATE_ACROSS_DAY",
               event: function() {
                 var t = "visible" === document.visibilityState
@@ -9845,7 +9609,7 @@ window.danmaku_reload_interval = setInterval(() => {
               }
             }),
               function() {
-                return I.xC("PAGE_VIEW_EVENTS_TRACKING_UPDATE_ACROSS_DAY")
+                return L.xC("PAGE_VIEW_EVENTS_TRACKING_UPDATE_ACROSS_DAY")
               }
           }
         ), []),
@@ -9866,7 +9630,7 @@ window.danmaku_reload_interval = setInterval(() => {
   ,
   98853: (e,t,n)=>{
     n.d(t, {
-      Z: ()=>L
+      Z: ()=>I
     });
     var r = n(64408)
       , o = n(32781)
@@ -9887,12 +9651,12 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = n(92012)
       , _ = n.n(w)
       , E = n(44503)
-      , k = n(14819)
-      , x = n.n(k)
+      , x = n(14819)
+      , k = n.n(x)
       , b = n(5794)
       , C = n.n(b)
-      , N = n(86632)
-      , T = n(92557)
+      , T = n(86632)
+      , N = n(92557)
       , Z = n(10790)
       , S = function(e, t) {
       for (var n = 0, r = 0; r < e.length && n < t.length; r++) {
@@ -9902,7 +9666,7 @@ window.danmaku_reload_interval = setInterval(() => {
       }
       return t
     }
-      , I = function(e, t, n) {
+      , L = function(e, t, n) {
       var r = u()(t).call(t, (function(e) {
           return (null == e ? void 0 : e.msgClientId) === n
         }
@@ -9924,7 +9688,7 @@ window.danmaku_reload_interval = setInterval(() => {
         rank: i < t.length ? i : i - 1
       }
     };
-    const L = function(e) {
+    const I = function(e) {
       var t = e.awemeIds
         , n = e.clientId
         , i = e.fetchAwemeIds
@@ -9937,11 +9701,11 @@ window.danmaku_reload_interval = setInterval(() => {
         , g = e.setIsFirst
         , w = (e.setIsLast,
         e.close)
-        , k = (0,
+        , x = (0,
         E.useRef)(!0)
         , b = (0,
         E.useRef)(!1)
-        , L = (0,
+        , I = (0,
         E.useRef)(!0)
         , D = (0,
         E.useRef)(l)
@@ -9965,10 +9729,10 @@ window.danmaku_reload_interval = setInterval(() => {
                             return e.awemeId
                           }
                         )),
-                        i = x()(o, 50),
+                        i = k()(o, 50),
                         e.next = 5,
                         f().all(m()(i).call(i, (function(e) {
-                            return N.c7(e)
+                            return T.c7(e)
                           }
                         )));
                     case 5:
@@ -9989,12 +9753,12 @@ window.danmaku_reload_interval = setInterval(() => {
                         break
                       }
                       if (v = S(t, u.detail),
-                        !k.current) {
+                        !x.current) {
                         e.next = 22;
                         break
                       }
-                      if (k.current = !1,
-                      -1 !== (h = I(t, v, n)).rank) {
+                      if (x.current = !1,
+                      -1 !== (h = L(t, v, n)).rank) {
                         e.next = 17;
                         break
                       }
@@ -10073,7 +9837,7 @@ window.danmaku_reload_interval = setInterval(() => {
                         switch (e.prev = e.next) {
                           case 0:
                             if (A[0].msgClientId !== c[0].msgClientId && Z.F.info("\u89c6\u9891\u6d88\u5931\u4e86"),
-                              L.current) {
+                              I.current) {
                               e.next = 3;
                               break
                             }
@@ -10088,7 +9852,7 @@ window.danmaku_reload_interval = setInterval(() => {
                               i();
                           case 7:
                             n = e.sent,
-                              L.current = n.hasMore,
+                              I.current = n.hasMore,
                               g(!n.hasMore),
                               P((function(e) {
                                   var t;
@@ -10122,12 +9886,12 @@ window.danmaku_reload_interval = setInterval(() => {
         ), [l, c, A]),
         (0,
           E.useEffect)((function() {
-            g(!L.current && 0 === l)
+            g(!I.current && 0 === l)
           }
         ), [l, c]),
         (0,
           E.useEffect)((function() {
-            var e = T.listen(T.EVENT.imAwemeRecall, (function(e) {
+            var e = N.listen(N.EVENT.imAwemeRecall, (function(e) {
                 e.msgClientId === c[l].msgClientId ? (null == w || w(),
                   Z.F.info("\u6d88\u606f\u5df2\u88ab\u64a4\u56de")) : (u()(c).call(c, (function(t) {
                     return t.msgClientId === e.msgClientId
@@ -10999,31 +10763,31 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = "Rlk_prZy"
       , _ = "e0OEnO1u"
       , E = "_XYQB999";
-    var k = n(14001)
-      , x = n(52255);
+    var x = n(14001)
+      , k = n(52255);
     const b = function(e) {
-      var t, n, o = e.value, l = e.spa, b = e.href, C = e.label, N = e.target, T = e.handleTabClick, Z = e.className, S = e.showYellowPoint, I = void 0 !== S && S, L = e.showDotRedPoint, D = void 0 !== L && L, M = e.showLiveRedPoint, B = void 0 !== M && M, A = e.showNumberYellowPoint, P = void 0 !== A && A, O = e.showLiveRedCnPoint, V = void 0 !== O && O, W = e.numberYellowPointCount, R = void 0 === W ? 0 : W, F = e.numberYellowClassName, U = e.showNumberRedPoint, H = e.numberRedPointCount, G = e.renderLabel, j = new (i())([]);
+      var t, n, o = e.value, l = e.spa, b = e.href, C = e.label, T = e.target, N = e.handleTabClick, Z = e.className, S = e.showYellowPoint, L = void 0 !== S && S, I = e.showDotRedPoint, D = void 0 !== I && I, M = e.showLiveRedPoint, B = void 0 !== M && M, A = e.showNumberYellowPoint, P = void 0 !== A && A, O = e.showLiveRedCnPoint, V = void 0 !== O && O, W = e.numberYellowPointCount, R = void 0 === W ? 0 : W, F = e.numberYellowClassName, U = e.showNumberRedPoint, H = e.numberRedPointCount, G = e.renderLabel, j = new (i())([]);
       return a.createElement("div", {
         className: s()(d, Z)
-      }, a.createElement(k.a, {
+      }, a.createElement(x.a, {
         className: _,
         spa: l,
         href: globalThis.getFilterXss().filterUrl(b, null, {
           logType: "js.href/src",
           reportOnly: !1
         }),
-        target: N,
-        onClick: T,
+        target: T,
+        onClick: N,
         title: C
       }, a.createElement("div", {
         className: s()(f, j.get(o))
-      }, I && a.createElement("div", {
+      }, L && a.createElement("div", {
         className: m
       }), D && a.createElement("div", {
         className: v
       }), B && a.createElement("div", {
         className: h
-      }, a.createElement(x.Z, {
+      }, a.createElement(k.Z, {
         src: globalThis.getFilterXss().filterUrl(c.Z, null, {
           logType: "js.href/src",
           reportOnly: !1
@@ -11047,7 +10811,7 @@ window.danmaku_reload_interval = setInterval(() => {
           n))
       }, H > 99 ? "99+" : H), V && a.createElement("div", {
         className: p
-      }, a.createElement(x.Z, {
+      }, a.createElement(k.Z, {
         src: globalThis.getFilterXss().filterUrl(u.Z, null, {
           logType: "js.href/src",
           reportOnly: !1
@@ -11082,16 +10846,16 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = n(44503)
       , _ = n(24260)
       , E = n(93662)
-      , k = n.n(E)
-      , x = n(92345)
+      , x = n.n(E)
+      , k = n(92345)
       , b = n(92762)
       , C = n(55717)
-      , N = n(75570)
-      , T = n(95294)
+      , T = n(75570)
+      , N = n(95294)
       , Z = n(14001)
       , S = n(52255)
-      , I = n(16340)
-      , L = (0,
+      , L = n(16340)
+      , I = (0,
       _.default)({
       resolved: {},
       chunkName: function() {
@@ -11126,7 +10890,7 @@ window.danmaku_reload_interval = setInterval(() => {
     })
       , D = function(e) {
       var t, n, l, c = e.label, d = e.value, v = e.type, h = e.onClick, g = e.active, _ = e.className, E = e.renderLabel, D = e.href, M = e.target, B = e.spa, A = e.activeClickable, P = e.iconBackgroundPosition, O = e.iconAnimation, V = e.points, W = e.pointClick, R = e.pointShow, F = e.userInfo, U = void 0 === F ? {} : F, H = (e.tccKeyWord,
-        e.socialInfo), G = void 0 === H ? {} : H, j = e.customProps, K = w.useState(k()(O) ? null : O), q = (0,
+        e.socialInfo), G = void 0 === H ? {} : H, j = e.customProps, K = w.useState(x()(O) ? null : O), q = (0,
         a.Z)(K, 2), Y = q[0], X = q[1], z = w.useState(!1), Q = (0,
         a.Z)(z, 2), J = Q[0], $ = Q[1], ee = w.useState(!1), te = (0,
         a.Z)(ee, 2), ne = te[0], re = te[1], oe = w.useState(!1), ie = (0,
@@ -11134,33 +10898,33 @@ window.danmaku_reload_interval = setInterval(() => {
         a.Z)(se, 2), ue = ce[0], de = ce[1], me = w.useState(!1), ve = (0,
         a.Z)(me, 2), fe = ve[0], he = ve[1], pe = w.useState(!1), ge = (0,
         a.Z)(pe, 2), ye = ge[0], we = ge[1], _e = w.useState(!1), Ee = (0,
-        a.Z)(_e, 2), ke = Ee[0], xe = Ee[1], be = w.useState(!1), Ce = (0,
-        a.Z)(be, 2), Ne = Ce[0], Te = Ce[1], Ze = w.useState(0), Se = (0,
-        a.Z)(Ze, 2), Ie = Se[0], Le = Se[1], De = w.useState(!1), Me = (0,
+        a.Z)(_e, 2), xe = Ee[0], ke = Ee[1], be = w.useState(!1), Ce = (0,
+        a.Z)(be, 2), Te = Ce[0], Ne = Ce[1], Ze = w.useState(0), Se = (0,
+        a.Z)(Ze, 2), Le = Se[0], Ie = Se[1], De = w.useState(!1), Me = (0,
         a.Z)(De, 2), Be = Me[0], Ae = Me[1], Pe = w.useState(0), Oe = (0,
         a.Z)(Pe, 2), Ve = Oe[0], We = Oe[1], Re = w.useRef(), Fe = w.useRef(), Ue = ["friend", "home", "recommend", "follow", "live", "hot", "channel_300201", "channel_200204", "channel_300203", "channel_300205", "channel_300204", "channel_300207", "channel_300208", "channel_300209", "channel_300202"], He = ["channel_300206"], Ge = w.useCallback((function(e) {
           if (h) {
             var t = [{
               isShow: ue,
-              type: x.TabPointType.YellowDot
+              type: k.TabPointType.YellowDot
             }, {
-              isShow: Ne,
-              type: x.TabPointType.YellowNumber
+              isShow: Te,
+              type: k.TabPointType.YellowNumber
             }, {
               isShow: ae,
-              type: x.TabPointType.RedDot
+              type: k.TabPointType.RedDot
             }, {
               isShow: fe,
-              type: x.TabPointType.RedNew
+              type: k.TabPointType.RedNew
             }, {
               isShow: ye,
-              type: x.TabPointType.RedLive
+              type: k.TabPointType.RedLive
             }, {
-              isShow: ke,
-              type: x.TabPointType.RedLiveCn
+              isShow: xe,
+              type: k.TabPointType.RedLiveCn
             }, {
               isShow: Be,
-              type: x.TabPointType.RedNumber
+              type: k.TabPointType.RedNumber
             }];
             u()(t).call(t, (function(e) {
                 var t = e.isShow
@@ -11177,22 +10941,22 @@ window.danmaku_reload_interval = setInterval(() => {
               de(!1),
               le(!1),
               he(!1),
-              Te(!1),
+              Ne(!1),
               we(!1),
-              xe(!1),
+              ke(!1),
               Ae(!1),
               A ? h(d, e) : g || h(d, e)
           }
         }
-      ), [d, h, g, U, ue, Ne, ae, fe, ye, ke, A, W, Be, Ve]);
+      ), [d, h, g, U, ue, Te, ae, fe, ye, xe, A, W, Be, Ve]);
       w.useEffect((function() {
           var e = !1;
           return "function" == typeof V && (g ? (de(!1),
             le(!1),
             he(!1),
-            Te(!1),
+            Ne(!1),
             we(!1),
-            xe(!1),
+            ke(!1),
             Ae(!1)) : (0,
             o.Z)(s().mark((function t() {
               var n, r, o, a, l, c, u;
@@ -11217,34 +10981,34 @@ window.danmaku_reload_interval = setInterval(() => {
                       case 5:
                         n = t.t0,
                         e || (r = m()(n).call(n, (function(e) {
-                            return e.type === x.TabPointType.YellowDot
+                            return e.type === k.TabPointType.YellowDot
                           }
                         )),
                           de(!g && Boolean(null == r ? void 0 : r.hasNotice)),
                           o = m()(n).call(n, (function(e) {
-                              return e.type === x.TabPointType.YellowNumber
+                              return e.type === k.TabPointType.YellowNumber
                             }
                           )),
-                          Te(!g && Boolean((null == o ? void 0 : o.hasNotice) && (null == o ? void 0 : o.count) > 0)),
-                          Le((null == o ? void 0 : o.count) || 0),
+                          Ne(!g && Boolean((null == o ? void 0 : o.hasNotice) && (null == o ? void 0 : o.count) > 0)),
+                          Ie((null == o ? void 0 : o.count) || 0),
                           a = m()(n).call(n, (function(e) {
-                              return e.type === x.TabPointType.RedNumber
+                              return e.type === k.TabPointType.RedNumber
                             }
                           )),
                           Ae(!g && Boolean((null == a ? void 0 : a.hasNotice) && (null == a ? void 0 : a.count) > 0)),
                           We((null == a ? void 0 : a.count) || 0),
                           l = m()(n).call(n, (function(e) {
-                              return e.type === x.TabPointType.RedDot
+                              return e.type === k.TabPointType.RedDot
                             }
                           )),
                           le(!g && Boolean(null == l ? void 0 : l.hasNotice)),
                           c = m()(n).call(n, (function(e) {
-                              return e.type === x.TabPointType.RedNew
+                              return e.type === k.TabPointType.RedNew
                             }
                           )),
                           he(!g && Boolean(null == c ? void 0 : c.hasNotice)),
                           u = m()(n).call(n, (function(e) {
-                              return e.type === x.TabPointType.RedLive
+                              return e.type === k.TabPointType.RedLive
                             }
                           )),
                           we(!g && Boolean(null == u ? void 0 : u.hasNotice)));
@@ -11264,22 +11028,22 @@ window.danmaku_reload_interval = setInterval(() => {
         w.useEffect((function() {
             var e = [{
               isShow: ue,
-              type: x.TabPointType.YellowDot
+              type: k.TabPointType.YellowDot
             }, {
-              isShow: Ne,
-              type: x.TabPointType.YellowNumber
+              isShow: Te,
+              type: k.TabPointType.YellowNumber
             }, {
               isShow: ae,
-              type: x.TabPointType.RedDot
+              type: k.TabPointType.RedDot
             }, {
               isShow: ye,
-              type: x.TabPointType.RedLive
+              type: k.TabPointType.RedLive
             }, {
-              isShow: ke,
-              type: x.TabPointType.RedLiveCn
+              isShow: xe,
+              type: k.TabPointType.RedLiveCn
             }, {
               isShow: Be,
-              type: x.TabPointType.RedNumber
+              type: k.TabPointType.RedNumber
             }];
             u()(e).call(e, (function(e) {
                 e.isShow && (null == R || R((0,
@@ -11292,7 +11056,7 @@ window.danmaku_reload_interval = setInterval(() => {
               }
             ))
           }
-        ), [U, ue, Ne, ae, fe, ye, ke, Be, Ve, R]);
+        ), [U, ue, Te, ae, fe, ye, xe, Be, Ve, R]);
       var je = w.useCallback((function() {
           var e, t, n = null === (e = Re.current) || void 0 === e || null === (t = e.getLottieInstance) || void 0 === t ? void 0 : t.call(e);
           return {
@@ -11323,7 +11087,7 @@ window.danmaku_reload_interval = setInterval(() => {
         }
       ), [g]);
       var Ke = (0,
-        I.Z)().specTheme;
+        L.Z)().specTheme;
       return w.createElement(w.Fragment, null, "text" === v && w.createElement("div", {
         className: y()(C.Z.tab, (t = {},
           (0,
@@ -11343,7 +11107,7 @@ window.danmaku_reload_interval = setInterval(() => {
         target: M,
         onClick: Ge,
         onMouseEnter: function() {
-          k()(O) ? O().then((function(e) {
+          x()(O) ? O().then((function(e) {
               !Y && X(e),
                 re(!0),
               g || (Fe.current = f()((function() {
@@ -11376,30 +11140,30 @@ window.danmaku_reload_interval = setInterval(() => {
         viewBox: "0 0 19 7",
         height: 7,
         width: 19
-      })), Ne && w.createElement("div", {
+      })), Te && w.createElement("div", {
         className: y()((n = {},
           (0,
             r.Z)(n, C.Z.numberYellowPointPosText2, p()(Ue).call(Ue, d)),
           (0,
             r.Z)(n, C.Z.numberYellowPointPosText3, p()(He).call(He, d)),
           (0,
-            r.Z)(n, C.Z.digitsNumberYellowPoint, Ie < 10),
+            r.Z)(n, C.Z.digitsNumberYellowPoint, Le < 10),
           (0,
-            r.Z)(n, C.Z.numberYellowPoint, Ie >= 10),
+            r.Z)(n, C.Z.numberYellowPoint, Le >= 10),
           (0,
-            r.Z)(n, C.Z.moreCount, Ie > 99),
+            r.Z)(n, C.Z.moreCount, Le > 99),
           (0,
             r.Z)(n, C.Z.borderNone, null == Ke ? void 0 : Ke.themeFurtherSwitch),
           n))
-      }, Ie > 99 ? w.createElement(S.Z, {
-        src: globalThis.getFilterXss().filterUrl(N.Z, null, {
+      }, Le > 99 ? w.createElement(S.Z, {
+        src: globalThis.getFilterXss().filterUrl(T.Z, null, {
           logType: "js.href/src",
           reportOnly: !1
         }),
         viewBox: "0 0 22 9",
         height: 9,
         width: 22
-      }) : Ie), Be && w.createElement("div", {
+      }) : Le), Be && w.createElement("div", {
         className: y()((l = {},
           (0,
             r.Z)(l, C.Z.numberYellowPointPosText2, p()(Ue).call(Ue, d)),
@@ -11415,7 +11179,7 @@ window.danmaku_reload_interval = setInterval(() => {
             r.Z)(l, C.Z.borderNone, null == Ke ? void 0 : Ke.themeFurtherSwitch),
           l))
       }, Ve > 99 ? w.createElement(S.Z, {
-        src: globalThis.getFilterXss().filterUrl(N.Z, null, {
+        src: globalThis.getFilterXss().filterUrl(T.Z, null, {
           logType: "js.href/src",
           reportOnly: !1
         }),
@@ -11427,16 +11191,16 @@ window.danmaku_reload_interval = setInterval(() => {
           r.Z)({}, C.Z.hidden, J)),
         style: {
           backgroundPosition: "".concat(g ? P.darkActive : P.dark),
-          backgroundSize: "".concat(x.ICON_BACKGROUND_SIZE, "px auto")
+          backgroundSize: "".concat(k.ICON_BACKGROUND_SIZE, "px auto")
         }
       }), w.createElement("div", {
         className: y()(C.Z.icon, C.Z.iconLight, (0,
           r.Z)({}, C.Z.hidden, J)),
         style: {
           backgroundPosition: "".concat(g ? P.lightActive : P.light),
-          backgroundSize: "".concat(x.ICON_BACKGROUND_SIZE, "px auto")
+          backgroundSize: "".concat(k.ICON_BACKGROUND_SIZE, "px auto")
         }
-      }), ne && w.createElement(L, {
+      }), ne && w.createElement(I, {
         data: Y,
         hidden: !1,
         loop: !1,
@@ -11452,7 +11216,7 @@ window.danmaku_reload_interval = setInterval(() => {
         className: C.Z.textWrap
       }, w.createElement("span", {
         className: C.Z.text
-      }, E ? E() : c)))), "image" === v && w.createElement(T.Z, {
+      }, E ? E() : c)))), "image" === v && w.createElement(N.Z, {
         spa: B,
         href: globalThis.getFilterXss().filterUrl(D, null, {
           logType: "js.href/src",
@@ -11465,8 +11229,8 @@ window.danmaku_reload_interval = setInterval(() => {
         showLiveRedPoint: ye,
         showYellowPoint: ue,
         showDotRedPoint: ae,
-        showNumberYellowPoint: Ne,
-        showLiveRedCnPoint: ke,
+        showNumberYellowPoint: Te,
+        showLiveRedCnPoint: xe,
         showNumberRedPoint: Be,
         active: g,
         activeClickable: A,
@@ -11491,16 +11255,16 @@ window.danmaku_reload_interval = setInterval(() => {
       (0,
         c.createContext)(null))
       , m = function(e) {
-      var t, n, o, a, m, v, f = e.src, h = e.width, p = e.height, g = e.id, y = e.viewBox, w = e.defaultHeight, _ = e.defaultWidth, E = e.className, k = e.onClick, x = e.isSpider, b = void 0 !== x && x, C = (0,
-        c.useContext)(d), N = (0,
-        c.useRef)(s.o()), T = (0,
+      var t, n, o, a, m, v, f = e.src, h = e.width, p = e.height, g = e.id, y = e.viewBox, w = e.defaultHeight, _ = e.defaultWidth, E = e.className, x = e.onClick, k = e.isSpider, b = void 0 !== k && k, C = (0,
+        c.useContext)(d), T = (0,
+        c.useRef)(s.o()), N = (0,
         c.useRef)();
-      if (C && T.current !== g) {
+      if (C && N.current !== g) {
         var Z;
-        T.current = g;
+        N.current = g;
         var S = C.usedIconMap[g] || [];
         S.push({
-          id: N.current,
+          id: T.current,
           width: Number(h),
           height: Number(p)
         }),
@@ -11513,7 +11277,7 @@ window.danmaku_reload_interval = setInterval(() => {
           if (C)
             return function() {
               var e, t = C.usedIconMap[g] || [], n = i()(t).call(t, (function(e) {
-                  return e.id === N.current
+                  return e.id === T.current
                 }
               ));
               n > -1 && (l()(t).call(t, n, 1),
@@ -11523,17 +11287,17 @@ window.danmaku_reload_interval = setInterval(() => {
             }
         }
       ), [g]);
-      var I = (0,
+      var L = (0,
         c.useMemo)((function() {
           if (C) {
             var e, t, n = C.usedIconMap[g] || [];
-            return (null === (e = n[0]) || void 0 === e ? void 0 : e.id) && (null === (t = n[0]) || void 0 === t ? void 0 : t.id) !== N.current
+            return (null === (e = n[0]) || void 0 === e ? void 0 : e.id) && (null === (t = n[0]) || void 0 === t ? void 0 : t.id) !== T.current
           }
           return !1
         }
       ), [g, null == C ? void 0 : C.usedIconMap]);
-      return b ? null : I ? c.createElement("svg", {
-        onClick: k,
+      return b ? null : L ? c.createElement("svg", {
+        onClick: x,
         width: Number(h) / (null == C || null === (t = C.usedIconMap) || void 0 === t || null === (n = t[g]) || void 0 === n || null === (o = n[0]) || void 0 === o ? void 0 : o.width) * Number(_) || _,
         height: Number(p) / (null == C || null === (a = C.usedIconMap) || void 0 === a || null === (m = a[g]) || void 0 === m || null === (v = m[0]) || void 0 === v ? void 0 : v.height) * Number(w) || w,
         viewBox: y,
@@ -11541,7 +11305,7 @@ window.danmaku_reload_interval = setInterval(() => {
       }, c.createElement("use", {
         xlinkHref: "#".concat(g)
       })) : c.createElement(u.Z, {
-        onClick: k,
+        onClick: x,
         src: globalThis.getFilterXss().filterUrl(f, null, {
           logType: "js.href/src",
           reportOnly: !1
@@ -11578,19 +11342,19 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = n(95127)
       , _ = n(25083)
       , E = n(53607)
-      , k = n(53246)
-      , x = n(52252)
+      , x = n(53246)
+      , k = n(52252)
       , b = n(51652)
       , C = n(62184)
-      , N = n(30906)
-      , T = n(79705)
-      , Z = n.n(T)
+      , T = n(30906)
+      , N = n(79705)
+      , Z = n.n(N)
       , S = n(70676)
-      , I = n.n(S)
-      , L = n(1021)
+      , L = n.n(S)
+      , I = n(1021)
       , D = n(47482)
       , M = n(45627)
-      , B = n(97050)
+      , B = n(96336)
       , A = n(53540);
     const P = JSON.parse('{"v":"5.6.10","fr":60,"ip":0,"op":300,"w":540,"h":114,"nm":"\u767b\u5f55","ddd":0,"assets":[{"id":"comp_0","layers":[{"ddd":0,"ind":1,"ty":4,"nm":"\u201ctext\u201d\u8f6e\u5ed3","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":0,"k":[108,40,0],"ix":2},"a":{"a":0,"k":[0,0,0],"ix":1},"s":{"a":0,"k":[300,300,100],"ix":6}},"ao":0,"shapes":[{"ty":"gr","it":[{"ind":0,"ty":"sh","ix":1,"ks":{"a":0,"k":{"i":[[0,0],[0.415,0.005],[0.392,0.014],[0.341,0.023],[0.252,0.019],[0,0],[-0.28,0.019],[-0.443,0.014],[-0.658,0.005],[-1.008,0],[-0.663,-0.005],[-0.439,-0.014],[-0.285,-0.019],[-0.252,-0.028],[0,0],[0.271,-0.014],[0.359,-0.009],[0.462,-0.005],[0.616,0],[-0.187,0.443],[-0.154,0.364],[-0.126,0.303],[-0.121,0.289],[-0.098,0.135],[-0.047,0.028],[0.014,0.079],[0.149,0.019],[0.159,0.065],[0.233,0.149],[0.14,-0.513],[0.21,-0.583],[0.257,-0.607],[0.271,-0.569]],"o":[[-0.401,0],[-0.415,-0.005],[-0.392,-0.014],[-0.341,-0.023],[0,0],[0.252,-0.028],[0.28,-0.019],[0.443,-0.014],[0.658,-0.005],[1.008,0],[0.663,0.005],[0.439,0.014],[0.285,0.019],[0,0],[-0.224,0.019],[-0.271,0.014],[-0.359,0.009],[-0.462,0.005],[0.243,-0.579],[0.187,-0.443],[0.154,-0.364],[0.126,-0.303],[0.168,-0.401],[0.098,-0.135],[0.159,-0.093],[-0.014,-0.079],[-0.168,-0.019],[-0.159,-0.065],[-0.047,0.383],[-0.14,0.513],[-0.21,0.583],[-0.257,0.607],[0,0]],"v":[[-22.064,-0.472],[-23.289,-0.479],[-24.5,-0.507],[-25.599,-0.563],[-26.488,-0.626],[-26.488,0.41],[-25.69,0.34],[-24.605,0.291],[-22.953,0.263],[-20.454,0.256],[-17.948,0.263],[-16.296,0.291],[-15.211,0.34],[-14.406,0.41],[-14.406,-0.598],[-15.148,-0.549],[-16.093,-0.514],[-17.325,-0.493],[-18.942,-0.486],[-18.298,-2.019],[-17.787,-3.23],[-17.367,-4.231],[-16.996,-5.12],[-16.597,-5.925],[-16.38,-6.17],[-16.163,-6.429],[-16.408,-6.576],[-16.898,-6.702],[-17.486,-7.024],[-17.766,-5.68],[-18.291,-4.035],[-18.991,-2.25],[-19.782,-0.486]],"c":true},"ix":2},"nm":"\u7acb","mn":"ADBE Vector Shape - Group","hd":false},{"ind":1,"ty":"sh","ix":2,"ks":{"a":0,"k":{"i":[[0.079,0.219],[0.084,0.21],[0.098,0.224],[0.131,0.299],[0,0],[-0.177,-0.355],[-0.14,-0.411],[0.504,0.005],[0.369,0.014],[0.261,0.019],[0.215,0.019],[0,0],[-0.266,0.019],[-0.387,0.014],[-0.532,0.005],[-0.747,0],[-0.56,-0.005],[-0.415,-0.014],[-0.294,-0.019],[-0.224,-0.028],[0,0],[0.271,-0.019],[0.373,-0.009],[0.49,-0.009],[0.644,0]],"o":[[-0.079,-0.219],[-0.084,-0.21],[-0.098,-0.224],[0,0],[0.271,0.457],[0.177,0.355],[-0.7,0],[-0.504,-0.005],[-0.369,-0.014],[-0.261,-0.019],[0,0],[0.224,-0.028],[0.266,-0.019],[0.387,-0.014],[0.532,-0.005],[0.747,0],[0.56,0.005],[0.415,0.014],[0.294,0.019],[0,0],[-0.205,0.019],[-0.271,0.019],[-0.373,0.009],[-0.49,0.009],[-0.103,-0.28]],"v":[[-20.237,-9.369],[-20.482,-10.013],[-20.755,-10.664],[-21.098,-11.448],[-21.938,-10.986],[-21.266,-9.768],[-20.79,-8.62],[-22.596,-8.627],[-23.905,-8.655],[-24.85,-8.704],[-25.564,-8.76],[-25.564,-7.766],[-24.829,-7.836],[-23.849,-7.885],[-22.47,-7.913],[-20.552,-7.92],[-18.592,-7.913],[-17.129,-7.885],[-16.065,-7.836],[-15.288,-7.766],[-15.288,-8.76],[-16.002,-8.704],[-16.968,-8.662],[-18.263,-8.634],[-19.964,-8.62]],"c":true},"ix":2},"nm":"\u7acb","mn":"ADBE Vector Shape - Group","hd":false},{"ind":2,"ty":"sh","ix":3,"ks":{"a":0,"k":{"i":[[0,0],[0.387,0.84],[0.42,0.84],[0,0],[-0.21,-0.429],[-0.163,-0.387],[-0.135,-0.369],[-0.131,-0.392]],"o":[[-0.327,-0.793],[-0.387,-0.84],[0,0],[0.261,0.513],[0.21,0.429],[0.163,0.387],[0.135,0.369],[0,0]],"v":[[-21.238,-1.522],[-22.309,-3.972],[-23.52,-6.492],[-24.22,-6.086],[-23.513,-4.672],[-22.953,-3.447],[-22.505,-2.313],[-22.106,-1.172]],"c":true},"ix":2},"nm":"\u7acb","mn":"ADBE Vector Shape - Group","hd":false},{"ty":"mm","mm":1,"nm":"\u5408\u5e76\u8def\u5f84 1","mn":"ADBE Vector Filter - Merge","hd":false},{"ty":"fl","c":{"a":0,"k":[1,1,1,1],"ix":4},"o":{"a":0,"k":100,"ix":5},"r":1,"bm":0,"nm":"\u586b\u5145 1","mn":"ADBE Vector Graphic - Fill","hd":false},{"ty":"tr","p":{"a":0,"k":[0,0],"ix":2},"a":{"a":0,"k":[0,0],"ix":1},"s":{"a":0,"k":[100,100],"ix":3},"r":{"a":0,"k":0,"ix":6},"o":{"a":0,"k":100,"ix":7},"sk":{"a":0,"k":0,"ix":4},"sa":{"a":0,"k":0,"ix":5},"nm":"\u53d8\u6362"}],"nm":"\u7acb","np":6,"cix":2,"bm":0,"ix":1,"mn":"ADBE Vector Group","hd":false},{"ty":"gr","it":[{"ind":0,"ty":"sh","ix":1,"ks":{"a":0,"k":{"i":[[0,0],[0,0],[0,0],[0,0]],"o":[[0,0],[0,0],[0,0],[0,0]],"v":[[-7.168,-5.288],[-10.794,-5.288],[-10.794,-7.178],[-7.168,-7.178]],"c":true},"ix":2},"nm":"\u5373","mn":"ADBE Vector Shape - Group","hd":false},{"ind":1,"ty":"sh","ix":2,"ks":{"a":0,"k":{"i":[[0,0],[0,0],[0,0],[0,0]],"o":[[0,0],[0,0],[0,0],[0,0]],"v":[[-7.168,-7.878],[-10.794,-7.878],[-10.794,-9.796],[-7.168,-9.796]],"c":true},"ix":2},"nm":"\u5373","mn":"ADBE Vector Shape - Group","hd":false},{"ind":2,"ty":"sh","ix":3,"ks":{"a":0,"k":{"i":[[0.471,-0.196],[0.728,-0.243],[0,0],[0,0],[-0.397,-0.014],[-0.243,-0.028],[0,0.709],[0,0],[-0.005,0.154],[-0.005,0.154],[-0.009,0.145],[-0.009,0.112],[0.513,-0.033],[0.644,0],[0.425,0.033],[0.243,0.047],[-0.009,-0.145],[-0.009,-0.154],[-0.005,-0.159],[0,-0.121],[0,0],[0.023,-0.177],[0.051,-0.135],[0.079,-0.107],[0.103,-0.103],[-0.098,-0.145],[-0.065,-0.159],[-0.266,0.135],[-0.373,0.159],[0,0],[-0.149,-0.233],[-0.131,-0.243],[0,0],[0.397,0.495],[0.429,0.457],[0,0],[-0.355,-0.457]],"o":[[-0.471,0.196],[0,0],[0,0],[0.42,0],[0.397,0.014],[-0.056,-0.504],[0,0],[0,-0.121],[0.005,-0.154],[0.005,-0.154],[0.009,-0.145],[-0.252,0.047],[-0.513,0.033],[-0.644,0],[-0.425,-0.033],[0.009,0.103],[0.009,0.145],[0.009,0.154],[0.005,0.159],[0,0],[0,0.243],[-0.023,0.177],[-0.051,0.135],[-0.079,0.107],[0.112,0.131],[0.098,0.145],[0.243,-0.159],[0.266,-0.135],[0,0],[0.159,0.215],[0.149,0.233],[0,0],[-0.429,-0.635],[-0.397,-0.495],[0,0],[0.28,0.233],[-0.327,0.168]],"v":[[-8.995,-1.396],[-10.794,-0.738],[-10.794,-4.574],[-8.428,-4.574],[-7.203,-4.553],[-6.244,-4.49],[-6.328,-6.31],[-6.328,-8.97],[-6.321,-9.383],[-6.307,-9.845],[-6.286,-10.293],[-6.258,-10.678],[-7.406,-10.559],[-9.142,-10.51],[-10.745,-10.559],[-11.746,-10.678],[-11.718,-10.307],[-11.69,-9.859],[-11.669,-9.39],[-11.662,-8.97],[-11.662,-1.928],[-11.697,-1.298],[-11.809,-0.829],[-12.005,-0.465],[-12.278,-0.15],[-11.963,0.263],[-11.718,0.718],[-10.955,0.277],[-9.996,-0.164],[-7.308,-1.298],[-6.846,-0.626],[-6.426,0.088],[-5.628,-0.444],[-6.867,-2.138],[-8.106,-3.566],[-8.75,-2.978],[-7.798,-1.942]],"c":true},"ix":2},"nm":"\u5373","mn":"ADBE Vector Shape - Group","hd":false},{"ind":3,"ty":"sh","ix":4,"ks":{"a":0,"k":{"i":[[0.401,-0.019],[0.467,0],[0.378,0.019],[0.271,0.037],[-0.019,-0.364],[0,-0.327],[0,0],[0.019,-0.49],[0.037,-0.551],[0,0],[0,0],[0,0],[0,0],[0.033,-0.117],[0.126,-0.07],[0.252,-0.023],[0.448,0.028],[-0.07,-0.168],[0.019,-0.215],[-0.299,0.084],[-0.168,0.14],[-0.061,0.201],[0,0.299],[0,0],[-0.023,0.28],[-0.047,0.224]],"o":[[-0.401,0.019],[-0.495,0],[-0.378,-0.019],[0.019,0.224],[0.019,0.364],[0,0],[0,0.588],[-0.019,0.49],[0,0],[0,0],[0,0],[0,0],[0,0.159],[-0.033,0.117],[-0.126,0.07],[-0.252,0.023],[0.168,0.177],[0.07,0.168],[0.485,-0.056],[0.299,-0.084],[0.168,-0.14],[0.061,-0.201],[0,0],[0,-0.495],[0.023,-0.28],[-0.271,0.037]],"v":[[-1.624,-10.314],[-2.926,-10.286],[-4.235,-10.314],[-5.208,-10.398],[-5.152,-9.516],[-5.124,-8.48],[-5.124,-1.634],[-5.152,-0.017],[-5.236,1.544],[-4.312,1.544],[-4.312,-9.572],[-1.596,-9.572],[-1.596,-2.334],[-1.645,-1.921],[-1.883,-1.641],[-2.45,-1.501],[-3.5,-1.508],[-3.143,-0.99],[-3.066,-0.416],[-1.89,-0.626],[-1.19,-0.962],[-0.847,-1.473],[-0.756,-2.222],[-0.756,-8.48],[-0.721,-9.642],[-0.616,-10.398]],"c":true},"ix":2},"nm":"\u5373","mn":"ADBE Vector Shape - Group","hd":false},{"ty":"mm","mm":1,"nm":"\u5408\u5e76\u8def\u5f84 1","mn":"ADBE Vector Filter - Merge","hd":false},{"ty":"fl","c":{"a":0,"k":[1,1,1,1],"ix":4},"o":{"a":0,"k":100,"ix":5},"r":1,"bm":0,"nm":"\u586b\u5145 1","mn":"ADBE Vector Graphic - Fill","hd":false},{"ty":"tr","p":{"a":0,"k":[0,0],"ix":2},"a":{"a":0,"k":[0,0],"ix":1},"s":{"a":0,"k":[100,100],"ix":3},"r":{"a":0,"k":0,"ix":6},"o":{"a":0,"k":100,"ix":7},"sk":{"a":0,"k":0,"ix":4},"sa":{"a":0,"k":0,"ix":5},"nm":"\u53d8\u6362"}],"nm":"\u5373","np":7,"cix":2,"bm":0,"ix":2,"mn":"ADBE Vector Group","hd":false},{"ty":"gr","it":[{"ind":0,"ty":"sh","ix":1,"ks":{"a":0,"k":{"i":[[0,0],[0,0],[0,0],[0,0]],"o":[[0,0],[0,0],[0,0],[0,0]],"v":[[10.584,-2.6],[4.536,-2.6],[4.536,-4.168],[10.584,-4.168]],"c":true},"ix":2},"nm":"\u767b","mn":"ADBE Vector Shape - Group","hd":false},{"ind":1,"ty":"sh","ix":2,"ks":{"a":0,"k":{"i":[[0.005,0.215],[0,0.308],[0,0.121],[-0.005,0.117],[-0.005,0.131],[-0.009,0.168],[0.266,-0.009],[0.313,-0.005],[0.373,-0.005],[0.476,0],[0.378,0.005],[0.308,0.005],[0.266,0.009],[0.252,0.019],[0,-0.616],[0.014,-0.215],[0.028,-0.224],[-0.261,0.009],[-0.313,0.009],[-0.373,0],[-0.476,0],[-0.378,-0.005],[-0.317,-0.005],[-0.261,-0.005],[-0.252,-0.009]],"o":[[-0.005,-0.215],[0,-0.159],[0,-0.121],[0.005,-0.117],[0.005,-0.131],[-0.252,0.019],[-0.266,0.009],[-0.313,0.005],[-0.373,0.005],[-0.476,0],[-0.378,-0.005],[-0.308,-0.005],[-0.266,-0.009],[0.056,0.448],[0,0.308],[-0.014,0.215],[0.252,-0.009],[0.261,-0.009],[0.313,-0.009],[0.373,0],[0.476,0],[0.378,0.005],[0.317,0.005],[0.261,0.005],[-0.019,-0.215]],"v":[[11.473,-2.53],[11.466,-3.314],[11.466,-3.734],[11.473,-4.091],[11.487,-4.462],[11.508,-4.91],[10.731,-4.868],[9.863,-4.847],[8.834,-4.833],[7.56,-4.826],[6.279,-4.833],[5.25,-4.847],[4.389,-4.868],[3.612,-4.91],[3.696,-3.314],[3.675,-2.53],[3.612,-1.872],[4.382,-1.9],[5.243,-1.928],[6.272,-1.942],[7.546,-1.942],[8.827,-1.935],[9.87,-1.921],[10.738,-1.907],[11.508,-1.886]],"c":true},"ix":2},"nm":"\u767b","mn":"ADBE Vector Shape - Group","hd":false},{"ind":2,"ty":"sh","ix":3,"ks":{"a":0,"k":{"i":[[0.723,0.019],[0.485,0.047],[0,0],[-0.733,0.019],[-0.849,0],[0,0],[-0.723,-0.019],[-0.513,-0.047],[0,0],[0.313,-0.014],[0.369,-0.014],[0.397,-0.005],[0.383,0],[-0.14,0.154],[-0.098,0.093],[-0.07,0.042],[-0.047,0.019],[0.009,0.075],[0.131,0.028],[0.159,0.061],[0.131,0.093],[0.187,-0.303],[0.252,-0.299],[0,0],[0.191,0.317],[0.215,0.271],[0,0],[-0.177,-0.229],[-0.149,-0.271]],"o":[[-0.723,-0.019],[0,0],[0.504,-0.047],[0.733,-0.019],[0,0],[0.859,0],[0.723,0.019],[0,0],[-0.215,0.019],[-0.313,0.014],[-0.369,0.014],[-0.397,0.005],[0.177,-0.233],[0.14,-0.154],[0.098,-0.093],[0.07,-0.042],[0.121,-0.037],[-0.009,-0.075],[-0.131,-0.028],[-0.159,-0.061],[-0.177,0.383],[-0.187,0.303],[0,0],[-0.196,-0.364],[-0.191,-0.317],[0,0],[0.233,0.233],[0.177,0.229],[-0.784,0]],"v":[[3.437,0.2],[1.624,0.102],[1.624,1.04],[3.479,0.942],[5.852,0.914],[9.24,0.914],[11.613,0.942],[13.468,1.04],[13.468,0.102],[12.677,0.151],[11.655,0.193],[10.507,0.221],[9.338,0.228],[9.814,-0.353],[10.171,-0.724],[10.423,-0.927],[10.598,-1.018],[10.766,-1.186],[10.556,-1.34],[10.122,-1.473],[9.688,-1.704],[9.142,-0.675],[8.484,0.228],[6.566,0.228],[5.985,-0.794],[5.376,-1.676],[4.592,-1.214],[5.208,-0.521],[5.698,0.228]],"c":true},"ix":2},"nm":"\u767b","mn":"ADBE Vector Shape - Group","hd":false},{"ind":3,"ty":"sh","ix":4,"ks":{"a":0,"k":{"i":[[0,0],[-0.201,0.014],[-0.266,0.009],[-0.35,0.005],[-0.457,0],[-0.322,-0.005],[-0.247,-0.009],[-0.196,-0.014],[-0.196,-0.019],[0,0],[-0.467,-0.224],[-0.551,-0.187],[-0.075,0.154],[-0.131,0.159],[0.859,0.635],[-0.28,0.154],[-0.182,0.089],[-0.107,0.033],[-0.075,0],[-0.009,0.056],[0.112,0.056],[0.126,0.103],[0.112,0.131],[0.149,-0.131],[0.173,-0.126],[0.21,-0.135],[0.271,-0.149],[0.271,0.429],[-0.257,0.149],[-0.168,0.084],[-0.098,0.023],[-0.056,0],[-0.019,0.051],[0.112,0.065],[0.126,0.121],[0.093,0.14],[0.294,-0.243],[0.504,-0.327],[0.075,0.21],[0.075,0.224],[0,0],[-0.392,-0.597],[-0.56,-0.467],[0.168,-0.009],[0.219,-0.005],[0.271,0],[0.364,0],[0.443,0.009],[0.327,0.019],[-0.42,0.583],[-0.364,0.728],[0.149,-0.019],[0.196,-0.009],[0.266,-0.005],[0.364,0],[0.56,0.084],[0,0],[-0.327,0.028],[-0.485,0],[0,0],[0.579,-0.551],[0.275,0.219],[0.308,0.187],[0,0],[-0.28,-0.196],[-0.215,-0.215],[0.504,-0.271],[0.579,-0.215],[-0.149,-0.308],[-0.425,0.266],[-0.355,0.271]],"o":[[0.168,-0.019],[0.201,-0.014],[0.266,-0.009],[0.35,-0.005],[0.448,0],[0.322,0.005],[0.247,0.009],[0.196,0.014],[0,0],[0.392,0.28],[0.467,0.224],[0.047,-0.187],[0.075,-0.154],[-1.307,-0.261],[0.411,-0.252],[0.28,-0.154],[0.182,-0.089],[0.107,-0.033],[0.103,-0.009],[0.009,-0.056],[-0.112,-0.056],[-0.126,-0.103],[-0.149,0.159],[-0.149,0.131],[-0.173,0.126],[-0.21,0.135],[-0.355,-0.327],[0.392,-0.252],[0.257,-0.149],[0.168,-0.084],[0.098,-0.023],[0.103,0.009],[0.019,-0.051],[-0.131,-0.075],[-0.126,-0.121],[-0.159,0.196],[-0.294,0.243],[-0.103,-0.196],[-0.075,-0.21],[0,0],[0.271,0.765],[0.392,0.597],[-0.159,0.009],[-0.168,0.009],[-0.219,0.005],[-0.271,0],[-0.7,0],[-0.443,-0.009],[0.588,-0.513],[0.42,-0.583],[-0.14,0.019],[-0.149,0.019],[-0.196,0.009],[-0.266,0.005],[-1.353,0],[0,0],[0.187,-0.037],[0.327,-0.028],[0,0],[-0.429,0.756],[-0.261,-0.252],[-0.275,-0.219],[0,0],[0.317,0.177],[0.28,0.196],[-0.439,0.345],[-0.504,0.271],[0.308,0.215],[0.504,-0.271],[0.425,-0.266],[0,0]],"v":[[4.2,-6.002],[4.753,-6.051],[5.453,-6.086],[6.377,-6.107],[7.588,-6.114],[8.743,-6.107],[9.597,-6.086],[10.262,-6.051],[10.85,-6.002],[10.85,-6.45],[12.138,-5.694],[13.664,-5.078],[13.846,-5.589],[14.154,-6.058],[10.906,-7.402],[11.942,-8.011],[12.635,-8.375],[13.069,-8.557],[13.342,-8.606],[13.51,-8.704],[13.356,-8.872],[12.999,-9.11],[12.642,-9.46],[12.194,-9.026],[11.711,-8.641],[11.137,-8.249],[10.416,-7.822],[9.478,-8.956],[10.451,-9.558],[11.088,-9.908],[11.487,-10.069],[11.718,-10.104],[11.9,-10.167],[11.76,-10.342],[11.375,-10.636],[11.046,-11.028],[10.367,-10.37],[9.17,-9.516],[8.904,-10.125],[8.68,-10.776],[7.924,-10.468],[8.918,-8.424],[10.346,-6.828],[9.856,-6.8],[9.275,-6.779],[8.54,-6.772],[7.588,-6.772],[5.873,-6.786],[4.718,-6.828],[6.23,-8.473],[7.406,-10.44],[6.972,-10.384],[6.454,-10.342],[5.761,-10.321],[4.816,-10.314],[1.946,-10.44],[1.946,-9.53],[2.716,-9.628],[3.934,-9.67],[6.062,-9.67],[4.55,-7.71],[3.745,-8.417],[2.87,-9.026],[2.352,-8.396],[3.248,-7.836],[3.99,-7.22],[2.576,-6.296],[0.952,-5.568],[1.638,-4.784],[3.031,-5.589],[4.2,-6.394]],"c":true},"ix":2},"nm":"\u767b","mn":"ADBE Vector Shape - Group","hd":false},{"ty":"mm","mm":1,"nm":"\u5408\u5e76\u8def\u5f84 1","mn":"ADBE Vector Filter - Merge","hd":false},{"ty":"fl","c":{"a":0,"k":[1,1,1,1],"ix":4},"o":{"a":0,"k":100,"ix":5},"r":1,"bm":0,"nm":"\u586b\u5145 1","mn":"ADBE Vector Graphic - Fill","hd":false},{"ty":"tr","p":{"a":0,"k":[0,0],"ix":2},"a":{"a":0,"k":[0,0],"ix":1},"s":{"a":0,"k":[100,100],"ix":3},"r":{"a":0,"k":0,"ix":6},"o":{"a":0,"k":100,"ix":7},"sk":{"a":0,"k":0,"ix":4},"sa":{"a":0,"k":0,"ix":5},"nm":"\u53d8\u6362"}],"nm":"\u767b","np":7,"cix":2,"bm":0,"ix":3,"mn":"ADBE Vector Group","hd":false},{"ty":"gr","it":[{"ind":0,"ty":"sh","ix":1,"ks":{"a":0,"k":{"i":[[0,0],[-0.756,-0.616],[0,0],[0.219,0.14],[0.21,0.121],[0.215,0.107],[0.233,0.112]],"o":[[0.896,0.429],[0,0],[-0.252,-0.168],[-0.219,-0.14],[-0.21,-0.121],[-0.215,-0.107],[0,0]],"v":[[16.268,-4.322],[18.746,-2.754],[19.278,-3.454],[18.571,-3.916],[17.927,-4.308],[17.29,-4.651],[16.618,-4.98]],"c":true},"ix":2},"nm":"\u5f55","mn":"ADBE Vector Shape - Group","hd":false},{"ind":1,"ty":"sh","ix":2,"ks":{"a":0,"k":{"i":[[0.831,-0.462],[0.849,-0.289],[-0.079,-0.126],[-0.103,-0.215],[-0.481,0.308],[-0.49,0.308],[-0.406,0.252],[-0.168,0.093],[0.042,0.107],[0.047,0.177]],"o":[[-0.831,0.462],[0.149,0.159],[0.079,0.126],[0.317,-0.205],[0.481,-0.308],[0.49,-0.308],[0.406,-0.252],[-0.093,-0.131],[-0.042,-0.107],[-0.915,0.719]],"v":[[17.598,-1.557],[15.078,-0.43],[15.421,-0.003],[15.694,0.508],[16.891,-0.262],[18.347,-1.186],[19.691,-2.026],[20.552,-2.544],[20.349,-2.901],[20.216,-3.328]],"c":true},"ix":2},"nm":"\u5f55","mn":"ADBE Vector Shape - Group","hd":false},{"ind":2,"ty":"sh","ix":3,"ks":{"a":0,"k":{"i":[[0,0],[0.803,0.005],[0.56,0.009],[0.364,0.014],[0.252,0.019],[0,0],[-0.364,0.014],[-0.565,0.009],[-0.803,0.005],[-1.12,0],[0,0],[0,0],[0.336,0.009],[0.331,0.009],[0.294,0.014],[0.187,0.019],[0,0],[-0.299,0.019],[-0.457,0.009],[-0.639,0.005],[-0.868,0],[0,0],[0.042,-0.173],[0.14,-0.089],[0.275,-0.019],[0.476,0.037],[-0.07,-0.168],[-0.028,-0.187],[-0.331,0.07],[-0.163,0.135],[-0.042,0.219],[0,0.345],[0,0],[-0.355,-0.317],[-0.425,-0.299],[-0.527,-0.299],[-0.672,-0.336],[-0.103,0.14],[-0.159,0.149],[0.798,0.411],[0.709,0.569],[-0.159,0.098],[-0.135,0.089],[-0.131,0.084],[-0.159,0.112],[-0.117,0.056],[-0.103,-0.019],[-0.028,0.084],[0.121,0.075],[0.103,0.112],[0.14,0.205],[0.42,-0.355],[0.784,-0.513],[0.28,0.327],[0,0],[-0.653,-0.005],[-0.448,-0.009],[-0.266,-0.019],[-0.149,-0.019],[0,0],[0.373,-0.019],[0.467,0],[0,0],[-0.019,0.247],[-0.047,0.28],[0.714,-0.023],[1.017,0],[0.714,0.019],[0.42,0.047],[0,0],[-0.35,0.014],[-0.593,0.014],[-0.887,0.009],[-1.288,0]],"o":[[-1.12,0],[-0.803,-0.005],[-0.56,-0.009],[-0.364,-0.014],[0,0],[0.243,-0.019],[0.364,-0.014],[0.565,-0.009],[0.803,-0.005],[0,0],[0,0],[-0.271,0],[-0.336,-0.009],[-0.331,-0.009],[-0.294,-0.014],[0,0],[0.196,-0.019],[0.299,-0.019],[0.457,-0.009],[0.639,-0.005],[0,0],[0,0.28],[-0.042,0.173],[-0.14,0.089],[-0.275,0.019],[0.159,0.168],[0.07,0.168],[0.569,-0.056],[0.331,-0.07],[0.163,-0.135],[0.042,-0.219],[0,0],[0.317,0.373],[0.355,0.317],[0.425,0.299],[0.527,0.299],[0.103,-0.196],[0.103,-0.14],[-0.812,-0.243],[-0.798,-0.411],[0.215,-0.14],[0.159,-0.098],[0.135,-0.089],[0.131,-0.084],[0.243,-0.168],[0.117,-0.056],[0.187,0.019],[0.028,-0.084],[-0.112,-0.075],[-0.103,-0.112],[-0.187,0.271],[-0.42,0.355],[-0.327,-0.28],[0,0],[0.924,0],[0.653,0.005],[0.448,0.009],[0.266,0.019],[0,0],[-0.233,0.037],[-0.373,0.019],[0,0],[0,-0.327],[0.019,-0.247],[-0.401,0.037],[-0.714,0.023],[-1.12,0],[-0.714,-0.019],[0,0],[0.205,-0.019],[0.35,-0.014],[0.593,-0.014],[0.887,-0.009],[0,0]],"v":[[24.598,-8.298],[21.714,-8.305],[19.67,-8.326],[18.284,-8.361],[17.36,-8.41],[17.36,-7.514],[18.27,-7.563],[19.663,-7.598],[21.714,-7.619],[24.598,-7.626],[24.598,-6.254],[18.844,-6.254],[17.934,-6.268],[16.933,-6.296],[15.995,-6.331],[15.274,-6.38],[15.274,-5.47],[16.016,-5.526],[17.15,-5.568],[18.795,-5.589],[21.056,-5.596],[21.056,-0.64],[20.993,0.039],[20.72,0.431],[20.097,0.592],[18.97,0.564],[19.313,1.068],[19.46,1.6],[20.811,1.411],[21.553,1.103],[21.861,0.571],[21.924,-0.276],[21.924,-2.992],[22.932,-1.956],[24.101,-1.032],[25.529,-0.136],[27.328,0.816],[27.636,0.312],[28.028,-0.122],[25.613,-1.102],[23.352,-2.572],[23.912,-2.929],[24.353,-3.209],[24.752,-3.468],[25.186,-3.762],[25.725,-4.098],[26.054,-4.154],[26.376,-4.252],[26.236,-4.49],[25.914,-4.77],[25.55,-5.246],[24.64,-4.308],[22.834,-3.006],[21.924,-3.916],[21.924,-5.596],[24.29,-5.589],[25.942,-5.568],[27.013,-5.526],[27.636,-5.47],[27.636,-6.38],[26.726,-6.296],[25.466,-6.268],[25.466,-8.802],[25.494,-9.663],[25.592,-10.454],[23.919,-10.363],[21.322,-10.328],[18.571,-10.356],[16.87,-10.454],[16.87,-9.544],[17.703,-9.593],[19.117,-9.635],[21.336,-9.67],[24.598,-9.684]],"c":true},"ix":2},"nm":"\u5f55","mn":"ADBE Vector Shape - Group","hd":false},{"ty":"mm","mm":1,"nm":"\u5408\u5e76\u8def\u5f84 1","mn":"ADBE Vector Filter - Merge","hd":false},{"ty":"fl","c":{"a":0,"k":[1,1,1,1],"ix":4},"o":{"a":0,"k":100,"ix":5},"r":1,"bm":0,"nm":"\u586b\u5145 1","mn":"ADBE Vector Graphic - Fill","hd":false},{"ty":"tr","p":{"a":0,"k":[0,0],"ix":2},"a":{"a":0,"k":[0,0],"ix":1},"s":{"a":0,"k":[100,100],"ix":3},"r":{"a":0,"k":0,"ix":6},"o":{"a":0,"k":100,"ix":7},"sk":{"a":0,"k":0,"ix":4},"sa":{"a":0,"k":0,"ix":5},"nm":"\u53d8\u6362"}],"nm":"\u5f55","np":6,"cix":2,"bm":0,"ix":4,"mn":"ADBE Vector Group","hd":false}],"ip":0,"op":300,"st":0,"bm":0},{"ddd":0,"ind":2,"ty":4,"nm":"text","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":0,"k":[108,33,0],"ix":2},"a":{"a":0,"k":[0,0,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"shapes":[{"ty":"gr","it":[{"ty":"rc","d":1,"s":{"a":0,"k":[72,22],"ix":2},"p":{"a":0,"k":[0,0],"ix":3},"r":{"a":0,"k":0,"ix":4},"nm":"\u77e9\u5f62\u8def\u5f84 1","mn":"ADBE Vector Shape - Rect","hd":false},{"ty":"tr","p":{"a":0,"k":[0,0],"ix":2},"a":{"a":0,"k":[0,0],"ix":1},"s":{"a":0,"k":[300,300],"ix":3},"r":{"a":0,"k":0,"ix":6},"o":{"a":0,"k":100,"ix":7},"sk":{"a":0,"k":0,"ix":4},"sa":{"a":0,"k":0,"ix":5},"nm":"\u53d8\u6362"}],"nm":"text","np":1,"cix":2,"bm":0,"ix":1,"mn":"ADBE Vector Group","hd":false}],"ip":0,"op":300,"st":0,"bm":0}]}],"layers":[{"ddd":0,"ind":1,"ty":0,"nm":"text","refId":"comp_0","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":0,"k":[270,65,0],"ix":2},"a":{"a":0,"k":[108,33,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"w":216,"h":66,"ip":0,"op":300,"st":0,"bm":0},{"ddd":0,"ind":2,"ty":4,"nm":"dl","td":1,"sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":0,"k":[270,57,0],"ix":2},"a":{"a":0,"k":[0,0,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"shapes":[{"ty":"gr","it":[{"ty":"rc","d":1,"s":{"a":0,"k":[180,38],"ix":2},"p":{"a":0,"k":[0,0],"ix":3},"r":{"a":0,"k":4,"ix":4},"nm":"\u77e9\u5f62\u8def\u5f84 1","mn":"ADBE Vector Shape - Rect","hd":false},{"ty":"fl","c":{"a":0,"k":[0.996078431606,0.172549024224,0.333333343267,1],"ix":4},"o":{"a":0,"k":100,"ix":5},"r":1,"bm":0,"nm":"\u586b\u5145 1","mn":"ADBE Vector Graphic - Fill","hd":false},{"ty":"tr","p":{"a":0,"k":[0,0],"ix":2},"a":{"a":0,"k":[0,0],"ix":1},"s":{"a":0,"k":[300,300],"ix":3},"r":{"a":0,"k":0,"ix":6},"o":{"a":0,"k":100,"ix":7},"sk":{"a":0,"k":0,"ix":4},"sa":{"a":0,"k":0,"ix":5},"nm":"\u53d8\u6362"}],"nm":"\u767b\u5f55","np":2,"cix":2,"bm":0,"ix":1,"mn":"ADBE Vector Group","hd":false}],"ip":0,"op":300,"st":0,"bm":0},{"ddd":0,"ind":3,"ty":4,"nm":"white glow","tt":1,"sr":1,"ks":{"o":{"a":1,"k":[{"i":{"x":[0.568],"y":[0.928]},"o":{"x":[0.215],"y":[0]},"t":0,"s":[0]},{"i":{"x":[0.843],"y":[1]},"o":{"x":[0.316],"y":[15.891]},"t":12.578,"s":[60]},{"i":{"x":[0.2],"y":[1]},"o":{"x":[0.001],"y":[0]},"t":75.473,"s":[60]},{"t":188.6796875,"s":[0]}],"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":1,"k":[{"i":{"x":0.2,"y":1},"o":{"x":0.003,"y":0},"t":0,"s":[-73,-9,0],"to":[-7.414,5.349,0],"ti":[-51.44,-43.573,0]},{"i":{"x":0.44,"y":0.469},"o":{"x":0.001,"y":0},"t":7.24,"s":[-36,144,0],"to":[79.725,67.532,0],"ti":[-77.47,8.761,0]},{"i":{"x":0.2,"y":1},"o":{"x":0.313,"y":0.322},"t":21,"s":[240.708,208.447,0],"to":[21.772,-2.462,0],"ti":[-96.884,20.58,0]},{"i":{"x":0.666,"y":0.717},"o":{"x":0.001,"y":0},"t":33.393,"s":[482,191,0],"to":[96.174,-20.429,0],"ti":[-80.544,28.727,0]},{"i":{"x":0.715,"y":0.862},"o":{"x":0.366,"y":0.376},"t":43,"s":[631.804,145.95,0],"to":[106.937,-38.141,0],"ti":[30.43,41.241,0]},{"i":{"x":0.2,"y":1},"o":{"x":0.224,"y":0.215},"t":59.748,"s":[632.556,-39.368,0],"to":[-31.044,-42.073,0],"ti":[52.587,1.14,0]},{"i":{"x":0.546,"y":1},"o":{"x":0.001,"y":0},"t":117.334,"s":[247,-75,0],"to":[-83.825,-1.817,0],"ti":[31.679,-4.216,0]},{"i":{"x":0.2,"y":1},"o":{"x":0.167,"y":0},"t":188.68,"s":[46,-80,0],"to":[-60.847,8.097,0],"ti":[-0.167,-0.167,0]},{"t":250,"s":[-74,-8,0]}],"ix":2},"a":{"a":0,"k":[-107,-39,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"ef":[{"ty":29,"nm":"\u9ad8\u65af\u6a21\u7cca","np":5,"mn":"ADBE Gaussian Blur 2","ix":1,"en":1,"ef":[{"ty":0,"nm":"\u6a21\u7cca\u5ea6","mn":"ADBE Gaussian Blur 2-0001","ix":1,"v":{"a":0,"k":150,"ix":1}},{"ty":7,"nm":"\u6a21\u7cca\u65b9\u5411","mn":"ADBE Gaussian Blur 2-0002","ix":2,"v":{"a":0,"k":1,"ix":2}},{"ty":7,"nm":"\u91cd\u590d\u8fb9\u7f18\u50cf\u7d20","mn":"ADBE Gaussian Blur 2-0003","ix":3,"v":{"a":0,"k":0,"ix":3}}]},{"ty":5,"nm":"\u6e4d\u6d41\u7f6e\u6362","np":16,"mn":"ADBE Turbulent Displace","ix":2,"en":1,"ef":[{"ty":7,"nm":"\u7f6e\u6362","mn":"ADBE Turbulent Displace-0001","ix":1,"v":{"a":0,"k":1,"ix":1}},{"ty":0,"nm":"\u6570\u91cf","mn":"ADBE Turbulent Displace-0002","ix":2,"v":{"a":0,"k":50,"ix":2}},{"ty":0,"nm":"\u5927\u5c0f","mn":"ADBE Turbulent Displace-0003","ix":3,"v":{"a":0,"k":50,"ix":3}},{"ty":3,"nm":"\u504f\u79fb\uff08\u6e4d\u6d41\uff09","mn":"ADBE Turbulent Displace-0004","ix":4,"v":{"a":0,"k":[270,57],"ix":4}},{"ty":0,"nm":"\u590d\u6742\u5ea6","mn":"ADBE Turbulent Displace-0005","ix":5,"v":{"a":0,"k":1,"ix":5}},{"ty":0,"nm":"\u6f14\u5316","mn":"ADBE Turbulent Displace-0006","ix":6,"v":{"a":0,"k":0,"ix":6,"x":"var $bm_rt;\\n$bm_rt = $bm_mul(time, 100);"}},{"ty":6,"nm":"\u6f14\u5316\u9009\u9879","mn":"ADBE Turbulent Displace-0007","ix":7,"v":0},{"ty":7,"nm":"\u5faa\u73af\u6f14\u5316","mn":"ADBE Turbulent Displace-0008","ix":8,"v":{"a":0,"k":0,"ix":8}},{"ty":0,"nm":"\u5faa\u73af\uff08\u65cb\u8f6c\u6b21\u6570\uff09","mn":"ADBE Turbulent Displace-0009","ix":9,"v":{"a":0,"k":1,"ix":9}},{"ty":0,"nm":"\u968f\u673a\u690d\u5165","mn":"ADBE Turbulent Displace-0010","ix":10,"v":{"a":0,"k":0,"ix":10}},{"ty":6,"nm":"\u968f\u673a\u690d\u5165","mn":"ADBE Turbulent Displace-0011","ix":11,"v":0},{"ty":7,"nm":"\u56fa\u5b9a","mn":"ADBE Turbulent Displace-0012","ix":12,"v":{"a":0,"k":3,"ix":12}},{"ty":7,"nm":"\u8c03\u6574\u56fe\u5c42\u5927\u5c0f","mn":"ADBE Turbulent Displace-0013","ix":13,"v":{"a":0,"k":0,"ix":13}},{"ty":7,"nm":"\u6d88\u9664\u952f\u9f7f\uff08\u6700\u4f73\u54c1\u8d28\uff09","mn":"ADBE Turbulent Displace-0014","ix":14,"v":{"a":0,"k":1,"ix":14}}]}],"shapes":[{"ty":"gr","it":[{"d":1,"ty":"el","s":{"a":0,"k":[300,200],"ix":2},"p":{"a":0,"k":[0,0],"ix":3},"nm":"Ellipse Path 1","mn":"ADBE Vector Shape - Ellipse","hd":false},{"ty":"fl","c":{"a":0,"k":[1,1,1,1],"ix":4},"o":{"a":0,"k":100,"ix":5},"r":1,"bm":0,"nm":"Fill 1","mn":"ADBE Vector Graphic - Fill","hd":false},{"ty":"tr","p":{"a":0,"k":[-109.427,-39.759],"ix":2},"a":{"a":0,"k":[0,0],"ix":1},"s":{"a":0,"k":[100,100],"ix":3},"r":{"a":0,"k":0,"ix":6},"o":{"a":0,"k":100,"ix":7},"sk":{"a":0,"k":0,"ix":4},"sa":{"a":0,"k":0,"ix":5},"nm":"\u53d8\u6362"}],"nm":"Ellipse 1","np":3,"cix":2,"bm":0,"ix":1,"mn":"ADBE Vector Group","hd":false}],"ip":0,"op":602.4,"st":0,"bm":0},{"ddd":0,"ind":4,"ty":4,"nm":"dl","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":0,"k":[270,57,0],"ix":2},"a":{"a":0,"k":[0,0,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"shapes":[{"ty":"gr","it":[{"ty":"rc","d":1,"s":{"a":0,"k":[180,38],"ix":2},"p":{"a":0,"k":[0,0],"ix":3},"r":{"a":0,"k":4,"ix":4},"nm":"\u77e9\u5f62\u8def\u5f84 1","mn":"ADBE Vector Shape - Rect","hd":false},{"ty":"fl","c":{"a":0,"k":[0.996078431606,0.172549024224,0.333333343267,1],"ix":4},"o":{"a":0,"k":100,"ix":5},"r":1,"bm":0,"nm":"\u586b\u5145 1","mn":"ADBE Vector Graphic - Fill","hd":false},{"ty":"tr","p":{"a":0,"k":[0,0],"ix":2},"a":{"a":0,"k":[0,0],"ix":1},"s":{"a":0,"k":[300,300],"ix":3},"r":{"a":0,"k":0,"ix":6},"o":{"a":0,"k":100,"ix":7},"sk":{"a":0,"k":0,"ix":4},"sa":{"a":0,"k":0,"ix":5},"nm":"\u53d8\u6362"}],"nm":"\u767b\u5f55","np":2,"cix":2,"bm":0,"ix":1,"mn":"ADBE Vector Group","hd":false}],"ip":0,"op":300,"st":0,"bm":0}],"markers":[]}');
     const O = function(e) {
@@ -11675,12 +11439,12 @@ window.danmaku_reload_interval = setInterval(() => {
                       return e.abrupt("return");
                     case 9:
                       i = new r((0,
-                        N.Z)((0,
-                        N.Z)({}, t), {}, {
+                        T.Z)((0,
+                        T.Z)({}, t), {}, {
                         success: function(e) {
-                          null != e && e.redirect_url ? I().get(null == e ? void 0 : e.redirect_url).then((function() {
+                          null != e && e.redirect_url ? L().get(null == e ? void 0 : e.redirect_url).then((function() {
                               (0,
-                                L.tokenBeatInit)(),
+                                I.tokenBeatInit)(),
                                 window.location.reload()
                             }
                           )).catch((function() {
@@ -11939,18 +11703,18 @@ window.danmaku_reload_interval = setInterval(() => {
         key: "show",
         value: (n = (0,
             l.Z)(h().mark((function e() {
-              var t, n, o, i, a, l, s, c, u, m, f, w, E = this, x = arguments;
+              var t, n, o, i, a, l, s, c, u, m, f, w, E = this, k = arguments;
               return h().wrap((function(e) {
                   for (; ; )
                     switch (e.prev = e.next) {
                       case 0:
-                        return t = x.length > 0 && void 0 !== x[0] ? x[0] : "0",
+                        return t = k.length > 0 && void 0 !== k[0] ? k[0] : "0",
                           e.next = 3,
                           F();
                       case 3:
                         return W = t,
                           e.next = 6,
-                          k.b();
+                          x.b();
                       case 6:
                         return n = e.sent,
                           o = n.isLogin,
@@ -12041,7 +11805,7 @@ window.danmaku_reload_interval = setInterval(() => {
                           break
                         }
                         return e.next = 3,
-                          k.b();
+                          x.b();
                       case 3:
                         n = e.sent,
                           t = null == n ? void 0 : n.isLogin;
@@ -12103,7 +11867,7 @@ window.danmaku_reload_interval = setInterval(() => {
       }]),
         e
     }()
-      , H = x.p() ? null : new U
+      , H = k.p() ? null : new U
   }
   ,
   92253: (e,t,n)=>{
@@ -12147,8 +11911,8 @@ window.danmaku_reload_interval = setInterval(() => {
           , w = e.children
           , _ = e.contentClassName
           , E = e.mouseEnterDelay
-          , k = e.mouseLeaveDelay
-          , x = e.className
+          , x = e.mouseLeaveDelay
+          , k = e.className
           , b = (0,
           u.C)({
           defaultValue: s,
@@ -12156,25 +11920,25 @@ window.danmaku_reload_interval = setInterval(() => {
         })
           , C = (0,
           o.Z)(b, 2)
-          , N = C[0]
-          , T = C[1]
+          , T = C[0]
+          , N = C[1]
           , Z = (0,
           l.useRef)(null)
           , S = (0,
           m.U)({
           enterDelay: E,
-          leaveDelay: k,
+          leaveDelay: x,
           onMouseEnter: function() {
-            T(!0),
-            N || null == h || h(!0)
+            N(!0),
+            T || null == h || h(!0)
           },
           onMouseLeave: function() {
-            T(!1),
-            N && (null == h || h(!1))
+            N(!1),
+            T && (null == h || h(!1))
           }
         })
-          , I = S.onMouseEnter
-          , L = S.onMouseLeave
+          , L = S.onMouseEnter
+          , I = S.onMouseLeave
           , D = (0,
           l.useState)(0)
           , M = (0,
@@ -12184,15 +11948,15 @@ window.danmaku_reload_interval = setInterval(() => {
         return (0,
           l.useEffect)((function() {
             var e, t;
-            N && Z.current && (a()(e = ["top", "bottom"]).call(e, n) ? A(Z.current.offsetHeight) : a()(t = ["left", "right"]).call(t, n) && A(Z.current.offsetWidth))
+            T && Z.current && (a()(e = ["top", "bottom"]).call(e, n) ? A(Z.current.offsetHeight) : a()(t = ["left", "right"]).call(t, n) && A(Z.current.offsetWidth))
           }
-        ), [N, n]),
+        ), [T, n]),
           l.createElement("div", {
-            className: c()(d.popover, x),
+            className: c()(d.popover, k),
             ref: Z,
-            onMouseEnter: I,
-            onMouseLeave: L
-          }, w, N && l.createElement("div", {
+            onMouseEnter: L,
+            onMouseLeave: I
+          }, w, T && l.createElement("div", {
             className: c()(d.content, d[n], _),
             style: (0,
               r.Z)({}, v[n], B + y)
@@ -12245,11 +12009,11 @@ window.danmaku_reload_interval = setInterval(() => {
     }
   }
   ,
-  34276: (e,t,n)=>{
+  45083: (e,t,n)=>{
     n.r(t),
       n.d(t, {
-        SearchBar: ()=>Pt,
-        default: ()=>Ot
+        SearchBar: ()=>Mt,
+        default: ()=>Bt
       });
     var r = n(65146)
       , o = n(94610)
@@ -12270,12 +12034,12 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = n(97568)
       , _ = n(67136)
       , E = n(52296)
-      , k = n(64215)
-      , x = n(45985)
+      , x = n(64215)
+      , k = n(45985)
       , b = n(71181)
       , C = n(92012)
-      , N = n.n(C);
-    const T = {
+      , T = n.n(C);
+    const N = {
       container: "Edp6sg8Y",
       activity: "jHjyLdAn",
       vsTransMode: "K6ytCcCN",
@@ -12291,29 +12055,29 @@ window.danmaku_reload_interval = setInterval(() => {
     var Z = function(e) {
       var t = e.word;
       return s.createElement("div", {
-        className: T.bottomWordText
+        className: N.bottomWordText
       }, t)
     };
     const S = function(e) {
       var t, n = e.wordList, o = void 0 === n ? [] : n, a = e.onBottomWordClick, l = e.customProps;
       return s.createElement("div", {
-        className: u()(T.container, (t = {},
+        className: u()(N.container, (t = {},
           (0,
-            r.Z)(t, T.activity, (null == l ? void 0 : l.isActivity) || (null == l ? void 0 : l.transparent)),
+            r.Z)(t, N.activity, (null == l ? void 0 : l.isActivity) || (null == l ? void 0 : l.transparent)),
           (0,
-            r.Z)(t, null == T ? void 0 : T[null == l ? void 0 : l.activityName], null == l ? void 0 : l.activityName),
+            r.Z)(t, null == N ? void 0 : N[null == l ? void 0 : l.activityName], null == l ? void 0 : l.activityName),
           (0,
-            r.Z)(t, T.transparent, null == l ? void 0 : l.transparent),
+            r.Z)(t, N.transparent, null == l ? void 0 : l.transparent),
           t))
       }, i()(o).call(o, (function(e, t) {
           var n, o, i = "2" === e.words_type;
           return s.createElement("div", {
-            className: T.item,
-            key: N()(n = "bottom_".concat(null !== (o = e.id) && void 0 !== o ? o : "", "_")).call(n, t)
+            className: N.item,
+            key: T()(n = "bottom_".concat(null !== (o = e.id) && void 0 !== o ? o : "", "_")).call(n, t)
           }, 0 !== t && s.createElement("div", {
-            className: T.divider
+            className: N.divider
           }), s.createElement("div", {
-            className: T.textContainer,
+            className: N.textContainer,
             "data-text": e.word,
             "data-index": t,
             "data-id": e.id,
@@ -12321,13 +12085,13 @@ window.danmaku_reload_interval = setInterval(() => {
           }, s.createElement(Z, {
             word: e.word
           }), i && s.createElement("div", {
-            className: u()(T.guessListItemIcon, (0,
-              r.Z)({}, T.guessListItemIconHot, i))
+            className: u()(N.guessListItemIcon, (0,
+              r.Z)({}, N.guessListItemIconHot, i))
           })))
         }
       )))
     }
-      , I = {
+      , L = {
       container: "ynBZuEjF",
       activity: "qLspBRSK",
       vsTransMode: "p4fRQID2",
@@ -12338,11 +12102,11 @@ window.danmaku_reload_interval = setInterval(() => {
       item: "SS3QikUi",
       bottomWordText: "NweHClwp"
     };
-    var L = function(e) {
+    var I = function(e) {
       var t = e.word
         , n = e.index;
       return s.createElement("div", {
-        className: I.bottomWordText,
+        className: L.bottomWordText,
         "data-text": t,
         "data-index": n
       }, t)
@@ -12350,32 +12114,32 @@ window.danmaku_reload_interval = setInterval(() => {
     const D = function(e) {
       var t, n = e.wordList, o = void 0 === n ? [] : n, a = e.active, l = void 0 !== a && a, c = e.customProps;
       return s.createElement("div", {
-        className: u()(I.container, (t = {},
+        className: u()(L.container, (t = {},
           (0,
-            r.Z)(t, I.activity, (null == c ? void 0 : c.isActivity) || (null == c ? void 0 : c.transparent)),
+            r.Z)(t, L.activity, (null == c ? void 0 : c.isActivity) || (null == c ? void 0 : c.transparent)),
           (0,
-            r.Z)(t, null == I ? void 0 : I[null == c ? void 0 : c.activityName], null == c ? void 0 : c.activityName),
+            r.Z)(t, null == L ? void 0 : L[null == c ? void 0 : c.activityName], null == c ? void 0 : c.activityName),
           (0,
-            r.Z)(t, I.transparent, null == c ? void 0 : c.transparent),
+            r.Z)(t, L.transparent, null == c ? void 0 : c.transparent),
           t))
       }, i()(o).call(o, (function(e, t) {
           return 0 === t ? s.createElement("div", {
-            className: I.item,
+            className: L.item,
             key: e.id
           }, s.createElement("div", {
-            className: u()(I.textContainer, (0,
-              r.Z)({}, I.active, l))
-          }, s.createElement(L, {
+            className: u()(L.textContainer, (0,
+              r.Z)({}, L.active, l))
+          }, s.createElement(I, {
             word: e.word,
             index: t
           }))) : s.createElement("div", {
-            className: I.item,
+            className: L.item,
             key: e.id
           }, s.createElement("div", {
-            className: I.divider
+            className: L.divider
           }), s.createElement("div", {
-            className: I.textContainer
-          }, s.createElement(L, {
+            className: L.textContainer
+          }, s.createElement(I, {
             word: e.word,
             index: t
           })))
@@ -12648,39 +12412,38 @@ window.danmaku_reload_interval = setInterval(() => {
       , me = n(55131)
       , ve = n(16501)
       , fe = n(56493)
-      , he = n(72983)
-      , pe = n(23587)
-      , ge = n(25083)
-      , ye = n(75403)
-      , we = n(52252)
-      , _e = n(42103)
-      , Ee = n(43564)
-      , ke = n(67255)
+      , he = n(23587)
+      , pe = n(25083)
+      , ge = n(75403)
+      , ye = n(52252)
+      , we = n(42103)
+      , _e = n(43564)
+      , Ee = n(67255)
       , xe = n(76659)
-      , be = n(77606)
-      , Ce = n(18343)
-      , Ne = n(150)
+      , ke = n(77606)
+      , be = n(18343)
+      , Ce = n(150)
       , Te = n(29529)
-      , Ze = n(78170)
-      , Se = n.n(Ze)
-      , Ie = n(57617)
-      , Le = n.n(Ie)
-      , De = n(77521)
-      , Me = n.n(De)
-      , Be = n(92637)
-      , Ae = n.n(Be)
-      , Pe = n(9120)
-      , Oe = n.n(Pe)
-      , Ve = n(42155)
-      , We = n.n(Ve)
-      , Re = n(86860)
-      , Fe = n(52558)
-      , Ue = n(14484)
-      , He = n(67606);
-    function Ge(e) {
+      , Ne = n(78170)
+      , Ze = n.n(Ne)
+      , Se = n(57617)
+      , Le = n.n(Se)
+      , Ie = n(77521)
+      , De = n.n(Ie)
+      , Me = n(92637)
+      , Be = n.n(Me)
+      , Ae = n(9120)
+      , Pe = n.n(Ae)
+      , Oe = n(42155)
+      , Ve = n.n(Oe)
+      , We = n(86860)
+      , Re = n(52558)
+      , Fe = n(14484)
+      , Ue = n(67606);
+    function He(e) {
       e.preventDefault()
     }
-    function je(e, t, n, r, o, i, a) {
+    function Ge(e, t, n, r, o, i, a) {
       var l = (0,
         s.useState)(null)
         , c = (0,
@@ -12694,7 +12457,7 @@ window.danmaku_reload_interval = setInterval(() => {
         , f = v[0]
         , h = v[1];
       return (0,
-        Fe.Z)("ArrowUp", (function(n) {
+        Re.Z)("ArrowUp", (function(n) {
           n.stopPropagation(),
           t || d((function(t) {
               return 0 === e ? null : o.enableSearchBarShuffling && "sug" === r && 0 === t ? (a && a(f),
@@ -12707,7 +12470,7 @@ window.danmaku_reload_interval = setInterval(() => {
         target: n
       }),
         (0,
-          Fe.Z)("ArrowDown", (function(n) {
+          Re.Z)("ArrowDown", (function(n) {
             n.stopPropagation(),
             t || d((function(t) {
                 return 0 === e ? null : (o.enableSearchBarShuffling && "sug" === r && null === t && h(i),
@@ -12728,14 +12491,14 @@ window.danmaku_reload_interval = setInterval(() => {
           ), [])
         }
     }
-    function Ke(e, t, n, r) {
+    function je(e, t, n, r) {
       var o = /firefox/i.test(navigator.userAgent)
         , i = "param-input";
       if (o)
         if (r) {
           var a, l = function() {
             var e;
-            ie()(e = Se()(n.getElementsByClassName(i))).call(e, (function(e) {
+            ie()(e = Ze()(n.getElementsByClassName(i))).call(e, (function(e) {
                 e.parentNode.removeChild(e)
               }
             ))
@@ -12750,29 +12513,29 @@ window.danmaku_reload_interval = setInterval(() => {
                   n.insertBefore(r, n.children[0])
               }
             )),
-            n.action = Ue.Sp(encodeURIComponent(e)),
+            n.action = Fe.Sp(encodeURIComponent(e)),
             X()((function() {
                 l()
               }
             ), 0)
         } else {
           var s = window.open("about:blank");
-          s && (s.location.href = globalThis.getFilterXss().filterUrl(Ue.Sp(encodeURIComponent(e), (0,
-            Re.stringify)(t)), null, {
+          s && (s.location.href = globalThis.getFilterXss().filterUrl(Fe.Sp(encodeURIComponent(e), (0,
+            We.stringify)(t)), null, {
             logType: "js.href/src",
             reportOnly: !1
           }))
         }
       else {
-        var c = Ue.Sp(encodeURIComponent(e), (0,
-          Re.stringify)(t));
+        var c = Fe.Sp(encodeURIComponent(e), (0,
+          We.stringify)(t));
         window.open(c)
       }
     }
-    function qe() {
+    function Ke() {
       var e = ""
         , t = ""
-        , n = Me()();
+        , n = De()();
       return ie()(W).call(W, (function(r) {
           var o = r.startTime
             , i = r.endTime
@@ -12787,76 +12550,76 @@ window.danmaku_reload_interval = setInterval(() => {
           hotSearchKeyword: t
         }
     }
-    function Ye(e) {
-      var t = Ae()(e).call(e, (function(e) {
-          return e.scene === He.gQ.FeedBottomRec
+    function qe(e) {
+      var t = Be()(e).call(e, (function(e) {
+          return e.scene === Ue.gQ.FeedBottomRec
         }
       ))
-        , n = Oe()(t).call(t, (function(e, t) {
+        , n = Pe()(t).call(t, (function(e, t) {
           var n;
-          return N()(e).call(e, i()(n = t.words).call(n, (function(e) {
+          return T()(e).call(e, i()(n = t.words).call(n, (function(e) {
               return e.wordId
             }
           )))
         }
       ), []);
-      return Se()(new (We())(n)).join(",")
+      return Ze()(new (Ve())(n)).join(",")
     }
-    var Xe = function() {
+    var Ye = function() {
       var e, t;
-      if (!we.p()) {
+      if (!ye.p()) {
         var n = "header-with-bottom"
           , r = document.documentElement;
         null != r && null !== (e = r.hasAttribute) && void 0 !== e && e.call(r, n) || null == r || null === (t = r.setAttribute) || void 0 === t || t.call(r, n, "")
       }
     }
-      , ze = function() {
+      , Xe = function() {
       var e;
-      if (!we.p()) {
+      if (!ye.p()) {
         var t, n = "header-with-bottom", r = document.documentElement;
         if (null != r && null !== (e = r.hasAttribute) && void 0 !== e && e.call(r, n))
           null == r || null === (t = r.removeAttribute) || void 0 === t || t.call(r, n)
       }
     }
-      , Qe = function(e, t, n) {
+      , ze = function(e, t, n) {
       var r = {
         dedupedInboxWords: e,
         dedupedUnderboxWords: t
       };
       if (null == e || !e.word || 0 === t.length)
         return r;
-      "inbox" === n ? r.dedupedUnderboxWords = Ae()(t).call(t, (function(t) {
+      "inbox" === n ? r.dedupedUnderboxWords = Be()(t).call(t, (function(t) {
           return (null == t ? void 0 : t.word) !== e.word
         }
-      )) : Ae()(t).call(t, (function(t) {
+      )) : Be()(t).call(t, (function(t) {
           return (null == t ? void 0 : t.word) === e.word
         }
       )).length > 0 && (r.dedupedInboxWords = null);
       return r
     }
-      , Je = function(e, t) {
+      , Qe = function(e, t) {
       var n, r = arguments.length > 2 && void 0 !== arguments[2] ? arguments[2] : 0, o = [];
       o.push.apply(o, (0,
         U.Z)(e));
       var i = l()(t).call(t, r, t.length)
         , a = l()(t).call(t, 0, r);
-      return o.push.apply(o, N()(n = (0,
+      return o.push.apply(o, T()(n = (0,
         U.Z)(i)).call(n, (0,
         U.Z)(a))),
         o
     }
-      , $e = function(e, t, n) {
+      , Je = function(e, t, n) {
       return (e + t) % n
     }
-      , et = function(e) {
+      , $e = function(e) {
       return "object" !== (0,
         Te.Z)(e) ? {} : (null != e && e.from_group_id || delete e.from_group_id,
         e)
     }
-      , tt = Ne.COMMON_SEARCH_PARAMS
-      , nt = "/aweme/v1/web/hot/search/list/"
-      , rt = "/aweme/v1/web/search/sug/"
-      , ot = function(e) {
+      , et = Ce.COMMON_SEARCH_PARAMS
+      , tt = "/aweme/v1/web/hot/search/list/"
+      , nt = "/aweme/v1/web/search/sug/"
+      , rt = function(e) {
       var t, n = {
         logId: null == e ? void 0 : e.log_id,
         data: {
@@ -12888,7 +12651,7 @@ window.danmaku_reload_interval = setInterval(() => {
       }
       return n
     }
-      , it = function() {
+      , ot = function() {
       var e = (0,
         G.Z)(le().mark((function e(t) {
           var n;
@@ -12898,9 +12661,9 @@ window.danmaku_reload_interval = setInterval(() => {
                   case 0:
                     return e.next = 2,
                       (0,
-                        Ce.U2)("/aweme/v1/web/api/suggest_words/", (0,
+                        be.U2)("/aweme/v1/web/api/suggest_words/", (0,
                         H.Z)((0,
-                        H.Z)({}, tt), et(t)));
+                        H.Z)({}, et), $e(t)));
                   case 2:
                     return n = e.sent,
                       e.abrupt("return", n);
@@ -12916,7 +12679,7 @@ window.danmaku_reload_interval = setInterval(() => {
         return e.apply(this, arguments)
       }
     }()
-      , at = function() {
+      , it = function() {
       var e = (0,
         G.Z)(le().mark((function e(t) {
           var n, r, o, i, a, l = arguments;
@@ -12925,19 +12688,19 @@ window.danmaku_reload_interval = setInterval(() => {
                 switch (e.prev = e.next) {
                   case 0:
                     return n = l.length > 1 && void 0 !== l[1] ? l[1] : {},
-                      r = ge.yW(),
+                      r = pe.yW(),
                       o = (n || {}).isModalVideo,
                       i = void 0 !== o && o,
                     "recommend" !== r || i || (t.pd = "pc_recommend"),
                       e.next = 6,
-                      it((0,
+                      ot((0,
                         H.Z)({
                         business_id: B,
                         rsp_source: ["inbox"]
-                      }, et(t)));
+                      }, $e(t)));
                   case 6:
                     return a = e.sent,
-                      e.abrupt("return", ot(a));
+                      e.abrupt("return", rt(a));
                   case 8:
                   case "end":
                     return e.stop()
@@ -12950,7 +12713,7 @@ window.danmaku_reload_interval = setInterval(() => {
         return e.apply(this, arguments)
       }
     }()
-      , lt = function() {
+      , at = function() {
       var e = (0,
         G.Z)(le().mark((function e() {
           var t, n, r = arguments;
@@ -12960,14 +12723,48 @@ window.danmaku_reload_interval = setInterval(() => {
                   case 0:
                     return t = r.length > 0 && void 0 !== r[0] ? r[0] : {},
                       e.next = 3,
-                      it((0,
+                      ot((0,
                         H.Z)({
                         business_id: 30068
-                      }, et(t)));
+                      }, $e(t)));
                   case 3:
                     return n = e.sent,
-                      e.abrupt("return", ot(n));
+                      e.abrupt("return", rt(n));
                   case 5:
+                  case "end":
+                    return e.stop()
+                }
+            }
+          ), e)
+        }
+      )));
+      return function() {
+        return e.apply(this, arguments)
+      }
+    }()
+      , lt = function() {
+      var e = (0,
+        G.Z)(le().mark((function e() {
+          var t, n, r, o, i, a, l = arguments;
+          return le().wrap((function(e) {
+              for (; ; )
+                switch (e.prev = e.next) {
+                  case 0:
+                    return t = l.length > 0 && void 0 !== l[0] ? l[0] : {},
+                      n = l.length > 1 && void 0 !== l[1] ? l[1] : {},
+                      r = $e(t),
+                      o = (n || {}).shouldUseUnderInbox,
+                      i = (void 0 === o || o) && null != r && r.from_group_id ? ["under_inbox", "under_inbox_more"] : ["under_inbox_more"],
+                      e.next = 7,
+                      ot((0,
+                        H.Z)({
+                        business_id: B,
+                        rsp_source: i
+                      }, r));
+                  case 7:
+                    return a = e.sent,
+                      e.abrupt("return", rt(a));
+                  case 9:
                   case "end":
                     return e.stop()
                 }
@@ -12981,40 +12778,6 @@ window.danmaku_reload_interval = setInterval(() => {
     }()
       , st = function() {
       var e = (0,
-        G.Z)(le().mark((function e() {
-          var t, n, r, o, i, a, l = arguments;
-          return le().wrap((function(e) {
-              for (; ; )
-                switch (e.prev = e.next) {
-                  case 0:
-                    return t = l.length > 0 && void 0 !== l[0] ? l[0] : {},
-                      n = l.length > 1 && void 0 !== l[1] ? l[1] : {},
-                      r = et(t),
-                      o = (n || {}).shouldUseUnderInbox,
-                      i = (void 0 === o || o) && null != r && r.from_group_id ? ["under_inbox", "under_inbox_more"] : ["under_inbox_more"],
-                      e.next = 7,
-                      it((0,
-                        H.Z)({
-                        business_id: B,
-                        rsp_source: i
-                      }, r));
-                  case 7:
-                    return a = e.sent,
-                      e.abrupt("return", ot(a));
-                  case 9:
-                  case "end":
-                    return e.stop()
-                }
-            }
-          ), e)
-        }
-      )));
-      return function() {
-        return e.apply(this, arguments)
-      }
-    }()
-      , ct = function() {
-      var e = (0,
         G.Z)(le().mark((function e(t) {
           var n, r, o, i, a, l, s, c, u, d, m = arguments;
           return le().wrap((function(e) {
@@ -13022,23 +12785,23 @@ window.danmaku_reload_interval = setInterval(() => {
                 switch (e.prev = e.next) {
                   case 0:
                     return n = m.length > 1 && void 0 !== m[1] ? m[1] : {},
-                      r = ge.yW(),
+                      r = pe.yW(),
                       i = (o = n || {}).isModalVideo,
                       a = void 0 !== i && i,
                       l = o.shouldUseUnderInbox,
                       s = void 0 === l || l,
                     "recommend" !== r || a || (t.pd = "pc_recommend"),
-                      c = et(t),
+                      c = $e(t),
                       u = s && null != c && c.from_group_id ? ["inbox", "under_inbox", "under_inbox_more"] : ["inbox", "under_inbox_more"],
                       e.next = 8,
-                      it((0,
+                      ot((0,
                         H.Z)({
                         business_id: B,
                         rsp_source: u
                       }, c));
                   case 8:
                     return d = e.sent,
-                      e.abrupt("return", ot(d));
+                      e.abrupt("return", rt(d));
                   case 10:
                   case "end":
                     return e.stop()
@@ -13048,6 +12811,38 @@ window.danmaku_reload_interval = setInterval(() => {
         }
       )));
       return function(t) {
+        return e.apply(this, arguments)
+      }
+    }()
+      , ct = function() {
+      var e = (0,
+        G.Z)(le().mark((function e() {
+          var t, n, r = arguments;
+          return le().wrap((function(e) {
+              for (; ; )
+                switch (e.prev = e.next) {
+                  case 0:
+                    return t = r.length > 0 && void 0 !== r[0] ? r[0] : {},
+                      e.next = 3,
+                      (0,
+                        be.U2)(tt, (0,
+                        H.Z)((0,
+                        H.Z)({}, et), {}, {
+                        detail_list: 1,
+                        source: 6
+                      }, $e(t)));
+                  case 3:
+                    return n = e.sent,
+                      e.abrupt("return", n);
+                  case 5:
+                  case "end":
+                    return e.stop()
+                }
+            }
+          ), e)
+        }
+      )));
+      return function() {
         return e.apply(this, arguments)
       }
     }()
@@ -13062,12 +12857,9 @@ window.danmaku_reload_interval = setInterval(() => {
                     return t = r.length > 0 && void 0 !== r[0] ? r[0] : {},
                       e.next = 3,
                       (0,
-                        Ce.U2)(nt, (0,
+                        be.U2)(nt, (0,
                         H.Z)((0,
-                        H.Z)({}, tt), {}, {
-                        detail_list: 1,
-                        source: 6
-                      }, et(t)));
+                        H.Z)({}, et), $e(t)));
                   case 3:
                     return n = e.sent,
                       e.abrupt("return", n);
@@ -13084,35 +12876,6 @@ window.danmaku_reload_interval = setInterval(() => {
       }
     }()
       , dt = function() {
-      var e = (0,
-        G.Z)(le().mark((function e() {
-          var t, n, r = arguments;
-          return le().wrap((function(e) {
-              for (; ; )
-                switch (e.prev = e.next) {
-                  case 0:
-                    return t = r.length > 0 && void 0 !== r[0] ? r[0] : {},
-                      e.next = 3,
-                      (0,
-                        Ce.U2)(rt, (0,
-                        H.Z)((0,
-                        H.Z)({}, tt), et(t)));
-                  case 3:
-                    return n = e.sent,
-                      e.abrupt("return", n);
-                  case 5:
-                  case "end":
-                    return e.stop()
-                }
-            }
-          ), e)
-        }
-      )));
-      return function() {
-        return e.apply(this, arguments)
-      }
-    }()
-      , mt = function() {
       var e = arguments.length > 2 ? arguments[2] : void 0
         , t = arguments.length > 3 ? arguments[3] : void 0
         , n = arguments.length > 4 ? arguments[4] : void 0
@@ -13176,7 +12939,7 @@ window.danmaku_reload_interval = setInterval(() => {
         isInsideWordShow: d
       }
     }
-      , vt = function() {
+      , mt = function() {
       var e = arguments.length > 0 && void 0 !== arguments[0] ? arguments[0] : {}
         , t = arguments.length > 1 && void 0 !== arguments[1] ? arguments[1] : {}
         , n = arguments.length > 2 ? arguments[2] : void 0
@@ -13210,27 +12973,27 @@ window.danmaku_reload_interval = setInterval(() => {
         , _ = (0,
         s.useRef)(null)
         , E = 1e4
-        , k = (0,
+        , x = (0,
         s.useCallback)((function() {
-          return !((null == e ? void 0 : e.bottomWordOpt) !== d.BottomWordOpt.NoDeDup && (null == e ? void 0 : e.bottomWordOpt) !== d.BottomWordOpt.BarWordPrior && (null == e ? void 0 : e.bottomWordOpt) !== d.BottomWordOpt.BottomWordPrior || $()(w).call(w, ge.yW()))
+          return !((null == e ? void 0 : e.bottomWordOpt) !== d.BottomWordOpt.NoDeDup && (null == e ? void 0 : e.bottomWordOpt) !== d.BottomWordOpt.BarWordPrior && (null == e ? void 0 : e.bottomWordOpt) !== d.BottomWordOpt.BottomWordPrior || $()(w).call(w, pe.yW()))
         }
       ), [null == e ? void 0 : e.bottomWordOpt, w])
-        , x = (0,
+        , k = (0,
         s.useCallback)((function(t) {
           var i, a = arguments.length > 1 && void 0 !== arguments[1] ? arguments[1] : 0, s = l()(t).call(t, 0), c = o.current;
           if (c) {
             var u = c.clientWidth;
             if (e.bottomWordOpt === d.BottomWordOpt.NoDeDup && null !== (i = n.current.guessText) && void 0 !== i && i.word) {
               var m, v = null === (m = n.current.guessText) || void 0 === m ? void 0 : m.word;
-              (s = Ae()(s).call(s, (function(e) {
+              (s = Be()(s).call(s, (function(e) {
                   return (null == e ? void 0 : e.word) !== v
                 }
               ))).unshift(n.current.guessText)
             }
-            var y = Ee.y(s, u, "bottom")
+            var y = _e.y(s, u, "bottom")
               , w = y.displayableNum
               , _ = Math.min(w, P);
-            n.current.underInboxMoreCursor = $e(n.current.underInboxMoreCursor, Math.max(_ - a, 0), 20);
+            n.current.underInboxMoreCursor = Je(n.current.underInboxMoreCursor, Math.max(_ - a, 0), 20);
             var E = l()(s).call(s, 0, _);
             return f(E),
               g.current = E,
@@ -13260,15 +13023,15 @@ window.danmaku_reload_interval = setInterval(() => {
               for (; ; )
                 switch (t.prev = t.next) {
                   case 0:
-                    if (!we.p()) {
+                    if (!ye.p()) {
                       t.next = 2;
                       break
                     }
                     return t.abrupt("return");
                   case 2:
-                    return r = $()(w).call(w, ge.yW()),
+                    return r = $()(w).call(w, pe.yW()),
                       t.next = 5,
-                      st({
+                      lt({
                         from_group_id: n.current.curVideoGroupId,
                         penetrate_params: {
                           inbox_exist_word_id: n.current.feedBarIds
@@ -13282,12 +13045,12 @@ window.danmaku_reload_interval = setInterval(() => {
                       a = i.bottomWords,
                       l = i.underboxMore,
                       s = o.logId,
-                      c = Je(r ? a.words : [], l.words, n.current.underInboxMoreCursor),
+                      c = Qe(r ? a.words : [], l.words, n.current.underInboxMoreCursor),
                       u = c,
-                    e.bottomWordOpt === d.BottomWordOpt.BarWordPrior && (m = Qe(n.current.guessText, u, "inbox"),
+                    e.bottomWordOpt === d.BottomWordOpt.BarWordPrior && (m = ze(n.current.guessText, u, "inbox"),
                       v = m.dedupedUnderboxWords,
                       u = v),
-                    te()(u) && u.length > 0 && (x(u, r ? a.words.length : 0),
+                    te()(u) && u.length > 0 && (k(u, r ? a.words.length : 0),
                       p.current = s);
                   case 11:
                   case "end":
@@ -13296,7 +13059,7 @@ window.danmaku_reload_interval = setInterval(() => {
             }
           ), t)
         }
-      ))), [n, x, w, e.bottomWordOpt])
+      ))), [n, k, w, e.bottomWordOpt])
         , C = (0,
         s.useCallback)((function(e) {
           var t, n = e.currentTarget.dataset, o = n.text, a = n.index;
@@ -13312,16 +13075,16 @@ window.danmaku_reload_interval = setInterval(() => {
             })
         }
       ), [i, r, h])
-        , N = (0,
+        , T = (0,
         s.useCallback)((function(e) {
-          $()(V).call(V, e.tab) || (e.scrollType ? "down" === e.scrollType ? ze() : "up" === e.scrollType && Xe() : "number" == typeof e.scrollTop && (n.current.tab !== e.tab && (n.current.tab = e.tab,
+          $()(V).call(V, e.tab) || (e.scrollType ? "down" === e.scrollType ? Xe() : "up" === e.scrollType && Ye() : "number" == typeof e.scrollTop && (n.current.tab !== e.tab && (n.current.tab = e.tab,
             y.current = 0),
-            e.scrollTop - y.current > 20 ? (ze(),
-              y.current = e.scrollTop) : y.current - e.scrollTop > 20 && (Xe(),
+            e.scrollTop - y.current > 20 ? (Xe(),
+              y.current = e.scrollTop) : y.current - e.scrollTop > 20 && (Ye(),
               y.current = e.scrollTop)))
         }
       ), [n])
-        , T = (0,
+        , N = (0,
         s.useCallback)((function(e) {
           _.current && clearTimeout(_.current);
           !function t() {
@@ -13341,19 +13104,19 @@ window.danmaku_reload_interval = setInterval(() => {
       return (0,
         s.useEffect)((function() {
           if (a())
-            return (e.searchBarBottomWord === d.searchBarBottomWord.Bottom1 || e.searchBarBottomWord === d.searchBarBottomWord.Bottom2 || k()) && b(),
-            k() && T(E),
+            return (e.searchBarBottomWord === d.searchBarBottomWord.Bottom1 || e.searchBarBottomWord === d.searchBarBottomWord.Bottom2 || x()) && b(),
+            x() && N(E),
               function() {
                 Z()
               }
         }
-      ), [e, a, k, b]),
+      ), [e, a, x, b]),
         (0,
           s.useEffect)((function() {
             var t;
-            if (a() && (0 !== v.length && (Xe(),
+            if (a() && (0 !== v.length && (Ye(),
             e.searchBarBottomWord === d.searchBarBottomWord.Bottom2))) {
-              var n = q()(N, 50, {
+              var n = q()(T, 50, {
                 maxWait: 100
               });
               return t = m.listen(m.EVENT.tabContainerScroll, n),
@@ -13367,9 +13130,9 @@ window.danmaku_reload_interval = setInterval(() => {
         (0,
           s.useEffect)((function() {
             if (null != t && t.pathname && a())
-              return e.searchBarBottomWord === d.searchBarBottomWord.Bottom2 && v.length > 0 && Xe(),
-              k() && (b(),
-                T(E)),
+              return e.searchBarBottomWord === d.searchBarBottomWord.Bottom2 && v.length > 0 && Ye(),
+              x() && (b(),
+                N(E)),
                 function() {
                   Z()
                 }
@@ -13379,120 +13142,12 @@ window.danmaku_reload_interval = setInterval(() => {
           bottomWordList: v,
           updateBottomWords: b,
           onBottomWordClick: C,
-          showBottomWords: x,
+          showBottomWords: k,
           bottomWordLogIdRef: p
         }
     }
-      , ft = n(8407);
-    function ht(e, t, n) {
-      var r = arguments.length > 3 && void 0 !== arguments[3] ? arguments[3] : {}
-        , o = arguments.length > 4 ? arguments[4] : void 0
-        , i = (0,
-        s.useState)([])
-        , a = (0,
-        j.Z)(i, 2)
-        , c = a[0]
-        , u = a[1]
-        , m = (0,
-        s.useRef)([])
-        , v = (0,
-        s.useRef)(0)
-        , f = (0,
-        me.wu)()
-        , h = f.searchParams
-        , p = (0,
-        s.useMemo)((function() {
-          return (0,
-            de.y$)(R)
-        }
-      ), [])
-        , g = (0,
-        s.useCallback)((function(e) {
-          var t = e.currentTarget.dataset
-            , n = t.text
-            , r = t.index
-            , i = t.id;
-          p("relatedWordsClick", {
-            words_source: "related_search",
-            words_position: Number(r),
-            words_content: n,
-            raw_query: h.keyword,
-            rank: 0,
-            search_position: h.tab,
-            query_id: h.from_group_id,
-            group_id: i,
-            sug_type: "normal_sug"
-          }),
-            o(n, "related_search_keywords", "", !1, !0)
-        }
-      ), [p, h]);
-      return (0,
-        s.useEffect)((function() {
-          null != r && r.isSearchPage && (null == n ? void 0 : n.relatedSearchList) === d.RelatedSearchList.BottomWord && e && (0,
-            G.Z)(le().mark((function n() {
-              var r, o, i, a, s, c, d;
-              return le().wrap((function(n) {
-                  for (; ; )
-                    switch (n.prev = n.next) {
-                      case 0:
-                        return n.next = 2,
-                          ft.X({
-                            query: t
-                          });
-                      case 2:
-                        r = n.sent,
-                          o = r.statusCode,
-                          i = r.wordList,
-                          a = e.current,
-                          s = a.clientWidth,
-                          c = Ee.y(i, s, "bottom"),
-                          d = c.displayableNum,
-                        !o && i.length > 0 && (m.current = i,
-                          u(l()(i).call(i, 0, d)),
-                          v.current = d),
-                          i.length > 2 ? Xe() : ze();
-                      case 10:
-                      case "end":
-                        return n.stop()
-                    }
-                }
-              ), n)
-            }
-          )))()
-        }
-      ), [t, n]),
-        (0,
-          s.useEffect)((function() {
-            0 !== c.length && (p("relatedTrendingShow", {
-              words_num: c.length.toString(),
-              words_source: "related_search",
-              raw_query: h.keyword,
-              rank: 0,
-              search_position: h.tab
-            }),
-              ie()(c).call(c, (function(e, t) {
-                  p("relatedWordsShow", {
-                    words_source: "related_search",
-                    words_position: t,
-                    words_content: e.word,
-                    raw_query: h.keyword,
-                    rank: 0,
-                    search_position: h.tab,
-                    query_id: h.from_group_id,
-                    group_id: e.id,
-                    sug_type: "normal_sug"
-                  })
-                }
-              )))
-          }
-        ), [c, p]),
-        {
-          bottomWords: c,
-          onBottomWordClick: g
-        }
-    }
-    var pt = ["sugStartTime", "sugFetchTime"];
-    function gt(e, t) {
+      , vt = ["sugStartTime", "sugFetchTime"];
+    function ft(e, t) {
       var n = arguments.length > 2 && void 0 !== arguments[2] ? arguments[2] : {}
         , o = arguments.length > 3 && void 0 !== arguments[3] ? arguments[3] : {}
         , a = (0,
@@ -13516,11 +13171,11 @@ window.danmaku_reload_interval = setInterval(() => {
         , _ = p.unshiftWord
         , E = (0,
         s.useMemo)((function() {
-          return qe()
+          return Ke()
         }
       ), [])
-        , k = E.hotSearchText
-        , x = E.hotSearchKeyword
+        , x = E.hotSearchText
+        , k = E.hotSearchKeyword
         , b = (0,
         s.useState)({
         sugList: [],
@@ -13528,14 +13183,14 @@ window.danmaku_reload_interval = setInterval(() => {
       })
         , C = (0,
         j.Z)(b, 2)
-        , T = C[0]
+        , N = C[0]
         , Z = C[1]
         , S = (0,
         s.useState)("")
-        , I = (0,
+        , L = (0,
         j.Z)(S, 2)
-        , L = I[0]
-        , D = I[1]
+        , I = L[0]
+        , D = L[1]
         , B = (0,
         s.useState)("")
         , P = (0,
@@ -13558,83 +13213,83 @@ window.danmaku_reload_interval = setInterval(() => {
         s.useState)([])
         , ce = (0,
         j.Z)(se, 2)
-        , Ce = ce[0]
-        , Ne = ce[1]
+        , be = ce[0]
+        , Ce = ce[1]
         , Te = (0,
         s.useState)(A)
-        , Ze = (0,
+        , Ne = (0,
         j.Z)(Te, 2)
-        , Se = Ze[0]
-        , Ie = Ze[1]
+        , Ze = Ne[0]
+        , Se = Ne[1]
         , Le = (0,
         s.useState)(!1)
-        , De = (0,
+        , Ie = (0,
         j.Z)(Le, 2)
-        , Me = De[0]
-        , Be = De[1]
-        , Ae = (0,
+        , De = Ie[0]
+        , Me = Ie[1]
+        , Be = (0,
         s.useState)(null)
-        , Pe = (0,
-        j.Z)(Ae, 2)
-        , Oe = Pe[0]
-        , Ve = Pe[1]
-        , We = (0,
+        , Ae = (0,
+        j.Z)(Be, 2)
+        , Pe = Ae[0]
+        , Oe = Ae[1]
+        , Ve = (0,
         s.useState)([])
-        , Re = (0,
-        j.Z)(We, 2)
-        , Fe = Re[0]
-        , Ue = Re[1]
-        , He = (0,
+        , We = (0,
+        j.Z)(Ve, 2)
+        , Re = We[0]
+        , Fe = We[1]
+        , Ue = (0,
         s.useState)(!1)
-        , Xe = (0,
-        j.Z)(He, 2)
-        , ze = Xe[0]
-        , $e = Xe[1]
+        , Ye = (0,
+        j.Z)(Ue, 2)
+        , Xe = Ye[0]
+        , Je = Ye[1]
+        , $e = (0,
+        s.useRef)()
         , et = (0,
         s.useRef)()
         , tt = (0,
         s.useRef)()
         , nt = (0,
-        s.useRef)()
-        , rt = (0,
         s.useRef)({})
-        , ot = (0,
+        , rt = (0,
         s.useMemo)((function() {
           return n.guessSearchAddOneMoreRow ? 8 : 6
         }
       ), [n.guessSearchAddOneMoreRow])
-        , it = (0,
+        , ot = (0,
         s.useMemo)((function() {
           return n.bottomWordOpt === d.BottomWordOpt.NoDeDup || n.bottomWordOpt === d.BottomWordOpt.BarWordPrior || n.bottomWordOpt === d.BottomWordOpt.BottomWordPrior
         }
       ), [n.bottomWordOpt])
-        , st = (0,
+        , lt = (0,
         s.useState)((function() {
           return X()((function() {}
           ), 1e3)
         }
       ))
         , ft = (0,
-        j.Z)(st, 2)
-        , gt = ft[0]
-        , yt = ft[1]
-        , wt = (0,
+        j.Z)(lt, 2)
+        , ht = ft[0]
+        , pt = ft[1]
+        , gt = (0,
         s.useRef)({
         focusTime: 0,
         pressDownTime: 0,
         response: void 0,
         suggestionState: z,
         showText: V,
-        inputText: L,
+        inputText: I,
         inputFocus: oe,
-        hotSearchText: k,
-        hotSearchKeyword: x,
-        guessText: Oe,
+        hotSearchText: x,
+        hotSearchKeyword: k,
+        guessText: Pe,
         guessTextId: "",
         router: c,
         tab: f.tab,
         history: g,
-        sug: T,
+        sug: N,
         isPinyin: !1,
         isFirefox: !1,
         hotListLogId: "",
@@ -13651,25 +13306,25 @@ window.danmaku_reload_interval = setInterval(() => {
         hasHotListFetched: !1,
         underInboxMoreCursor: 0
       });
-      wt.current = (0,
+      gt.current = (0,
         H.Z)((0,
-        H.Z)({}, wt.current), {}, {
+        H.Z)({}, gt.current), {}, {
         tab: f.tab,
         suggestionState: z,
         showText: V,
-        inputText: L,
+        inputText: I,
         inputFocus: oe,
-        guessText: Oe,
+        guessText: Pe,
         router: c,
         history: g,
-        sug: T
+        sug: N
       });
-      var _t = (0,
+      var yt = (0,
         s.useCallback)((function() {
-          return o.isModalVideo ? "modal_entrance" : ge.yW()
+          return o.isModalVideo ? "modal_entrance" : pe.yW()
         }
       ), [o.isModalVideo])
-        , Et = (0,
+        , wt = (0,
         s.useCallback)((function(e, n, r) {
           var i = arguments.length > 3 && void 0 !== arguments[3] && arguments[3]
             , a = !(arguments.length > 4 && void 0 !== arguments[4]) || arguments[4];
@@ -13677,165 +13332,119 @@ window.danmaku_reload_interval = setInterval(() => {
             var l = (0,
               fe.Z)()
               , s = performance.now()
-              , c = "normal_search" === n ? i ? -2 : s - wt.current.pressDownTime : -1;
+              , c = "normal_search" === n ? i ? -2 : s - gt.current.pressDownTime : -1;
             if (u("searchAnti", {
               anti_id: l,
-              anti_query_input_time: s - wt.current.focusTime,
+              anti_query_input_time: s - gt.current.focusTime,
               anti_search_press_duration: c,
               anti_search_viewport: r
             }),
-            wt.current.router && "/Search/:keyword" === wt.current.router.match.path && et.current.blur(),
+            gt.current.router && "/Search/:keyword" === gt.current.router.match.path && $e.current.blur(),
             a && _(e),
-            wt.current.router && "/Search/:keyword" === wt.current.router.match.path && !o.isModalVideo)
+            gt.current.router && "/Search/:keyword" === gt.current.router.match.path && !o.isModalVideo)
               h(e, n, l);
             else {
-              var d = _t() || "search_result"
+              var d = yt() || "search_result"
                 , m = (0,
                 H.Z)({
                 source: n,
                 aid: l,
                 enter_from: d,
-                focus_method: wt.current.focusMethod
-              }, ye.U());
-              wt.current.curVideoGroupId && (m.gid = wt.current.curVideoGroupId),
+                focus_method: gt.current.focusMethod
+              }, ge.U());
+              gt.current.curVideoGroupId && (m.gid = gt.current.curVideoGroupId),
               t && t(),
-                Ke(e, m, tt.current, i)
+                je(e, m, et.current, i)
             }
           }
         }
       ), [t])
-        , kt = (0,
+        , _t = (0,
         s.useCallback)((function() {
-          if (we.p())
+          if (ye.p())
             return !1;
-          if (!_e.T())
+          if (!we.T())
             return !1;
           if (o.isModalVideo)
             return !1;
           if (o.isSearchPage)
             return !1;
-          if (!ge.yW())
+          if (!pe.yW())
             return !1;
-          var e = ge.yW();
+          var e = pe.yW();
           return !!$()(O).call(O, e)
         }
       ), [o.isModalVideo, o.isSearchPage])
-        , xt = je({
+        , Et = Ge({
         idle: 0,
-        middle_page: Fe.length + Ce.length,
-        sug: T.sugList.length
-      }[z], wt.current.isPinyin, et.current, z, n, V, W)
-        , bt = xt.keyboardNavIndex
-        , Ct = xt.restKeyboardNavIndex
-        , Nt = mt(n, o, Me, _t, wt, Ie)
-        , Tt = Nt.insideWordList
-        , Zt = Nt.updateInsideWord
-        , St = Nt.showInsideWord
-        , It = Nt.hideInsideWord
-        , Lt = Nt.isInsideWordShow
-        , Dt = vt(n, o, wt, _t, nt, Et, kt)
-        , Mt = Dt.bottomWordList
-        , Bt = (Dt.updateBottomWords,
-        Dt.onBottomWordClick)
-        , At = Dt.showBottomWords
-        , Pt = Dt.bottomWordLogIdRef
-        , Ot = ht(nt, f.keyword, n, o, Et)
-        , Vt = Ot.bottomWords
-        , Wt = Ot.onBottomWordClick;
+        middle_page: Re.length + be.length,
+        sug: N.sugList.length
+      }[z], gt.current.isPinyin, $e.current, z, n, V, W)
+        , xt = Et.keyboardNavIndex
+        , kt = Et.restKeyboardNavIndex
+        , bt = dt(n, o, De, yt, gt, Se)
+        , Ct = bt.insideWordList
+        , Tt = bt.updateInsideWord
+        , Nt = bt.showInsideWord
+        , Zt = bt.hideInsideWord
+        , St = bt.isInsideWordShow
+        , Lt = mt(n, o, gt, yt, tt, wt, _t)
+        , It = Lt.bottomWordList
+        , Dt = (Lt.updateBottomWords,
+        Lt.onBottomWordClick)
+        , Mt = Lt.showBottomWords
+        , Bt = Lt.bottomWordLogIdRef;
       (0,
         s.useEffect)((function() {
           o.isModalVideo || (D(f.keyword),
             W(f.keyword),
-            Ct())
+            kt())
         }
       ), [null == c ? void 0 : c.match, o.isModalVideo]),
         (0,
           s.useEffect)((function() {
-            if (null !== bt) {
-              if ("middle_page" === wt.current.suggestionState) {
-                var e, t = N()(e = []).call(e, (0,
-                  U.Z)(Fe), (0,
-                  U.Z)(Ce));
-                W(t[bt].word)
+            if (null !== xt) {
+              if ("middle_page" === gt.current.suggestionState) {
+                var e, t = T()(e = []).call(e, (0,
+                  U.Z)(Re), (0,
+                  U.Z)(be));
+                W(t[xt].word)
               }
-              "sug" === wt.current.suggestionState && W(wt.current.sug.sugList[bt])
+              "sug" === gt.current.suggestionState && W(gt.current.sug.sugList[xt])
             }
           }
-        ), [n, bt, Fe, Ce]),
+        ), [n, xt, Re, be]),
         (0,
           s.useEffect)((function() {
-            wt.current.isFirefox = /firefox/i.test(navigator.userAgent)
+            gt.current.isFirefox = /firefox/i.test(navigator.userAgent)
           }
         ), []);
-      var Rt = (0,
-        s.useCallback)((0,
-        G.Z)(le().mark((function e() {
-          return le().wrap((function(e) {
-              for (; ; )
-                switch (e.prev = e.next) {
-                  case 0:
-                    return e.next = 2,
-                      he.h.getVar({
-                        name: "search_result_list_type",
-                        defaultValue: d.SearchResultListType.Default
-                      });
-                  case 2:
-                    return e.next = 4,
-                      he.h.getVar({
-                        name: "search_page_ssr",
-                        defaultValue: d.SearchPageSSRABVal.Off
-                      });
-                  case 4:
-                    return e.next = 6,
-                      he.h.getVar({
-                        name: "search_layout",
-                        defaultValue: d.SearchLayout.Default
-                      });
-                  case 6:
-                    return e.next = 8,
-                      he.h.getVar({
-                        name: "search_horizontal",
-                        defaultValue: d.SearchHorizontal.Default
-                      });
-                  case 8:
-                  case "end":
-                    return e.stop()
-                }
-            }
-          ), e)
-        }
-      ))), []);
-      (0,
-        s.useEffect)((function() {
-          Rt()
-        }
-      ), [Rt]);
-      var Ft = (0,
+      var At = (0,
         s.useCallback)((function() {
           var e;
-          wt.current.guessText && (It(),
-            Ie(""),
-            Be(!0),
-            wt.current.hasGuessTextShown = !0,
+          gt.current.guessText && (Zt(),
+            Se(""),
+            Me(!0),
+            gt.current.hasGuessTextShown = !0,
             u("guessWordShow", {
-              impr_id: wt.current.searchBarWordLogId,
-              enter_from: _t(),
+              impr_id: gt.current.searchBarWordLogId,
+              enter_from: yt(),
               words_num: "1",
               words_position: 0,
               words_source: "search_bar_inner",
-              words_content: null === (e = wt.current.guessText) || void 0 === e ? void 0 : e.word,
-              group_id: wt.current.guessTextId
+              words_content: null === (e = gt.current.guessText) || void 0 === e ? void 0 : e.word,
+              group_id: gt.current.guessTextId
             }))
         }
-      ), [u, _t, It])
-        , Ut = (0,
+      ), [u, yt, Zt])
+        , Pt = (0,
         s.useCallback)((function() {
           var e;
-          Me && (Ie((null === (e = wt.current.guessText) || void 0 === e ? void 0 : e.word) || A),
-            Be(!1))
+          De && (Se((null === (e = gt.current.guessText) || void 0 === e ? void 0 : e.word) || A),
+            Me(!1))
         }
-      ), [Me])
-        , Ht = (0,
+      ), [De])
+        , Ot = (0,
         s.useCallback)(function() {
         var e = (0,
           G.Z)(le().mark((function e(t) {
@@ -13844,20 +13453,20 @@ window.danmaku_reload_interval = setInterval(() => {
                 for (; ; )
                   switch (e.prev = e.next) {
                     case 0:
-                      return r = it ? ct : at,
-                        wt.current.suggestWordsPreloadList[wt.current.curVideoGroupId] ? n = wt.current.suggestWordsPreloadList[wt.current.curVideoGroupId] : (n = r((0,
+                      return r = ot ? st : it,
+                        gt.current.suggestWordsPreloadList[gt.current.curVideoGroupId] ? n = gt.current.suggestWordsPreloadList[gt.current.curVideoGroupId] : (n = r((0,
                           H.Z)({
-                          from_group_id: wt.current.curVideoGroupId
+                          from_group_id: gt.current.curVideoGroupId
                         }, t), {
                           isModalVideo: null == o ? void 0 : o.isModalVideo
                         }),
-                          wt.current.suggestWordsPreloadList[wt.current.curVideoGroupId] = n),
+                          gt.current.suggestWordsPreloadList[gt.current.curVideoGroupId] = n),
                         e.next = 4,
                         n;
                     case 4:
                       return i = e.sent,
-                        wt.current.searchBarWordLogId = i.logId,
-                        Pt.current = i.logId,
+                        gt.current.searchBarWordLogId = i.logId,
+                        Bt.current = i.logId,
                         e.abrupt("return", i.data);
                     case 8:
                     case "end":
@@ -13870,13 +13479,13 @@ window.danmaku_reload_interval = setInterval(() => {
         return function(t) {
           return e.apply(this, arguments)
         }
-      }(), [o, it, Pt])
-        , Gt = (0,
+      }(), [o, ot, Bt])
+        , Vt = (0,
         s.useCallback)(q()((function(e, t) {
-          var n = it ? ct : at;
-          wt.current.suggestWordsPreloadList[t.groupId] || (wt.current.suggestWordsPreloadList = (0,
+          var n = ot ? st : it;
+          gt.current.suggestWordsPreloadList[t.groupId] || (gt.current.suggestWordsPreloadList = (0,
             H.Z)((0,
-            H.Z)({}, wt.current.suggestWordsPreloadList), {}, (0,
+            H.Z)({}, gt.current.suggestWordsPreloadList), {}, (0,
             r.Z)({}, t.groupId, n((0,
             H.Z)({
             from_group_id: t.groupId
@@ -13886,8 +13495,8 @@ window.danmaku_reload_interval = setInterval(() => {
         }
       ), 500, {
         leading: !1
-      }), [o, it])
-        , jt = (0,
+      }), [o, ot])
+        , Wt = (0,
         s.useCallback)(function() {
         var e = (0,
           G.Z)(le().mark((function e(t) {
@@ -13897,30 +13506,30 @@ window.danmaku_reload_interval = setInterval(() => {
                   switch (e.prev = e.next) {
                     case 0:
                       return r = {
-                        count: ot,
-                        query: null === (n = wt.current.guessText) || void 0 === n ? void 0 : n.word
+                        count: rt,
+                        query: null === (n = gt.current.guessText) || void 0 === n ? void 0 : n.word
                       },
                       t && (r.penetrate_params = (0,
                         H.Z)((0,
                         H.Z)({}, r.penetrate_params), {}, {
                         is_manual_change: t
                       })),
-                      Mt.length > 0 && (r.penetrate_params = (0,
+                      It.length > 0 && (r.penetrate_params = (0,
                         H.Z)((0,
                         H.Z)({}, r.penetrate_params), {}, {
-                        pre_query_ids: i()(Mt).call(Mt, (function(e) {
+                        pre_query_ids: i()(It).call(It, (function(e) {
                             return e.id
                           }
                         )).join(",")
                       })),
                         e.next = 5,
-                        lt((0,
+                        at((0,
                           H.Z)({
-                          from_group_id: wt.current.curVideoGroupId
+                          from_group_id: gt.current.curVideoGroupId
                         }, r));
                     case 5:
                       return o = e.sent,
-                        wt.current.guessListLogId = o.logId,
+                        gt.current.guessListLogId = o.logId,
                         e.abrupt("return", o.data.barWords.words);
                     case 8:
                     case "end":
@@ -13933,15 +13542,15 @@ window.danmaku_reload_interval = setInterval(() => {
         return function(t) {
           return e.apply(this, arguments)
         }
-      }(), [Mt, ot])
-        , Kt = (0,
+      }(), [It, rt])
+        , Rt = (0,
         s.useCallback)((function(e) {
-          wt.current.guessText = e,
-            wt.current.guessTextId = null == e ? void 0 : e.id,
-            Ve(e)
+          gt.current.guessText = e,
+            gt.current.guessTextId = null == e ? void 0 : e.id,
+            Oe(e)
         }
       ), [])
-        , qt = (0,
+        , Ft = (0,
         s.useCallback)(function() {
         var e = (0,
           G.Z)(le().mark((function e(t) {
@@ -13951,30 +13560,30 @@ window.danmaku_reload_interval = setInterval(() => {
                   switch (e.prev = e.next) {
                     case 0:
                       return e.next = 2,
-                        jt(t);
+                        Wt(t);
                     case 2:
                       if (r = e.sent,
                         !(te()(r) && r.length > 0)) {
                         e.next = 14;
                         break
                       }
-                      if (Ue(l()(r).call(r, 0, ot)),
-                        wt.current.guessList = l()(r).call(r, 0, ot),
-                      !kt() || n.searchBarBottomWord !== d.searchBarBottomWord.Inside) {
+                      if (Fe(l()(r).call(r, 0, rt)),
+                        gt.current.guessList = l()(r).call(r, 0, rt),
+                      !_t() || n.searchBarBottomWord !== d.searchBarBottomWord.Inside) {
                         e.next = 14;
                         break
                       }
-                      if (o = et.current) {
+                      if (o = $e.current) {
                         e.next = 10;
                         break
                       }
                       return e.abrupt("return");
                     case 10:
                       i = o.clientWidth - re()(getComputedStyle(o).paddingLeft) - re()(getComputedStyle(o).paddingRight),
-                        a = Ee.y(r, i, "inside"),
+                        a = _e.y(r, i, "inside"),
                         s = a.displayableNum,
                         c = l()(r).call(r, 0, Math.min(s, 3)),
-                        Zt(c);
+                        Tt(c);
                     case 14:
                     case "end":
                       return e.stop()
@@ -13986,8 +13595,8 @@ window.danmaku_reload_interval = setInterval(() => {
         return function(t) {
           return e.apply(this, arguments)
         }
-      }(), [jt, n.searchBarBottomWord, kt, Zt, ot])
-        , Yt = (0,
+      }(), [Wt, n.searchBarBottomWord, _t, Tt, rt])
+        , Ut = (0,
         s.useCallback)((0,
         G.Z)(le().mark((function e() {
           var t, n, r, o, a, s, c, u, d;
@@ -13995,16 +13604,16 @@ window.danmaku_reload_interval = setInterval(() => {
               for (; ; )
                 switch (e.prev = e.next) {
                   case 0:
-                    if (!wt.current.hasHotListFetched) {
+                    if (!gt.current.hasHotListFetched) {
                       e.next = 2;
                       break
                     }
                     return e.abrupt("return");
                   case 2:
                     return e.prev = 2,
-                      wt.current.hasHotListFetched = !0,
+                      gt.current.hasHotListFetched = !0,
                       e.next = 6,
-                      ut({});
+                      ct({});
                   case 6:
                     t = e.sent,
                       n = t.statusCode,
@@ -14022,14 +13631,14 @@ window.danmaku_reload_interval = setInterval(() => {
                         }
                       }
                     )),
-                      wt.current.hotListLogId = null == a ? void 0 : a.impr_id,
-                      Ne(d)),
+                      gt.current.hotListLogId = null == a ? void 0 : a.impr_id,
+                      Ce(d)),
                       e.next = 18;
                     break;
                   case 15:
                     e.prev = 15,
                       e.t0 = e.catch(2),
-                      wt.current.hasHotListFetched = !1;
+                      gt.current.hasHotListFetched = !1;
                   case 18:
                   case "end":
                     return e.stop()
@@ -14042,16 +13651,16 @@ window.danmaku_reload_interval = setInterval(() => {
         s.useEffect)((function() {
           var e = m.listen(m.EVENT.postCurVideoInfo, (function(e) {
               if ((o.isModalVideo || "modal" !== e.scene) && (!o.isModalVideo || "modal" === e.scene))
-                if (n.searchBarBottomWord !== d.searchBarBottomWord.Inside || !1 !== wt.current.hasInsideWordShown) {
+                if (n.searchBarBottomWord !== d.searchBarBottomWord.Inside || !1 !== gt.current.hasInsideWordShown) {
                   var t = e.existedSuggestWords
-                    , r = Ye(void 0 === t ? [] : t);
-                  null != e && e.preload ? Gt({
+                    , r = qe(void 0 === t ? [] : t);
+                  null != e && e.preload ? Vt({
                     penetrate_params: {
                       inbox_exist_word_id: r
                     }
-                  }, e) : (wt.current.curVideoGroupId = e.groupId || "",
-                    wt.current.feedBarIds = r,
-                    Ht({
+                  }, e) : (gt.current.curVideoGroupId = e.groupId || "",
+                    gt.current.feedBarIds = r,
+                    Ot({
                       penetrate_params: {
                         inbox_exist_word_id: r
                       }
@@ -14060,225 +13669,225 @@ window.danmaku_reload_interval = setInterval(() => {
                           , r = e.bottomWords
                           , o = e.underboxMore
                           , i = t.words[0]
-                          , a = Je(r.words, o.words, wt.current.underInboxMoreCursor);
+                          , a = Qe(r.words, o.words, gt.current.underInboxMoreCursor);
                         if (n.bottomWordOpt === d.BottomWordOpt.BarWordPrior) {
-                          var s = Qe(i, a, "inbox");
+                          var s = ze(i, a, "inbox");
                           i = s.dedupedInboxWords,
                             a = s.dedupedUnderboxWords
                         }
                         if (n.bottomWordOpt === d.BottomWordOpt.BottomWordPrior) {
                           var c = 999;
                           if (a.length > 0)
-                            c = At(a, r.words.length).displayableNum;
-                          var u = Qe(i, l()(a).call(a, 0, c), "underbox");
+                            c = Mt(a, r.words.length).displayableNum;
+                          var u = ze(i, l()(a).call(a, 0, c), "underbox");
                           i = u.dedupedInboxWords,
                             a = u.dedupedUnderboxWords
                         }
-                        Kt(i),
-                        wt.current.inputFocus || (wt.current.guessText ? (D(""),
+                        Rt(i),
+                        gt.current.inputFocus || (gt.current.guessText ? (D(""),
                           W(""),
-                          Ft()) : Ut(),
-                        it && a.length > 0 && n.bottomWordOpt !== d.BottomWordOpt.BottomWordPrior && At(a, r.words.length))
+                          At()) : Pt(),
+                        ot && a.length > 0 && n.bottomWordOpt !== d.BottomWordOpt.BottomWordPrior && Mt(a, r.words.length))
                       }
                     )).catch((function() {
-                        return Ut()
+                        return Pt()
                       }
                     )))
                 } else
-                  wt.current.hasInsideWordShown = !0
+                  gt.current.hasInsideWordShown = !0
             }
           ));
           return function() {
             null == e || e()
           }
         }
-      ), [n, o.isModalVideo, Kt, Ft, Ut, Gt, it, Ht, At]);
-      var Xt = (0,
+      ), [n, o.isModalVideo, Rt, At, Pt, Vt, ot, Ot, Mt]);
+      var Ht = (0,
         s.useCallback)((function(e) {
           e.preventDefault(),
-            wt.current.pressDownTime = performance.now()
+            gt.current.pressDownTime = performance.now()
         }
       ), [])
-        , zt = (0,
+        , Gt = (0,
         s.useCallback)((function() {
           D(""),
             W(""),
-            Ct(),
+            kt(),
             u("clearButtonClick", {
-              enter_from: _t()
+              enter_from: yt()
             })
         }
-      ), [Ct, u])
-        , Qt = (0,
+      ), [kt, u])
+        , jt = (0,
         s.useCallback)((function(e) {
           var t, n, r, o;
-          if (!V && wt.current.guessText)
-            return Et(null === (n = wt.current.guessText) || void 0 === n ? void 0 : n.word, "search_bar_inner", "", !1, !0),
+          if (!V && gt.current.guessText)
+            return wt(null === (n = gt.current.guessText) || void 0 === n ? void 0 : n.word, "search_bar_inner", "", !1, !0),
               void u("guessWordClick", {
-                enter_from: _t(),
-                impr_id: wt.current.searchBarWordLogId,
-                words_content: null === (r = wt.current.guessText) || void 0 === r ? void 0 : r.word,
+                enter_from: yt(),
+                impr_id: gt.current.searchBarWordLogId,
+                words_content: null === (r = gt.current.guessText) || void 0 === r ? void 0 : r.word,
                 words_num: "1",
                 words_position: 0,
                 words_source: "search_bar_inner",
-                group_id: wt.current.guessTextId
+                group_id: gt.current.guessTextId
               });
-          Lt && Tt.length > 0 && (Et(Tt[0].word, "search_bar_inner", "", !1, !0),
-            qt(),
+          St && Ct.length > 0 && (wt(Ct[0].word, "search_bar_inner", "", !1, !0),
+            Ft(),
             u("guessWordClick", {
-              enter_from: _t(),
-              impr_id: wt.current.guessListLogId,
-              words_content: Tt[0].word,
-              words_num: String(Tt.length),
+              enter_from: yt(),
+              impr_id: gt.current.guessListLogId,
+              words_content: Ct[0].word,
+              words_num: String(Ct.length),
               words_position: 0,
               words_source: "search_bar_inner",
-              group_id: null === (o = Tt[0]) || void 0 === o ? void 0 : o.id
+              group_id: null === (o = Ct[0]) || void 0 === o ? void 0 : o.id
             }));
-          Et(wt.current.showText || wt.current.hotSearchKeyword, "normal_search", N()(t = "".concat(null == e ? void 0 : e.pageX, ",")).call(t, null == e ? void 0 : e.pageY))
+          wt(gt.current.showText || gt.current.hotSearchKeyword, "normal_search", T()(t = "".concat(null == e ? void 0 : e.pageX, ",")).call(t, null == e ? void 0 : e.pageY))
         }
-      ), [Et, Se, V])
-        , Jt = (0,
+      ), [wt, Ze, V])
+        , Kt = (0,
         s.useCallback)((function(e) {
-          var t = ke.C(e);
+          var t = Ee.C(e);
           if ("ArrowUp" !== t && "ArrowDown" !== t || e.preventDefault(),
-          "Enter" === t && !wt.current.isPinyin) {
-            var n, r = wt.current.showText;
-            if (r && wt.current.isFirefox || e.preventDefault(),
-            !V && wt.current.guessText)
-              return void Et(null === (n = wt.current.guessText) || void 0 === n ? void 0 : n.word, "search_bar_inner", "", !0, !0);
-            if (null === bt)
-              Et(r, "normal_search", "-2,-2", !0);
-            else if ("sug" === wt.current.suggestionState)
-              Et(r, "search_sug", "-1,-1"),
+          "Enter" === t && !gt.current.isPinyin) {
+            var n, r = gt.current.showText;
+            if (r && gt.current.isFirefox || e.preventDefault(),
+            !V && gt.current.guessText)
+              return void wt(null === (n = gt.current.guessText) || void 0 === n ? void 0 : n.word, "search_bar_inner", "", !0, !0);
+            if (null === xt)
+              wt(r, "normal_search", "-2,-2", !0);
+            else if ("sug" === gt.current.suggestionState)
+              wt(r, "search_sug", "-1,-1"),
                 u("sugClick", {
-                  impr_id: wt.current.response.log_pb.impr_id,
+                  impr_id: gt.current.response.log_pb.impr_id,
                   search_keyword: r,
-                  search_type: wt.current.tab,
+                  search_type: gt.current.tab,
                   sug_keyword: r
                 }),
                 u("trendingWordsClick", {
-                  impr_id: wt.current.response.log_pb.impr_id,
-                  words_position: bt,
+                  impr_id: gt.current.response.log_pb.impr_id,
+                  words_position: xt,
                   words_content: r,
                   raw_query: r,
-                  rank: bt + 1,
-                  search_position: wt.current.tab,
-                  query_id: wt.current.response.words_query_record.query_id,
-                  group_id: wt.current.response.sug_list[bt].word_record.group_id
+                  rank: xt + 1,
+                  search_position: gt.current.tab,
+                  query_id: gt.current.response.words_query_record.query_id,
+                  group_id: gt.current.response.sug_list[xt].word_record.group_id
                 });
-            else if ("middle_page" === wt.current.suggestionState && (Fe.length > 0 || Ce.length > 0)) {
+            else if ("middle_page" === gt.current.suggestionState && (Re.length > 0 || be.length > 0)) {
               var o, i;
-              if (bt < Fe.length)
-                Et(r, "recom_search", "-2,-2", !0, !0),
+              if (xt < Re.length)
+                wt(r, "recom_search", "-2,-2", !0, !0),
                   u("guessWordClick", {
-                    impr_id: wt.current.guessListLogId,
-                    enter_from: _t(),
-                    words_num: String(Fe.length),
-                    words_position: bt,
+                    impr_id: gt.current.guessListLogId,
+                    enter_from: yt(),
+                    words_num: String(Re.length),
+                    words_position: xt,
                     words_content: r,
-                    group_id: (null === (o = Fe[bt]) || void 0 === o ? void 0 : o.id) || ""
+                    group_id: (null === (o = Re[xt]) || void 0 === o ? void 0 : o.id) || ""
                   });
               else
-                Et(r, "hot_search_board", "-2,-2", !0, !1),
+                wt(r, "hot_search_board", "-2,-2", !0, !1),
                   u("hotWordClick", {
-                    impr_id: wt.current.hotListLogId,
-                    enter_from: _t(),
-                    words_num: String(Ce.length),
-                    words_position: bt,
+                    impr_id: gt.current.hotListLogId,
+                    enter_from: yt(),
+                    words_num: String(be.length),
+                    words_position: xt,
                     words_content: r,
-                    group_id: (null === (i = Ce[bt - Fe.length]) || void 0 === i ? void 0 : i.group_id) || ""
+                    group_id: (null === (i = be[xt - Re.length]) || void 0 === i ? void 0 : i.group_id) || ""
                   })
             }
           }
         }
-      ), [Et, bt, Fe, Ce, Se, u, V])
-        , $t = (0,
+      ), [wt, xt, Re, be, Ze, u, V])
+        , qt = (0,
         s.useCallback)((function(e) {
           var t = e.currentTarget.dataset
             , n = t.text
             , r = t.index;
-          Et(n, "search_history", "-1,-1"),
+          wt(n, "search_history", "-1,-1"),
             u("historyClick", {
-              enter_from: _t(),
+              enter_from: yt(),
               words_num: String(g && g.length > 0 && Math.min(g.length, M) || 0),
               words_position: r,
               words_content: n
             })
         }
-      ), [Et])
-        , en = (0,
+      ), [wt])
+        , Yt = (0,
         s.useCallback)((function(e) {
           var t = e.currentTarget.dataset.text;
-          Et(t, "search_cny_word", "-1,-1"),
+          wt(t, "search_cny_word", "-1,-1"),
             u("trendingWordsClick", {
-              words_content: x
+              words_content: k
             })
         }
-      ), [Et])
-        , tn = (0,
+      ), [wt])
+        , Xt = (0,
         s.useCallback)((function(e) {
           var t = Number(e.currentTarget.dataset.index)
-            , n = wt.current.sug.sugList[t];
-          Et(n, "search_sug", "-1,-1"),
+            , n = gt.current.sug.sugList[t];
+          wt(n, "search_sug", "-1,-1"),
             u("sugClick", {
-              impr_id: wt.current.response.log_pb.impr_id,
-              search_keyword: wt.current.inputText,
-              search_type: wt.current.tab,
+              impr_id: gt.current.response.log_pb.impr_id,
+              search_keyword: gt.current.inputText,
+              search_type: gt.current.tab,
               sug_keyword: n
             }),
             u("trendingWordsClick", {
-              impr_id: wt.current.response.log_pb.impr_id,
+              impr_id: gt.current.response.log_pb.impr_id,
               words_position: t,
               words_content: n,
-              raw_query: wt.current.inputText,
+              raw_query: gt.current.inputText,
               rank: -1,
-              search_position: wt.current.tab,
-              query_id: wt.current.response.words_query_record.query_id,
-              group_id: wt.current.response.sug_list[t].word_record.group_id
+              search_position: gt.current.tab,
+              query_id: gt.current.response.words_query_record.query_id,
+              group_id: gt.current.response.sug_list[t].word_record.group_id
             })
         }
-      ), [Et]);
+      ), [wt]);
       (0,
         s.useEffect)((function() {
-          oe && !L && (Boolean(null == g ? void 0 : g.length) || Boolean(null == Ce ? void 0 : Ce.length) || Boolean(null == Fe ? void 0 : Fe.length)) ? J("middle_page") : oe && Boolean(L) && Boolean(T.sugList.length) ? J("sug") : J("idle")
+          oe && !I && (Boolean(null == g ? void 0 : g.length) || Boolean(null == be ? void 0 : be.length) || Boolean(null == Re ? void 0 : Re.length)) ? J("middle_page") : oe && Boolean(I) && Boolean(N.sugList.length) ? J("sug") : J("idle")
         }
-      ), [oe, g, T, L, Ce, Fe]),
+      ), [oe, g, N, I, be, Re]),
         (0,
           s.useEffect)((function() {
-            if (oe && null === bt && (!T.sugList.length || T.query !== L)) {
+            if (oe && null === xt && (!N.sugList.length || N.query !== I)) {
               var e = performance.now();
-              dt({
-                keyword: L,
+              ut({
+                keyword: I,
                 source: "aweme_video_web",
-                from_group_id: wt.current.curVideoGroupId
+                from_group_id: gt.current.curVideoGroupId
               }).then((function(t) {
-                  var n, r, o = wt.current.tab;
-                  wt.current.response = t;
+                  var n, r, o = gt.current.tab;
+                  gt.current.response = t;
                   var a = t.log_pb.impr_id
                     , l = t.extra.logId
                     , s = t.words_query_record.query_id
                     , c = (null === (n = t.sug_list) || void 0 === n ? void 0 : n.length) || 0
                     , d = performance.now();
-                  rt.current[L] = {
+                  nt.current[I] = {
                     sugStartTime: e,
                     sugFetchTime: d,
                     impr_id: a,
                     words_num: c,
                     search_type: o,
-                    sug_keyword: L
+                    sug_keyword: I
                   },
                     u("sugShow", {
                       impr_id: a,
-                      search_keyword: L,
+                      search_keyword: I,
                       search_type: o,
-                      sug_keyword: L
+                      sug_keyword: I
                     }),
                     u("trendingShow", {
                       log_pb: t.log_pb,
                       impr_id: a,
                       search_id: l,
                       words_num: c,
-                      raw_query: L,
+                      raw_query: I,
                       search_position: o
                     }),
                     Z({
@@ -14288,7 +13897,7 @@ window.danmaku_reload_interval = setInterval(() => {
                             search_id: l,
                             words_position: t,
                             words_content: e.content,
-                            raw_query: L,
+                            raw_query: I,
                             rank: -1,
                             search_position: o,
                             query_id: s,
@@ -14297,151 +13906,152 @@ window.danmaku_reload_interval = setInterval(() => {
                             e.content
                         }
                       )),
-                      query: L
+                      query: I
                     })
                 }
               )).catch((function() {
                   Z({
                     sugList: [],
-                    query: L
+                    query: I
                   })
                 }
               ))
             }
           }
-        ), [oe, L, bt]),
+        ), [oe, I, xt]),
         (0,
           s.useEffect)((function() {
-            if (T.query) {
+            if (N.query) {
               var e = performance.now()
-                , t = rt.current[T.query] || {}
+                , t = nt.current[N.query] || {}
                 , n = t.sugStartTime
                 , r = t.sugFetchTime
                 , o = (0,
-                F.Z)(t, pt);
+                F.Z)(t, vt);
               u("searchSugLoadPerformance", (0,
                 H.Z)((0,
                 H.Z)({}, o), {}, {
                 sug_fetch_duration: r - n,
                 sug_render_duration: e - r,
-                enter_from: _t()
+                enter_from: yt()
               })),
-                delete rt.current[T.query]
+                delete nt.current[N.query]
             }
           }
-        ), [T]);
-      var nn = (0,
+        ), [N]);
+      var zt = (0,
         s.useCallback)((function() {
           y()
         }
       ), [])
-        , rn = (0,
+        , Qt = (0,
         s.useCallback)((function(e) {
+          oe || ae(!0);
           var t = e.target.value;
           D(t),
             W(t),
-            Ct()
+            kt()
         }
       ), [])
-        , on = (0,
+        , Jt = (0,
         s.useCallback)((function(e) {
           e.stopPropagation();
           var t = e.currentTarget.dataset.text;
           w(t)
         }
       ), [])
-        , an = (0,
+        , $t = (0,
         s.useCallback)((function(e) {
           e.stopPropagation();
           var t = e.currentTarget.dataset.text;
           D(t),
             W(t),
-            Ct()
+            kt()
         }
       ), [])
-        , ln = (0,
+        , en = (0,
         s.useCallback)((function() {
           u("enterSearch", {
-            enter_from: _t(),
-            enter_from_second: _t(),
-            click_method: wt.current.focusMethod
+            enter_from: yt(),
+            enter_from_second: yt(),
+            click_method: gt.current.focusMethod
           }),
-            wt.current.focusTime = performance.now(),
-            wt.current.inputFocus = !0,
-            Yt(),
+            gt.current.focusTime = performance.now(),
+            gt.current.inputFocus = !0,
             Ut(),
-            It(),
-            n.searchBarBottomWord === d.searchBarBottomWord.Inside && kt() ? wt.current.hasGuessTextShown && qt() : qt(),
+            Pt(),
+            Zt(),
+            n.searchBarBottomWord === d.searchBarBottomWord.Inside && _t() ? gt.current.hasGuessTextShown && Ft() : Ft(),
             ae(!0),
             m.emit(m.EVENT.videoStopPlayNext),
             m.emit(m.EVENT.searchBarFocus)
         }
-      ), [u, Ut, qt, It, _t, n.searchBarBottomWord, kt, Yt])
-        , sn = (0,
+      ), [u, Pt, Ft, Zt, yt, n.searchBarBottomWord, _t, Ut])
+        , tn = (0,
         s.useCallback)((function() {
-          wt.current.inputFocus = !1,
-          n.searchBarBottomWord === d.searchBarBottomWord.Inside && kt() && !wt.current.hasGuessTextShown && !wt.current.showText && qt().then((function() {
-              !wt.current.hasGuessTextShown && !wt.current.guessText && wt.current.guessList.length > 0 && St()
+          gt.current.inputFocus = !1,
+          n.searchBarBottomWord === d.searchBarBottomWord.Inside && _t() && !gt.current.hasGuessTextShown && !gt.current.showText && Ft().then((function() {
+              !gt.current.hasGuessTextShown && !gt.current.guessText && gt.current.guessList.length > 0 && Nt()
             }
           )),
-            wt.current.guessText ? Ft() : Ut(),
-            wt.current.focusMethod = "",
+            gt.current.guessText ? At() : Pt(),
+            gt.current.focusMethod = "",
             ae(!1),
-            Ct(),
+            kt(),
             m.emit(m.EVENT.videoRemoveStopPlayNext),
             m.emit(m.EVENT.searchBarBlur)
         }
-      ), [Ft, Ut, Ct, St, qt, n.searchBarBottomWord, kt])
-        , cn = (0,
+      ), [At, Pt, kt, Nt, Ft, n.searchBarBottomWord, _t])
+        , nn = (0,
         s.useCallback)((function() {
-          wt.current.isPinyin = !0
+          gt.current.isPinyin = !0
         }
       ), [])
-        , un = (0,
+        , rn = (0,
         s.useCallback)((function() {
-          wt.current.isPinyin = !1
+          gt.current.isPinyin = !1
         }
       ), [])
-        , dn = (0,
+        , on = (0,
         s.useCallback)((function(e) {
           var t, n = e.currentTarget.dataset, r = n.text, o = n.index;
-          r && (Et(r, "hot_search_board", "", !1, !1),
+          r && (wt(r, "hot_search_board", "", !1, !1),
             u("hotWordClick", {
-              impr_id: wt.current.hotListLogId,
-              enter_from: _t(),
-              words_num: String((null == Ce ? void 0 : Ce.length) || 0),
+              impr_id: gt.current.hotListLogId,
+              enter_from: yt(),
+              words_num: String((null == be ? void 0 : be.length) || 0),
               words_position: o,
               words_content: r,
-              group_id: (null == Ce || null === (t = Ce[o]) || void 0 === t ? void 0 : t.group_id) || ""
+              group_id: (null == be || null === (t = be[o]) || void 0 === t ? void 0 : t.group_id) || ""
             }))
         }
-      ), [Et])
-        , mn = (0,
+      ), [wt])
+        , an = (0,
         s.useCallback)((function(e) {
           var t, n = e.currentTarget.dataset, r = n.text, o = n.index;
-          r && (Et(r, "recom_search", "", !1, !0),
+          r && (wt(r, "recom_search", "", !1, !0),
             u("guessWordClick", {
-              impr_id: wt.current.guessListLogId,
-              enter_from: _t(),
-              words_num: String(Fe.length || 0),
+              impr_id: gt.current.guessListLogId,
+              enter_from: yt(),
+              words_num: String(Re.length || 0),
               words_position: Number(o),
               words_content: r,
-              group_id: (null === (t = Fe[Number(o)]) || void 0 === t ? void 0 : t.id) || ""
+              group_id: (null === (t = Re[Number(o)]) || void 0 === t ? void 0 : t.id) || ""
             }))
         }
-      ), [Et, u, Fe])
-        , vn = (0,
-        pe.x)((function() {
+      ), [wt, u, Re])
+        , ln = (0,
+        he.x)((function() {
           u("trendingWordsShow", {
-            words_content: x
+            words_content: k
           })
         }
       ))
-        , fn = (0,
-        pe.x)((function() {
+        , sn = (0,
+        he.x)((function() {
           ie()(g).call(g, (function(e, t) {
               u("historyShow", {
-                enter_from: _t(),
+                enter_from: yt(),
                 words_num: String(g && g.length > 0 && Math.min(g.length, M) || 0),
                 words_position: t,
                 words_content: e
@@ -14450,29 +14060,29 @@ window.danmaku_reload_interval = setInterval(() => {
           ))
         }
       ))
-        , hn = (0,
-        pe.x)((function() {
-          ie()(Ce).call(Ce, (function(e, t) {
+        , cn = (0,
+        he.x)((function() {
+          ie()(be).call(be, (function(e, t) {
               var n;
               u("hotWordShow", {
-                impr_id: wt.current.hotListLogId,
-                enter_from: _t(),
-                words_num: String((null == Ce ? void 0 : Ce.length) || 0),
+                impr_id: gt.current.hotListLogId,
+                enter_from: yt(),
+                words_num: String((null == be ? void 0 : be.length) || 0),
                 words_position: t,
                 words_content: e.word,
-                group_id: (null == Ce || null === (n = Ce[t]) || void 0 === n ? void 0 : n.group_id) || ""
+                group_id: (null == be || null === (n = be[t]) || void 0 === n ? void 0 : n.group_id) || ""
               })
             }
           ))
         }
       ))
-        , pn = (0,
-        pe.x)((function() {
-          ie()(Fe).call(Fe, (function(e, t) {
+        , un = (0,
+        he.x)((function() {
+          ie()(Re).call(Re, (function(e, t) {
               u("guessWordShow", {
-                impr_id: wt.current.guessListLogId,
-                enter_from: _t(),
-                words_num: String(Fe.length || 0),
+                impr_id: gt.current.guessListLogId,
+                enter_from: yt(),
+                words_num: String(Re.length || 0),
                 words_position: t,
                 words_content: e.word,
                 group_id: e.id
@@ -14487,11 +14097,11 @@ window.danmaku_reload_interval = setInterval(() => {
               var t, n = null === (t = xe.Le.getConfig(xe.gI.IsInModalVideo)) || void 0 === t ? void 0 : t.isInModal;
               if (!(!o.isModalVideo && n || o.isModalVideo && !n)) {
                 var r = null == e ? void 0 : e.isFocus;
-                wt.current.guessText ? (wt.current.focusMethod = "hot_key",
-                r && Qt(),
-                  wt.current.focusMethod = "") : X()((function() {
-                    r ? (wt.current.focusMethod = "hot_key",
-                      et.current.focus()) : et.current.blur()
+                gt.current.guessText ? (gt.current.focusMethod = "hot_key",
+                r && jt(),
+                  gt.current.focusMethod = "") : X()((function() {
+                    r ? (gt.current.focusMethod = "hot_key",
+                      $e.current.focus()) : $e.current.blur()
                   }
                 ), 50)
               }
@@ -14501,32 +14111,32 @@ window.danmaku_reload_interval = setInterval(() => {
             null == e || e()
           }
         }
-      ), [Qt, ln, sn, o.isModalVideo]),
+      ), [jt, en, tn, o.isModalVideo]),
         (0,
           s.useEffect)((function() {
-            be.H(Yt)
+            ke.H(Ut)
           }
         ), []),
         (0,
           s.useEffect)((function() {
-            kt() && n.searchBarBottomWord === d.searchBarBottomWord.Inside && qt().then((function() {
-                !wt.current.inputFocus && wt.current.guessList.length > 0 && St()
+            _t() && n.searchBarBottomWord === d.searchBarBottomWord.Inside && Ft().then((function() {
+                !gt.current.inputFocus && gt.current.guessList.length > 0 && Nt()
               }
             ))
           }
-        ), [o.isModalVideo, o.isSearchPage, n, kt]),
+        ), [o.isModalVideo, o.isSearchPage, n, _t]),
         (0,
           s.useEffect)((function() {
-            Kt(null),
-              Ut()
+            Rt(null),
+              Pt()
           }
         ), [null == o ? void 0 : o.pathname]);
-      var gn = (0,
+      var dn = (0,
         s.useCallback)((function() {
-          yt((function() {
+          pt((function() {
               return X()((function() {
-                  qt(),
-                    Yt(),
+                  Ft(),
+                    Ut(),
                     ae(!0),
                     m.emit(m.EVENT.videoStopPlayNext),
                     m.emit(m.EVENT.searchBarFocus)
@@ -14535,69 +14145,67 @@ window.danmaku_reload_interval = setInterval(() => {
             }
           ))
         }
-      ), [qt, Yt])
-        , yn = (0,
+      ), [Ft, Ut])
+        , mn = (0,
         s.useCallback)((function() {
-          clearTimeout(gt),
+          clearTimeout(ht),
             ae(!1),
             m.emit(m.EVENT.videoRemoveStopPlayNext),
             m.emit(m.EVENT.searchBarBlur)
         }
-      ), [gt]);
+      ), [ht]);
       return {
         history: g,
         showText: V,
-        hotSearchText: k,
-        hotSearchKeyword: x,
-        hotList: Ce,
+        hotSearchText: x,
+        hotSearchKeyword: k,
+        hotList: be,
         suggestionState: z,
-        onFocus: ln,
+        onFocus: en,
         inputFocus: oe,
-        onBlur: sn,
-        onInputChange: rn,
-        onSearchClick: Qt,
-        onInputKeyDown: Jt,
-        clearHistory: nn,
-        onHistoryClick: $t,
-        onHotWordClick: en,
-        onSugClick: tn,
-        onDeleteHistoryItem: on,
-        sug: T,
+        onBlur: tn,
+        onInputChange: Qt,
+        onSearchClick: jt,
+        onInputKeyDown: Kt,
+        clearHistory: zt,
+        onHistoryClick: qt,
+        onHotWordClick: Yt,
+        onSugClick: Xt,
+        onDeleteHistoryItem: Jt,
+        sug: N,
         setInputText: D,
-        onSetSug: an,
-        preventDefault: Ge,
-        onMouseDown: Xt,
-        searchBarRef: nt,
-        inputRef: et,
-        formRef: tt,
-        hotWordRef: vn,
-        historyRef: fn,
-        hotListRef: hn,
-        guessListRef: pn,
-        onCompositionStart: cn,
-        onCompositionEnd: un,
-        keyboardNavIndex: bt,
-        onHotListWordClick: dn,
-        onGuessListWordClick: mn,
-        onInputClearButtonClick: zt,
-        placeHolder: Se,
-        isGuessTextShow: Me,
-        guessText: Oe,
-        guessList: Fe,
-        bottomWordList: Mt,
-        onBottomWordClick: Bt,
-        isButtonHover: ze,
-        setButtonHover: $e,
-        insideWordList: Tt,
-        isInsideWordShow: Lt,
-        updateGuessList: qt,
-        onMouseEnter: gn,
-        onMouseLeave: yn,
-        relatedWordList: Vt,
-        onRelatedWordClick: Wt
+        onSetSug: $t,
+        preventDefault: He,
+        onMouseDown: Ht,
+        searchBarRef: tt,
+        inputRef: $e,
+        formRef: et,
+        hotWordRef: ln,
+        historyRef: sn,
+        hotListRef: cn,
+        guessListRef: un,
+        onCompositionStart: nn,
+        onCompositionEnd: rn,
+        keyboardNavIndex: xt,
+        onHotListWordClick: on,
+        onGuessListWordClick: an,
+        onInputClearButtonClick: Gt,
+        placeHolder: Ze,
+        isGuessTextShow: De,
+        guessText: Pe,
+        guessList: Re,
+        bottomWordList: It,
+        onBottomWordClick: Dt,
+        isButtonHover: Xe,
+        setButtonHover: Je,
+        insideWordList: Ct,
+        isInsideWordShow: St,
+        updateGuessList: Ft,
+        onMouseEnter: dn,
+        onMouseLeave: mn
       }
     }
-    const yt = {
+    const ht = {
       hotView: "ECfNAnuN",
       searchBarContainer: "AFTy15pW",
       searchBar: "lPytbapz",
@@ -14665,28 +14273,28 @@ window.danmaku_reload_interval = setInterval(() => {
       guessListItemIconLive: "B2CLKUW6",
       bottomWord: "Lo8QPz5R"
     };
-    var wt = n(92887)
-      , _t = n(58778)
-      , Et = n(39370);
-    const kt = "G1wNaptA"
-      , xt = "Hwa4NdpH"
-      , bt = "nCWuTGbt"
-      , Ct = "Gzyl1zZ2"
-      , Nt = "oODOqrsZ"
-      , Tt = "xVVBuUHj"
-      , Zt = "yt2kqmdu"
-      , St = "eo3_cSOv"
-      , It = "Y2_zgfIU"
-      , Lt = "ZFs_o_xH"
-      , Dt = "ivS2xlnF";
-    var Mt = n(52255)
-      , Bt = (0,
+    var pt = n(92887)
+      , gt = n(58778)
+      , yt = n(39370);
+    const wt = "G1wNaptA"
+      , _t = "Hwa4NdpH"
+      , Et = "nCWuTGbt"
+      , xt = "Gzyl1zZ2"
+      , kt = "oODOqrsZ"
+      , bt = "xVVBuUHj"
+      , Ct = "yt2kqmdu"
+      , Tt = "eo3_cSOv"
+      , Nt = "Y2_zgfIU"
+      , Zt = "ZFs_o_xH"
+      , St = "ivS2xlnF";
+    var Lt = n(52255)
+      , It = (0,
       s.forwardRef)((function(e, t) {
         var n, o, a = e.history, c = e.onHistoryItemClick, d = e.customProps, m = e.onDeleteHistoryItem, v = e.limit, f = e.clearHistory, h = (0,
           s.useState)(v), p = (0,
           j.Z)(h, 2), g = p[0], y = p[1], w = (0,
           s.useState)(!1), _ = (0,
-          j.Z)(w, 2), E = _[0], k = _[1], x = (o = (0,
+          j.Z)(w, 2), E = _[0], x = _[1], k = (o = (0,
           s.useMemo)((function() {
             return (0,
               de.y$)(R)
@@ -14694,7 +14302,7 @@ window.danmaku_reload_interval = setInterval(() => {
         ), []),
           {
             buttonRef: (0,
-              pe.x)((function() {
+              he.x)((function() {
                 return o("historyFoldButtonShow")
               }
             )),
@@ -14703,15 +14311,15 @@ window.danmaku_reload_interval = setInterval(() => {
                 return o("historyFoldButtonClick")
               }
             ), [o])
-          }), b = x.buttonRef, C = x.onButtonClick, N = (0,
+          }), b = k.buttonRef, C = k.onButtonClick, T = (0,
           s.useCallback)((function() {
             C(),
-              k(!1),
+              x(!1),
               y(v)
           }
-        ), [k, y, C, v]), T = (0,
+        ), [x, y, C, v]), N = (0,
           s.useCallback)((function() {
-            for (var e, n, r = Se()((null == t || null === (e = t.current) || void 0 === e ? void 0 : e.children) || []), o = (null == t || null === (n = t.current) || void 0 === n ? void 0 : n.offsetWidth) || 0, i = 56, a = 0; a < r.length; a++) {
+            for (var e, n, r = Ze()((null == t || null === (e = t.current) || void 0 === e ? void 0 : e.children) || []), o = (null == t || null === (n = t.current) || void 0 === n ? void 0 : n.offsetWidth) || 0, i = 56, a = 0; a < r.length; a++) {
               var l = r[a];
               if (null == l || !l.offsetTop)
                 break;
@@ -14719,7 +14327,7 @@ window.danmaku_reload_interval = setInterval(() => {
                 if (l.offsetTop === i + 64) {
                   var s = o - r[a - 1].offsetWidth + r[a - 1].offsetLeft;
                   y(s >= 22 ? a - 1 : a - 2),
-                    k(!0);
+                    x(!0);
                   break
                 }
               } else
@@ -14729,26 +14337,26 @@ window.danmaku_reload_interval = setInterval(() => {
         ), [t]);
         return (0,
           s.useEffect)((function() {
-            return T(),
+            return N(),
               window.addEventListener("resize", (function() {
-                  return T()
+                  return N()
                 }
               )),
               window.removeEventListener("resize", (function() {
-                  return T()
+                  return N()
                 }
               ))
           }
-        ), [T]),
+        ), [N]),
           s.createElement(s.Fragment, null, s.createElement("div", {
-            className: kt
+            className: wt
           }, s.createElement("span", {
-            className: xt
+            className: _t
           }, "\u5386\u53f2\u8bb0\u5f55"), s.createElement("div", {
-            className: bt,
+            className: Et,
             onClick: f
-          }, s.createElement(Mt.Z, {
-            src: globalThis.getFilterXss().filterUrl(Et.Z, null, {
+          }, s.createElement(Lt.Z, {
+            src: globalThis.getFilterXss().filterUrl(yt.Z, null, {
               logType: "js.href/src",
               reportOnly: !1
             }),
@@ -14756,9 +14364,9 @@ window.danmaku_reload_interval = setInterval(() => {
             height: 14,
             viewBox: "0 0 14 14"
           }), s.createElement("span", {
-            className: Ct
+            className: xt
           }, "\u6e05\u9664\u8bb0\u5f55"))), s.createElement("div", {
-            className: Nt,
+            className: kt,
             ref: t,
             "data-e2e": "search-history-container"
           }, i()(n = l()(a).call(a, 0, g)).call(n, (function(e, t) {
@@ -14766,21 +14374,21 @@ window.danmaku_reload_interval = setInterval(() => {
                 "data-text": e,
                 "data-index": t,
                 onClick: c,
-                className: u()(Tt, (0,
-                  r.Z)({}, Zt, null == d ? void 0 : d.isModalVideo)),
+                className: u()(bt, (0,
+                  r.Z)({}, Ct, null == d ? void 0 : d.isModalVideo)),
                 key: e
               }, s.createElement("span", {
-                className: Lt
+                className: Zt
               }, e), s.createElement("div", {
-                className: St,
+                className: Tt,
                 "data-text": e,
                 onClick: m
-              }, s.createElement(Mt.Z, {
-                src: globalThis.getFilterXss().filterUrl(wt.Z, null, {
+              }, s.createElement(Lt.Z, {
+                src: globalThis.getFilterXss().filterUrl(pt.Z, null, {
                   logType: "js.href/src",
                   reportOnly: !1
                 }),
-                className: It,
+                className: Nt,
                 width: 14,
                 height: 14,
                 viewBox: "0 0 12 12"
@@ -14788,13 +14396,13 @@ window.danmaku_reload_interval = setInterval(() => {
             }
           )), E && s.createElement("div", {
             ref: b,
-            onClick: N,
-            className: Dt,
+            onClick: T,
+            className: St,
             style: {
               width: 22
             }
-          }, s.createElement(Mt.Z, {
-            src: globalThis.getFilterXss().filterUrl(_t.Z, null, {
+          }, s.createElement(Lt.Z, {
+            src: globalThis.getFilterXss().filterUrl(gt.Z, null, {
               logType: "js.href/src",
               reportOnly: !1
             }),
@@ -14804,7 +14412,7 @@ window.danmaku_reload_interval = setInterval(() => {
           }))))
       }
     ))
-      , At = function(e) {
+      , Dt = function(e) {
       var t, n = e.words, r = e.query, o = e.matchClass, a = i()(t = n === r ? [""] : n.split(r)).call(t, (function(e, t) {
           return "" === e ? s.createElement("span", {
             key: t,
@@ -14813,11 +14421,11 @@ window.danmaku_reload_interval = setInterval(() => {
         }
       ));
       return s.createElement("span", {
-        className: yt.suggestionItemContext
+        className: ht.suggestionItemContext
       }, a)
     }
-      , Pt = function(e) {
-      var t, n, o, a, c, C, N, T = e.abTestData, Z = void 0 === T ? {} : T, I = e.userInfo, L = e.onSearchClick, B = e.onHistoryClick, A = e.onInputKeyDown, P = e.customProps, O = void 0 === P ? {} : P, V = [y.Z, w.Z, _.Z, E.Z, k.Z, x.Z, b.Z], W = function() {
+      , Mt = function(e) {
+      var t, n, o, a, c, C, T, N = e.abTestData, Z = void 0 === N ? {} : N, L = e.userInfo, I = e.onSearchClick, B = e.onHistoryClick, A = e.onInputKeyDown, P = e.customProps, O = void 0 === P ? {} : P, V = [y.Z, w.Z, _.Z, E.Z, x.Z, k.Z, b.Z], W = function() {
         var e = (0,
           s.useState)(!1)
           , t = (0,
@@ -14853,10 +14461,10 @@ window.danmaku_reload_interval = setInterval(() => {
           }
         ), []),
           n
-      }(), F = gt(null == I || null === (t = I.info) || void 0 === t ? void 0 : t.secUid, (function() {
+      }(), F = ft(null == L || null === (t = L.info) || void 0 === t ? void 0 : t.secUid, (function() {
           m.emit(m.EVENT.videoPause)
         }
-      ), Z, O), U = F.inputRef, H = F.formRef, K = F.hotWordRef, q = F.showText, Y = F.hotSearchText, X = F.hotSearchKeyword, z = F.hotList, Q = F.suggestionState, J = F.keyboardNavIndex, $ = F.onFocus, ee = F.inputFocus, te = F.onBlur, ne = F.onInputChange, re = F.onMouseDown, oe = F.onSearchClick, ie = F.onInputKeyDown, ae = F.clearHistory, ue = F.onHistoryClick, me = F.onHotWordClick, ve = F.onSugClick, fe = F.history, he = F.sug, ge = F.onSetSug, ye = F.onDeleteHistoryItem, we = F.preventDefault, _e = F.onCompositionStart, Ee = F.onCompositionEnd, ke = F.onHotListWordClick, xe = F.onGuessListWordClick, be = F.onInputClearButtonClick, Ce = F.placeHolder, Ne = F.historyRef, Te = F.hotListRef, Ze = F.guessListRef, Se = F.isGuessTextShow, Ie = F.guessText, Le = F.guessList, De = F.bottomWordList, Me = F.onBottomWordClick, Be = F.isButtonHover, Ae = F.setButtonHover, Pe = F.insideWordList, Oe = F.isInsideWordShow, Ve = F.searchBarRef, We = F.relatedWordList, Re = F.onRelatedWordClick, Fe = F.updateGuessList, Ue = F.onMouseEnter, He = F.onMouseLeave, Ge = (N = (0,
+      ), Z, O), U = F.inputRef, H = F.formRef, K = F.hotWordRef, q = F.showText, Y = F.hotSearchText, X = F.hotSearchKeyword, z = F.hotList, Q = F.suggestionState, J = F.keyboardNavIndex, $ = F.onFocus, ee = F.inputFocus, te = F.onBlur, ne = F.onInputChange, re = F.onMouseDown, oe = F.onSearchClick, ie = F.onInputKeyDown, ae = F.clearHistory, ue = F.onHistoryClick, me = F.onHotWordClick, ve = F.onSugClick, fe = F.history, pe = F.sug, ge = F.onSetSug, ye = F.onDeleteHistoryItem, we = F.preventDefault, _e = F.onCompositionStart, Ee = F.onCompositionEnd, xe = F.onHotListWordClick, ke = F.onGuessListWordClick, be = F.onInputClearButtonClick, Ce = F.placeHolder, Te = F.historyRef, Ne = F.hotListRef, Ze = F.guessListRef, Se = F.isGuessTextShow, Le = F.guessText, Ie = F.guessList, De = F.bottomWordList, Me = F.onBottomWordClick, Be = F.isButtonHover, Ae = F.setButtonHover, Pe = F.insideWordList, Oe = F.isInsideWordShow, Ve = F.searchBarRef, We = F.updateGuessList, Re = F.onMouseEnter, Fe = F.onMouseLeave, Ue = (T = (0,
         s.useMemo)((function() {
           return (0,
             de.y$)(R)
@@ -14864,29 +14472,29 @@ window.danmaku_reload_interval = setInterval(() => {
       ), []),
         {
           refreshButtonRef: (0,
-            pe.x)((function() {
-              return N("recomSearchChangeButtonShow")
+            he.x)((function() {
+              return T("recomSearchChangeButtonShow")
             }
           )),
           onRefreshButtonClick: (0,
             s.useCallback)((function() {
-              return N("recomSearchChangeButtonClick")
+              return T("recomSearchChangeButtonClick")
             }
-          ), [N])
-        }), je = Ge.refreshButtonRef, Ke = Ge.onRefreshButtonClick, qe = (0,
+          ), [T])
+        }), He = Ue.refreshButtonRef, Ge = Ue.onRefreshButtonClick, je = (0,
         s.useMemo)((function() {
           return (null == O || !O.isModalVideo) && Z.searchBarStyleOpt === d.SearchBarStyleOpt.Mild
         }
-      ), [Z.searchBarStyleOpt, null == O ? void 0 : O.isModalVideo]), Ye = (0,
+      ), [Z.searchBarStyleOpt, null == O ? void 0 : O.isModalVideo]), Ke = (0,
         s.useMemo)((function() {
           return (null == O || !O.isModalVideo) && Z.searchBarStyleOpt === d.SearchBarStyleOpt.Aggressive
         }
-      ), [Z.searchBarStyleOpt, null == O ? void 0 : O.isModalVideo]), Xe = (0,
+      ), [Z.searchBarStyleOpt, null == O ? void 0 : O.isModalVideo]), qe = (0,
         s.useCallback)((function(e) {
           var t = U.current.value;
-          L && L(t) && oe(e)
+          I && I(t) && oe(e)
         }
-      ), [oe]), ze = ((0,
+      ), [oe]), Ye = ((0,
         s.useCallback)((function(e) {
           B && B(e) && ue(e)
         }
@@ -14910,85 +14518,85 @@ window.danmaku_reload_interval = setInterval(() => {
         }
       ), []),
         s.createElement("div", {
-          className: yt.searchBarContainer,
-          onMouseEnter: Z.enableHoverToDisplay ? Ue : function() {}
+          className: ht.searchBarContainer,
+          onMouseEnter: Z.enableHoverToDisplay ? Re : function() {}
           ,
-          onMouseLeave: Z.enableHoverToDisplay ? He : function() {}
+          onMouseLeave: Z.enableHoverToDisplay ? Fe : function() {}
         }, s.createElement("div", {
           ref: Ve,
-          className: u()(yt.searchBar, (n = {},
+          className: u()(ht.searchBar, (n = {},
             (0,
-              r.Z)(n, yt.borderInput, !(qe || Ye)),
+              r.Z)(n, ht.borderInput, !(je || Ke)),
             (0,
-              r.Z)(n, yt.modalSearchBar, null == O ? void 0 : O.isModalVideo),
+              r.Z)(n, ht.modalSearchBar, null == O ? void 0 : O.isModalVideo),
             (0,
-              r.Z)(n, yt.modalSearchBarIdle, (null == O ? void 0 : O.isModalVideo) && !ee),
+              r.Z)(n, ht.modalSearchBarIdle, (null == O ? void 0 : O.isModalVideo) && !ee),
             (0,
-              r.Z)(n, yt.activity, (null == O ? void 0 : O.isActivity) || (null == O ? void 0 : O.transparent)),
+              r.Z)(n, ht.activity, (null == O ? void 0 : O.isActivity) || (null == O ? void 0 : O.transparent)),
             (0,
-              r.Z)(n, null == yt ? void 0 : yt[null == O ? void 0 : O.activityName], null == O ? void 0 : O.activityName),
+              r.Z)(n, null == ht ? void 0 : ht[null == O ? void 0 : O.activityName], null == O ? void 0 : O.activityName),
             (0,
-              r.Z)(n, yt.borderInputSpec, null == O ? void 0 : O.themeSwitch),
+              r.Z)(n, ht.borderInputSpec, null == O ? void 0 : O.themeSwitch),
             (0,
-              r.Z)(n, yt.newMildInput, qe),
+              r.Z)(n, ht.newMildInput, je),
             (0,
-              r.Z)(n, yt.newAggresiveInput, Ye),
+              r.Z)(n, ht.newAggresiveInput, Ke),
             (0,
-              r.Z)(n, yt.transparent, null == O ? void 0 : O.transparent),
+              r.Z)(n, ht.transparent, null == O ? void 0 : O.transparent),
             n))
         }, !ee && Y && s.createElement("div", {
-          className: yt.inputLanternIcon
+          className: ht.inputLanternIcon
         }), s.createElement("form", {
-          className: u()(yt.searchBarInputForm, {
+          className: u()(ht.searchBarInputForm, {
             isLight: null == O ? void 0 : O.isActivity
           }),
           action: "",
           target: "_blank",
           ref: H
         }, !q && !Se && Pe.length > 0 && Oe && s.createElement("div", {
-          className: yt.searchBarInsideWord
+          className: ht.searchBarInsideWord
         }, s.createElement(D, {
           wordList: Pe,
           active: Be,
           customProps: O
-        })), !q && Se && Ie && s.createElement("div", {
-          className: yt.searchBarGuessTextWrapper
-        }, Ie.icon_info && s.createElement("img", {
-          src: globalThis.getFilterXss().filterUrl(Ie.icon_info.icon_url, null, {
+        })), !q && Se && Le && s.createElement("div", {
+          className: ht.searchBarGuessTextWrapper
+        }, Le.icon_info && s.createElement("img", {
+          src: globalThis.getFilterXss().filterUrl(Le.icon_info.icon_url, null, {
             logType: "js.href/src",
             reportOnly: !1
           }),
-          className: yt.activityIcon,
+          className: ht.activityIcon,
           style: {
-            width: Ie.icon_info.icon_width || 20,
-            height: Ie.icon_info.icon_height || 20
+            width: Le.icon_info.icon_width || 20,
+            height: Le.icon_info.icon_height || 20
           }
         }), s.createElement("div", {
-          className: u()(yt.searchBarGuessText, (0,
-            r.Z)({}, yt.isActivity, Ie.icon_info))
-        }, Ie.word)), q && ee && s.createElement("div", {
+          className: u()(ht.searchBarGuessText, (0,
+            r.Z)({}, ht.isActivity, Le.icon_info))
+        }, Le.word)), q && ee && s.createElement("div", {
           onClick: be,
           onMouseDown: we,
-          className: yt.inputClearButton,
+          className: ht.inputClearButton,
           "data-e2e": "clear-search"
         }, s.createElement(f.Z, {
-          className: yt.iconClose
+          className: ht.iconClose
         })), s.createElement("input", {
           ref: U,
           value: q,
           onFocus: $,
           onBlur: te,
           onChange: ne,
-          onKeyDown: ze,
+          onKeyDown: Ye,
           onCompositionStart: _e,
           onCompositionEnd: Ee,
-          className: u()(yt.input, (o = {},
+          className: u()(ht.input, (o = {},
             (0,
-              r.Z)(o, yt.blur, !ee && !O.isSearchPage),
+              r.Z)(o, ht.blur, !ee && !O.isSearchPage),
             (0,
-              r.Z)(o, yt.hotInput, !ee && Y),
+              r.Z)(o, ht.hotInput, !ee && Y),
             (0,
-              r.Z)(o, yt.inputWithClearButton, ee && q),
+              r.Z)(o, ht.inputWithClearButton, ee && q),
             o)),
           "data-e2e": "searchbar-input",
           type: "text",
@@ -15001,13 +14609,13 @@ window.danmaku_reload_interval = setInterval(() => {
             display: "none"
           }
         })), s.createElement("button", {
-          className: u()(yt.button, {
+          className: u()(ht.button, {
             isLight: null == O ? void 0 : O.isActivity
           }),
           "data-e2e": "searchbar-button",
           type: "button",
           onMouseDown: re,
-          onClick: Xe,
+          onClick: qe,
           onMouseEnter: function() {
             return Ae(!0)
           },
@@ -15015,51 +14623,51 @@ window.danmaku_reload_interval = setInterval(() => {
             return Ae(!1)
           }
         }, s.createElement(v.Z, {
-          className: yt.buttonIcon
+          className: ht.buttonIcon
         }), s.createElement("span", {
           className: "btn-title"
         }, "\u641c\u7d22")), "middle_page" === Q && s.createElement("div", {
-          className: yt.suggestionContainer
+          className: ht.suggestionContainer
         }, s.createElement("div", {
-          className: u()(yt.suggestion, (0,
-            r.Z)({}, yt.grayscale, W)),
+          className: u()(ht.suggestion, (0,
+            r.Z)({}, ht.grayscale, W)),
           onMouseDown: we
         }, Y && s.createElement("div", {
-          className: yt.hotView
+          className: ht.hotView
         }, s.createElement("div", {
           ref: K,
           "data-text": X,
           onClick: me,
-          className: yt.hotLine
+          className: ht.hotLine
         }, s.createElement("div", {
-          className: yt.sugLanternIcon
+          className: ht.sugLanternIcon
         }), s.createElement("p", {
-          className: u()(yt.hotText, yt.suggestionItemContext)
+          className: u()(ht.hotText, ht.suggestionItemContext)
         }, Y), s.createElement(p.Z, {
           width: 6,
           height: 11,
           viewBox: "0 0 17 33",
-          className: yt.sugArrowRightIcon
-        }))), fe && fe.length > 0 && s.createElement(Bt, {
-          ref: Ne,
+          className: ht.sugArrowRightIcon
+        }))), fe && fe.length > 0 && s.createElement(It, {
+          ref: Te,
           history: fe,
           onDeleteHistoryItem: ye,
           onHistoryItemClick: ue,
           clearHistory: ae,
           customProps: O,
           limit: M
-        }), Le.length > 0 && s.createElement(s.Fragment, null, s.createElement("div", {
-          className: yt.titleView
+        }), Ie.length > 0 && s.createElement(s.Fragment, null, s.createElement("div", {
+          className: ht.titleView
         }, s.createElement("span", {
-          className: yt.titleViewText
+          className: ht.titleViewText
         }, "\u731c\u4f60\u60f3\u641c"), s.createElement("div", {
-          ref: je,
-          className: yt.refreshButtonView,
+          ref: He,
+          className: ht.refreshButtonView,
           onClick: function() {
-            Fe(!0),
-              Ke()
+            We(!0),
+              Ge()
           }
-        }, s.createElement(Mt.Z, {
+        }, s.createElement(Lt.Z, {
           src: globalThis.getFilterXss().filterUrl(g.Z, null, {
             logType: "js.href/src",
             reportOnly: !1
@@ -15068,77 +14676,77 @@ window.danmaku_reload_interval = setInterval(() => {
           height: 14,
           viewBox: "0 0 14 14"
         }), s.createElement("span", {
-          className: yt.refreshButtonText
+          className: ht.refreshButtonText
         }, "\u6362\u4e00\u6362"))), s.createElement("div", {
           ref: Ze,
-          className: yt.guessListDouble,
+          className: ht.guessListDouble,
           "data-e2e": "search-guess-container"
-        }, i()(Le).call(Le, (function(e, t) {
-            var n, o, i, a = "2" === e.words_type, l = "10" === e.words_type, c = 0 === t && Ie && Ie.icon_info && e.word === Ie.word;
+        }, i()(Ie).call(Ie, (function(e, t) {
+            var n, o, i, a = "2" === e.words_type, l = "10" === e.words_type, c = 0 === t && Le && Le.icon_info && e.word === Le.word;
             return s.createElement("div", {
               key: e.word,
-              className: yt.guessListItemWrapper
+              className: ht.guessListItemWrapper
             }, s.createElement("div", {
-              className: u()(yt.guessListItem, t % 2 == 0 ? yt.itemLeft : yt.itemRight, (n = {},
+              className: u()(ht.guessListItem, t % 2 == 0 ? ht.itemLeft : ht.itemRight, (n = {},
                 (0,
-                  r.Z)(n, yt.keyboardSelected, t === J),
+                  r.Z)(n, ht.keyboardSelected, t === J),
                 (0,
-                  r.Z)(n, yt.guessListItemBg, Z.guessSearchHoverBg),
+                  r.Z)(n, ht.guessListItemBg, Z.guessSearchHoverBg),
                 n)),
               "data-text": e.word,
               "data-index": t,
-              onClick: xe
+              onClick: ke
             }, s.createElement("span", {
-              className: u()(yt.guessListItemText, (o = {},
+              className: u()(ht.guessListItemText, (o = {},
                 (0,
-                  r.Z)(o, yt.guessListItemTextHighlight, t < 2 && Z.guessSearchFirstRowHighlight),
+                  r.Z)(o, ht.guessListItemTextHighlight, t < 2 && Z.guessSearchFirstRowHighlight),
                 (0,
-                  r.Z)(o, yt.guessListItemTextBold, t < 2 && Z.guessSearchFirstRowBold),
+                  r.Z)(o, ht.guessListItemTextBold, t < 2 && Z.guessSearchFirstRowBold),
                 o))
             }, e.word), (a || l) && s.createElement("div", {
-              className: u()(yt.guessListItemIcon, (i = {},
+              className: u()(ht.guessListItemIcon, (i = {},
                 (0,
-                  r.Z)(i, yt.guessListItemIconHot, a),
+                  r.Z)(i, ht.guessListItemIconHot, a),
                 (0,
-                  r.Z)(i, yt.guessListItemIconLive, l),
+                  r.Z)(i, ht.guessListItemIconLive, l),
                 i))
             }), c && s.createElement("img", {
-              src: globalThis.getFilterXss().filterUrl(Ie.icon_info.icon_url, null, {
+              src: globalThis.getFilterXss().filterUrl(Le.icon_info.icon_url, null, {
                 logType: "js.href/src",
                 reportOnly: !1
               }),
-              className: yt.guessListItemIcon,
+              className: ht.guessListItemIcon,
               style: {
-                width: Ie.icon_info.icon_width || 20,
-                height: Ie.icon_info.icon_height || 20
+                width: Le.icon_info.icon_width || 20,
+                height: Le.icon_info.icon_height || 20
               }
             })))
           }
         )))), z && z.length > 0 && s.createElement(s.Fragment, null, s.createElement("div", {
-          className: yt.titleView
+          className: ht.titleView
         }, s.createElement("span", {
-          className: u()(yt.titleViewText, yt.hotBoardTitleViewText)
+          className: u()(ht.titleViewText, ht.hotBoardTitleViewText)
         }, "\u6296\u97f3\u70ed\u70b9")), s.createElement("div", {
-          ref: Te,
+          ref: Ne,
           "data-e2e": "search-hot-container"
         }, i()(z).call(z, (function(e, t, n) {
-            var o, i = 14 === n[0].word_type ? t : t + 1, a = Le.length + t;
+            var o, i = 14 === n[0].word_type ? t : t + 1, a = Ie.length + t;
             return s.createElement("div", {
-              className: u()(yt.hotListItem, (o = {},
+              className: u()(ht.hotListItem, (o = {},
                 (0,
-                  r.Z)(o, yt.hotListItemWithNum, i >= 4),
+                  r.Z)(o, ht.hotListItemWithNum, i >= 4),
                 (0,
-                  r.Z)(o, yt.keyboardSelected, a === J),
+                  r.Z)(o, ht.keyboardSelected, a === J),
                 (0,
-                  r.Z)(o, yt.hotListItemBg, Z.guessSearchHoverBg),
+                  r.Z)(o, ht.hotListItemBg, Z.guessSearchHoverBg),
                 o)),
               key: e.word,
               "data-text": e.word,
               "data-index": t,
-              onClick: ke
-            }, s.createElement(Mt.Z, {
-              className: u()(yt.hotListItemIcon, (0,
-                r.Z)({}, yt.hotListItemNumberIcon, i >= 4)),
+              onClick: xe
+            }, s.createElement(Lt.Z, {
+              className: u()(ht.hotListItemIcon, (0,
+                r.Z)({}, ht.hotListItemNumberIcon, i >= 4)),
               src: globalThis.getFilterXss().filterUrl(V[i], null, {
                 logType: "js.href/src",
                 reportOnly: !1
@@ -15147,52 +14755,48 @@ window.danmaku_reload_interval = setInterval(() => {
               height: i < 4 ? 20 : 24,
               viewBox: i < 4 ? "0 0 20 20" : "0 0 23 24"
             }), s.createElement("span", {
-              className: yt.hotListItemText
+              className: ht.hotListItemText
             }, e.word))
           }
         )))))), "sug" === Q && s.createElement("div", {
-          className: yt.suggestionContainer
+          className: ht.suggestionContainer
         }, s.createElement("div", {
-          className: u()(yt.suggestion, (0,
-            r.Z)({}, yt.grayscale, W)),
+          className: u()(ht.suggestion, (0,
+            r.Z)({}, ht.grayscale, W)),
           onMouseDown: we
-        }, i()(a = l()(c = he.sugList).call(c, 0, M)).call(a, (function(e, t) {
+        }, i()(a = l()(c = pe.sugList).call(c, 0, M)).call(a, (function(e, t) {
             return s.createElement("div", {
               "data-index": t,
               onClick: ve,
-              className: u()(yt.suggestionItem, (0,
-                r.Z)({}, yt.keyboardSelected, t === J)),
+              className: u()(ht.suggestionItem, (0,
+                r.Z)({}, ht.keyboardSelected, t === J)),
               key: e
-            }, s.createElement(At, {
+            }, s.createElement(Dt, {
               words: e,
-              query: he.query,
-              matchClass: Z.sugHighlightPosition ? yt.queryMatchWeak : yt.queryMatch
+              query: pe.query,
+              matchClass: Z.sugHighlightPosition ? ht.queryMatchWeak : ht.queryMatch
             }), !Z.enableSearchBarShuffling && s.createElement("div", {
               className: "icon",
               "data-text": e,
               onClick: ge
             }, s.createElement(h.Z, {
-              className: yt.svgHover
+              className: ht.svgHover
             })))
           }
         ))))), s.createElement("div", {
-          className: u()(yt.bottomWord, (C = {},
+          className: u()(ht.bottomWord, (C = {},
             (0,
-              r.Z)(C, yt.activity, null == O ? void 0 : O.isActivity),
+              r.Z)(C, ht.activity, null == O ? void 0 : O.isActivity),
             (0,
-              r.Z)(C, null == yt ? void 0 : yt[null == O ? void 0 : O.activityName], null == O ? void 0 : O.activityName),
+              r.Z)(C, null == ht ? void 0 : ht[null == O ? void 0 : O.activityName], null == O ? void 0 : O.activityName),
             C))
-        }, null != O && O.isSearchPage && Z.relatedSearchList === d.RelatedSearchList.BottomWord ? s.createElement(S, {
-          wordList: We,
-          onBottomWordClick: Re,
-          customProps: O
-        }) : s.createElement(S, {
+        }, s.createElement(S, {
           wordList: De,
           onBottomWordClick: Me,
           customProps: O
         })))
     };
-    const Ot = Pt
+    const Bt = Mt
   }
   ,
   64956: (e,t,n)=>{
@@ -15204,7 +14808,7 @@ window.danmaku_reload_interval = setInterval(() => {
       , i = n(44503)
       , a = n(79705)
       , l = n.n(a)
-      , s = n(52172)
+      , s = n(36565)
       , c = n(72565)
       , u = n(81963)
       , d = n(92557)
@@ -15218,16 +14822,16 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = n(30906)
       , _ = n(64408)
       , E = n(5594)
-      , k = n.n(E)
-      , x = n(88438)
-      , b = n.n(x)
+      , x = n.n(E)
+      , k = n(88438)
+      , b = n.n(k)
       , C = n(5022)
-      , N = n(72983)
-      , T = n(52252)
+      , T = n(72983)
+      , N = n(52252)
       , Z = n(25083)
       , S = n(53607)
-      , I = n(85938)
-      , L = n(20389)
+      , L = n(85938)
+      , I = n(20389)
       , D = n(66231)
       , M = n(76659)
       , B = n(16655)
@@ -15300,11 +14904,11 @@ window.danmaku_reload_interval = setInterval(() => {
         i.useState)(!1), m = (0,
         o.Z)(u, 2), v = m[0], f = m[1], h = (0,
         i.useState)(""), p = (0,
-        o.Z)(h, 2), g = p[0], E = p[1], x = (0,
+        o.Z)(h, 2), g = p[0], E = p[1], k = (0,
         i.useRef)(null), Q = (0,
         i.useRef)(null), J = (0,
         i.useRef)(null), $ = (0,
-        i.useRef)(T.p() ? null : document.createElement("div"));
+        i.useRef)(N.p() ? null : document.createElement("div"));
       (0,
         i.useEffect)((function() {
           var e = localStorage.getItem("FeedBackFlag");
@@ -15324,9 +14928,9 @@ window.danmaku_reload_interval = setInterval(() => {
         , ie = (0,
         i.useCallback)(function() {
         var e = (0,
-          _.Z)(k().mark((function e(t) {
-            var r, o, i, a, l, s, u, d, m, v, h, p, g, y, _, E, b, C, T, V, F, U, H, G, j;
-            return k().wrap((function(e) {
+          _.Z)(x().mark((function e(t) {
+            var r, o, i, a, l, s, u, d, m, v, h, p, g, y, _, E, b, C, N, V, F, U, H, G, j;
+            return x().wrap((function(e) {
                 for (; ; )
                   switch (e.prev = e.next) {
                     case 0:
@@ -15343,7 +14947,7 @@ window.danmaku_reload_interval = setInterval(() => {
                       return u = S.Q.getItem({
                         sKey: W.CookieKeys.Theme
                       }),
-                        d = I.Dr(u),
+                        d = L.Dr(u),
                         m = S.Q.getItem({
                           sKey: W.CookieKeys.MonitorWebId
                         }),
@@ -15352,24 +14956,24 @@ window.danmaku_reload_interval = setInterval(() => {
                         }),
                         e.next = 11,
                         (0,
-                          N.d)();
+                          T.d)();
                     case 11:
                       h = e.sent,
                         p = (h || []).join(","),
-                        g = L.rp(),
+                        g = I.rp(),
                         y = g.device_manufacture,
                         _ = void 0 === y ? "" : y,
                         E = g.device_model,
                         b = void 0 === E ? "" : E,
                         C = g.guid,
-                        T = void 0 === C ? "" : C,
+                        N = void 0 === C ? "" : C,
                         V = g.version,
                         F = void 0 === V ? "" : V,
                         U = D.f(),
                         H = U.os,
                         G = s.default,
                         j = null === (r = M.Es()) || void 0 === r ? void 0 : r.user_unique_id,
-                        x.current = new G(t,{
+                        k.current = new G(t,{
                           zIndex: R.FEEDBACK_Z_INDEX,
                           appId: B.DT() ? R.CLIENT_APP_ID.toString() : R.APP_ID.toString(),
                           bizId: R.BIDID,
@@ -15382,7 +14986,7 @@ window.danmaku_reload_interval = setInterval(() => {
                             manufacturer: _,
                             version: c,
                             device_model: b,
-                            guid: T,
+                            guid: N,
                             clientVersion: F,
                             os: H,
                             env: null === (o = M.Le.getConfig(M.gI.Env)) || void 0 === o ? void 0 : o.envService,
@@ -15399,18 +15003,25 @@ window.danmaku_reload_interval = setInterval(() => {
                           theme: d,
                           getFeedbackResult: function(e) {
                             if (e) {
-                              var t, n = null !== (t = M.Le.getConfig(M.gI.FeedBackInfo)) && void 0 !== t ? t : {}, r = {
+                              var t, n, r, o = null !== (t = M.Le.getConfig(M.gI.FeedBackInfo)) && void 0 !== t ? t : {}, i = {
                                 page: Z.yW(),
                                 web_id: m,
                                 devide_id: v
+                              }, a = {
+                                containerChildCount: null === (n = document.getElementById("douyin-right-container")) || void 0 === n ? void 0 : n.childElementCount,
+                                swiperSlideCount: document.getElementsByClassName("swiper-slide").length,
+                                feedVideoCount: document.querySelectorAll('[data-e2e="feed-video"]').length,
+                                feedActiveVideoCount: document.querySelectorAll('[data-e2e="feed-active-video"]').length,
+                                isVideoError: null !== (null === (r = document.querySelector(".xgplayer-error")) || void 0 === r ? void 0 : r.offsetParent)
                               };
                               A.oe.event.info({
                                 name: A.Mo.SubmitFeedBack,
                                 report: (0,
                                   w.Z)((0,
-                                  w.Z)({}, n), r)
+                                  w.Z)((0,
+                                  w.Z)({}, o), i), a)
                               }),
-                                P.q.custom.emit(P.j.FeedBackSubmit, r),
+                                P.q.custom.emit(P.j.FeedBackSubmit, i),
                                 ne.F.info("\u5df2\u7ecf\u63d0\u4ea4\u53cd\u9988")
                             }
                           },
@@ -15418,7 +15029,7 @@ window.danmaku_reload_interval = setInterval(() => {
                             e && ne.F.info("\u63a5\u53e3\u72b6\u6001\u5f02\u5e38")
                           },
                           onVisibleChange: function(e) {
-                            var t, n = O.r() && document.getElementById("slideMode") || document.getElementsByClassName("xgplayer-fullscreen-parent")[0], r = null === (t = x.current) || void 0 === t ? void 0 : t._iframeContainer;
+                            var t, n = O.r() && document.getElementById("slideMode") || document.getElementsByClassName("xgplayer-fullscreen-parent")[0], r = null === (t = k.current) || void 0 === t ? void 0 : t._iframeContainer;
                             if (e) {
                               var o;
                               o = M.Le.getConfig(M.gI.FeedBackInfo);
@@ -15433,18 +15044,18 @@ window.danmaku_reload_interval = setInterval(() => {
                                 n.appendChild($.current)) : r.appendChild(Q.current)
                             } else {
                               var i, a, l, s;
-                              if (!x.current)
+                              if (!k.current)
                                 return;
                               if (n)
                                 null === (l = $.current) || void 0 === l || null === (s = l.remove) || void 0 === s || s.call(l);
-                              Q.current = x.current._sdkIframeEle,
-                              null === (i = x.current._sdkIframeEle) || void 0 === i || null === (a = i.remove) || void 0 === a || a.call(i)
+                              Q.current = k.current._sdkIframeEle,
+                              null === (i = k.current._sdkIframeEle) || void 0 === i || null === (a = i.remove) || void 0 === a || a.call(i)
                             }
                           }
                         }),
                         f(!0),
-                        Q.current = x.current._sdkIframeEle,
-                      null === (a = x.current._sdkIframeEle) || void 0 === a || null === (l = a.remove) || void 0 === l || l.call(a);
+                        Q.current = k.current._sdkIframeEle,
+                      null === (a = k.current._sdkIframeEle) || void 0 === a || null === (l = a.remove) || void 0 === l || l.call(a);
                     case 21:
                     case "end":
                       return e.stop()
@@ -15460,7 +15071,7 @@ window.danmaku_reload_interval = setInterval(() => {
       return (0,
         i.useEffect)((function() {
           var e, t, n, r;
-          null === (e = x.current) || void 0 === e || null === (t = e.hide) || void 0 === t || t.call(e),
+          null === (e = k.current) || void 0 === e || null === (t = e.hide) || void 0 === t || t.call(e),
           null === (n = $.current) || void 0 === n || null === (r = n.remove) || void 0 === r || r.call(n)
         }
       ), [oe]),
@@ -15483,9 +15094,9 @@ window.danmaku_reload_interval = setInterval(() => {
                 if (v) {
                   try {
                     var n, r;
-                    null === (n = x.current) || void 0 === n || null === (r = n.destroy) || void 0 === r || r.call(n)
+                    null === (n = k.current) || void 0 === n || null === (r = n.destroy) || void 0 === r || r.call(n)
                   } catch (o) {}
-                  null === (e = x.current) || void 0 === e || null === (t = e.destroy) || void 0 === t || t.call(e),
+                  null === (e = k.current) || void 0 === e || null === (t = e.destroy) || void 0 === t || t.call(e),
                     ie(J.current)
                 }
               }
@@ -15501,7 +15112,7 @@ window.danmaku_reload_interval = setInterval(() => {
               function() {
                 try {
                   var e, t;
-                  null === (e = x.current) || void 0 === e || null === (t = e.destroy) || void 0 === t || t.call(e)
+                  null === (e = k.current) || void 0 === e || null === (t = e.destroy) || void 0 === t || t.call(e)
                 } catch (n) {}
               }
           }
@@ -15574,24 +15185,24 @@ window.danmaku_reload_interval = setInterval(() => {
         , w = e.version
         , _ = e.nowPathName
         , E = e.SlardarInstance
-        , k = (0,
-        i.useState)(!1)
         , x = (0,
-        o.Z)(k, 2)
-        , b = x[0]
-        , C = x[1]
-        , N = (0,
         i.useState)(!1)
+        , k = (0,
+        o.Z)(x, 2)
+        , b = k[0]
+        , C = k[1]
         , T = (0,
-        o.Z)(N, 2)
-        , Z = T[0]
-        , S = T[1]
-        , I = (0,
-        i.useState)(null)
+        i.useState)(!1)
+        , N = (0,
+        o.Z)(T, 2)
+        , Z = N[0]
+        , S = N[1]
         , L = (0,
-        o.Z)(I, 2)
-        , D = L[0]
-        , M = L[1]
+        i.useState)(null)
+        , I = (0,
+        o.Z)(L, 2)
+        , D = I[0]
+        , M = I[1]
         , B = (0,
         i.useCallback)((function(e) {
           C(e),
@@ -15699,8 +15310,8 @@ window.danmaku_reload_interval = setInterval(() => {
         , w = e.onMouseLeave
         , _ = e.onMouseDown
         , E = e.onMouseUp
-        , k = e.style
-        , x = e.id
+        , x = e.style
+        , k = e.id
         , b = (0,
         o.Z)(e, u)
         , C = v ? (0,
@@ -15721,8 +15332,8 @@ window.danmaku_reload_interval = setInterval(() => {
         onMouseDown: _,
         onMouseUp: E
       }, C), {}, {
-        style: k,
-        id: x
+        style: x,
+        id: k
       }))
     };
     const m = i.memo(d)
@@ -15761,8 +15372,8 @@ window.danmaku_reload_interval = setInterval(() => {
       })))
     };
     var _, E;
-    function k() {
-      return k = Object.assign ? Object.assign.bind() : function(e) {
+    function x() {
+      return x = Object.assign ? Object.assign.bind() : function(e) {
         for (var t = 1; t < arguments.length; t++) {
           var n = arguments[t];
           for (var r in n)
@@ -15771,10 +15382,10 @@ window.danmaku_reload_interval = setInterval(() => {
         return e
       }
         ,
-        k.apply(this, arguments)
+        x.apply(this, arguments)
     }
-    const x = function(e) {
-      return s.createElement("svg", k({
+    const k = function(e) {
+      return s.createElement("svg", x({
         width: 16,
         height: 16,
         viewBox: "0 0 16 16",
@@ -15803,7 +15414,7 @@ window.danmaku_reload_interval = setInterval(() => {
         ,
         C.apply(this, arguments)
     }
-    const N = function(e) {
+    const T = function(e) {
       return s.createElement("svg", C({
         width: 9,
         height: 9,
@@ -15815,7 +15426,7 @@ window.danmaku_reload_interval = setInterval(() => {
         fill: "#fff"
       })))
     };
-    const T = new (n(37485).hD)({
+    const N = new (n(37485).hD)({
       changeThemeSetting: {
         eventName: "change_theme_setting",
         params: {
@@ -15838,8 +15449,8 @@ window.danmaku_reload_interval = setInterval(() => {
     })
       , Z = "JHraiF99"
       , S = "EtCcWLb5"
-      , I = "nG9kzwxB"
-      , L = "lMuW5qkn"
+      , L = "nG9kzwxB"
+      , I = "lMuW5qkn"
       , D = "HMJIOD8d"
       , M = "gnfYyz1O"
       , B = "tVgaIByW"
@@ -15880,8 +15491,8 @@ window.danmaku_reload_interval = setInterval(() => {
         s.useState)(!1)
         , E = (0,
         i.Z)(_, 2)
-        , k = E[0]
-        , x = E[1];
+        , x = E[0]
+        , k = E[1];
       return (0,
         s.useEffect)((function() {
           var e, t, n = document.documentElement;
@@ -15900,10 +15511,10 @@ window.danmaku_reload_interval = setInterval(() => {
         ), [y]),
         s.createElement(s.Fragment, null, s.createElement(t, {
           type: "left",
-          showTip: k,
+          showTip: x,
           tipClassName: F,
           content: s.createElement(Y, {
-            setShowTip: x,
+            setShowTip: k,
             isDark: y,
             setIsDark: w,
             setThemeCookie: j
@@ -15916,7 +15527,7 @@ window.danmaku_reload_interval = setInterval(() => {
             o.Z)({}, U, n)),
           onClick: function() {
             w((function(e) {
-                return T.sendLog("changeThemeSetting", {
+                return N.sendLog("changeThemeSetting", {
                   theme: e ? g.ThemeValues.Light : g.ThemeValues.Dark,
                   enter_from: f.yW()
                 }),
@@ -15938,7 +15549,7 @@ window.danmaku_reload_interval = setInterval(() => {
           className: u()(Z),
           onClick: function() {
             w((function(e) {
-                return T.sendLog("changeThemeSetting", {
+                return N.sendLog("changeThemeSetting", {
                   theme: e ? g.ThemeValues.Light : g.ThemeValues.Dark,
                   enter_from: f.yW()
                 }),
@@ -15963,13 +15574,13 @@ window.danmaku_reload_interval = setInterval(() => {
         , r = e.setShowTip
         , i = e.setThemeCookie
         , a = function(e) {
-        T.sendLog("themeSettingGuideConfirm", {
+        N.sendLog("themeSettingGuideConfirm", {
           theme: e ? g.ThemeValues.Dark : g.ThemeValues.Light
         })
       };
       return (0,
         s.useEffect)((function() {
-          T.sendLog("themeSettingGuideShow", {
+          N.sendLog("themeSettingGuideShow", {
             theme: t ? g.ThemeValues.Dark : g.ThemeValues.Light
           })
         }
@@ -15977,13 +15588,13 @@ window.danmaku_reload_interval = setInterval(() => {
         s.createElement("div", {
           className: S
         }, s.createElement(H.Z, {
-          className: I,
+          className: L,
           onClick: function() {
             a(t),
               i(t),
               r(!1)
           },
-          src: globalThis.getFilterXss().filterUrl(N, null, {
+          src: globalThis.getFilterXss().filterUrl(T, null, {
             logType: "js.href/src",
             reportOnly: !1
           }),
@@ -15991,7 +15602,7 @@ window.danmaku_reload_interval = setInterval(() => {
           height: 9,
           viewBox: "0 0 9 9"
         }), s.createElement("div", {
-          className: L
+          className: I
         }, "\u80cc\u666f\u5207\u6362"), s.createElement("div", {
           className: D
         }, "\u70b9\u51fb\u300c\u6362\u80a4\u300d\u6309\u94ae\u5207\u6362\u80cc\u666f\u8272"), s.createElement("div", {
@@ -16024,7 +15635,7 @@ window.danmaku_reload_interval = setInterval(() => {
         }), s.createElement(H.Z, {
           className: u()(V, (0,
             o.Z)({}, W, t)),
-          src: globalThis.getFilterXss().filterUrl(x, null, {
+          src: globalThis.getFilterXss().filterUrl(k, null, {
             logType: "js.href/src",
             reportOnly: !1
           }),
@@ -16059,7 +15670,7 @@ window.danmaku_reload_interval = setInterval(() => {
         }), s.createElement(H.Z, {
           className: u()(V, (0,
             o.Z)({}, W, !t)),
-          src: globalThis.getFilterXss().filterUrl(x, null, {
+          src: globalThis.getFilterXss().filterUrl(k, null, {
             logType: "js.href/src",
             reportOnly: !1
           }),
@@ -16074,8 +15685,10 @@ window.danmaku_reload_interval = setInterval(() => {
     n.d(t, {
       C: ()=>d
     });
-    var r = n(44503);
-    const o = {
+    var r = n(44503)
+      , o = n(79705)
+      , i = n.n(o);
+    const a = {
       tooltipWrapper: "NRiH5zYV",
       tooltip: "BQT1A3Va",
       left: "Xtzbk1D8",
@@ -16084,9 +15697,9 @@ window.danmaku_reload_interval = setInterval(() => {
       bottom: "yGdoJ_A9",
       icon: "RQ1fJbHb"
     };
-    var i;
-    function a() {
-      return a = Object.assign ? Object.assign.bind() : function(e) {
+    var l;
+    function s() {
+      return s = Object.assign ? Object.assign.bind() : function(e) {
         for (var t = 1; t < arguments.length; t++) {
           var n = arguments[t];
           for (var r in n)
@@ -16095,29 +15708,27 @@ window.danmaku_reload_interval = setInterval(() => {
         return e
       }
         ,
-        a.apply(this, arguments)
+        s.apply(this, arguments)
     }
-    const l = function(e) {
-      return r.createElement("svg", a({
+    const c = function(e) {
+      return r.createElement("svg", s({
         width: 4,
         height: 17,
         viewBox: "0 0 4 17",
         fill: "none",
         xmlns: "http://www.w3.org/2000/svg"
-      }, e), i || (i = r.createElement("path", {
+      }, e), l || (l = r.createElement("path", {
         d: "M0 0a8 8 0 002.168 5.476l1.174 1.25a2 2 0 010 2.738l-1.174 1.25A8 8 0 000 16.19V0z",
         fill: "#323442"
       })))
     };
-    var s = n(52255)
-      , c = n(79705)
-      , u = n.n(c)
+    var u = n(52255)
       , d = function(e) {
       var t = e.type
         , n = void 0 === t ? "left" : t
-        , i = e.hoverShow
-        , a = void 0 !== i && i
-        , c = e.showTip
+        , o = e.hoverShow
+        , l = void 0 !== o && o
+        , s = e.showTip
         , d = e.setShowTip
         , m = e.content
         , v = e.className
@@ -16130,42 +15741,41 @@ window.danmaku_reload_interval = setInterval(() => {
         r.useRef)(null);
       return (0,
         r.useEffect)((function() {
-          var e = function(e) {
+          var e, t = function(e) {
             d(!1)
-          }
-            , t = function() {
+          }, n = function() {
             d(!1)
-          }
-            , n = function() {
+          }, r = function() {
             d(!0)
-          }
-            , r = a && w.current;
-          return r && (w.current.addEventListener("mouseleave", t),
-            w.current.addEventListener("mouseenter", n)),
-          c && d && g && (document.addEventListener("scroll", e),
-            document.addEventListener("click", e)),
+          }, o = l && w.current;
+          return o && (w.current.addEventListener("mouseleave", n),
+            w.current.addEventListener("mouseenter", r)),
+          null === (e = w.current) || void 0 === e || e.addEventListener("click", t),
+          s && d && g && (document.addEventListener("scroll", t),
+            document.addEventListener("click", t)),
             function() {
-              var o, i;
-              (document.removeEventListener("scroll", e),
-                document.removeEventListener("click", e),
-                r) && (null === (o = w.current) || void 0 === o || o.removeEventListener("mouseleave", t),
-              null === (i = w.current) || void 0 === i || i.removeEventListener("mouseenter", n))
+              var e, i, a;
+              (document.removeEventListener("scroll", t),
+                document.removeEventListener("click", t),
+              null === (e = w.current) || void 0 === e || e.addEventListener("click", t),
+                o) && (null === (i = w.current) || void 0 === i || i.removeEventListener("mouseleave", n),
+              null === (a = w.current) || void 0 === a || a.removeEventListener("mouseenter", r))
             }
         }
-      ), [c, a, d]),
+      ), [s, l, d]),
         r.createElement("div", {
-          className: u()(o.tooltipWrapper, v),
+          className: i()(a.tooltipWrapper, v),
           ref: w
-        }, Boolean(c) && r.createElement("div", {
-          className: u()(o.tooltip, o[n], f)
-        }, r.createElement(s.Z, {
+        }, Boolean(s) && r.createElement("div", {
+          className: i()(a.tooltip, a[n], f)
+        }, r.createElement(u.Z, {
           width: 4,
           height: 17,
-          src: globalThis.getFilterXss().filterUrl(l, null, {
+          src: globalThis.getFilterXss().filterUrl(c, null, {
             logType: "js.href/src",
             reportOnly: !1
           }),
-          className: u()(o.icon, o[n], h),
+          className: i()(a.icon, a[n], h),
           viewBox: "0 0 4 17"
         }), m), y)
     }
@@ -16173,7 +15783,7 @@ window.danmaku_reload_interval = setInterval(() => {
   ,
   10790: (e,t,n)=>{
     n.d(t, {
-      F: ()=>L
+      F: ()=>I
     });
     var r = n(29529)
       , o = n(30906)
@@ -16194,19 +15804,19 @@ window.danmaku_reload_interval = setInterval(() => {
       , w = n(79705)
       , _ = n.n(w)
       , E = n(44503)
-      , k = n(9)
-      , x = n(37541);
+      , x = n(9)
+      , k = n(37541);
     const b = "N4KSpGs0"
       , C = "Y58u3RjO"
-      , N = "G8j0DJHl";
-    var T = null
+      , T = "G8j0DJHl";
+    var N = null
       , Z = null
       , S = null
-      , I = {
+      , L = {
       text: "",
       duration: 3e3
     }
-      , L = function(e) {
+      , I = function(e) {
       (0,
         s.Z)(n, e);
       var t = (0,
@@ -16284,7 +15894,7 @@ window.danmaku_reload_interval = setInterval(() => {
           null === (e = document) || void 0 === e || e.removeEventListener("keydown", this.keyboardCloseFn),
           null === (t = S) || void 0 === t || t.removeEventListener("click", this.mouseCloseFn),
           null === (n = S) || void 0 === n || n.remove(),
-            T = null
+            N = null
         }
       }, {
         key: "render",
@@ -16294,23 +15904,23 @@ window.danmaku_reload_interval = setInterval(() => {
             , n = e.options
             , r = t && n && E.createElement("div", {
             className: _()(C, n.className, (0,
-              u.Z)({}, N, x.r() || !n.className && n.root)),
+              u.Z)({}, T, k.r() || !n.className && n.root)),
             "data-e2e": "toast"
           }, n.text);
-          return E.createElement(E.Fragment, null, n && n.root ? k.createPortal(r, n.root) : r)
+          return E.createElement(E.Fragment, null, n && n.root ? x.createPortal(r, n.root) : r)
         }
       }], [{
         key: "create",
         value: function(e) {
-          if (T)
-            return e && e(T);
+          if (N)
+            return e && e(N);
           document.querySelector("#toastContainer") || ((S = document.createElement("div")).className = b,
             S.id = "toastContainer",
             document.body.appendChild(S)),
-            k.render(E.createElement(n, {
+            x.render(E.createElement(n, {
               ref: function(t) {
-                T = t,
-                e && e(T)
+                N = t,
+                e && e(N)
               }
             }), S)
         }
@@ -16318,16 +15928,16 @@ window.danmaku_reload_interval = setInterval(() => {
         key: "info",
         value: function(e, t, n) {
           var i = (0,
-            o.Z)({}, I);
+            o.Z)({}, L);
           "string" == typeof e ? (i.text = e,
             i.root = (null == t ? void 0 : t.current) || t) : "object" === (0,
             r.Z)(e) && null !== e && (i = (0,
             o.Z)((0,
-            o.Z)({}, I), {}, {
+            o.Z)({}, L), {}, {
             root: (null == t ? void 0 : t.current) || t
           }, e));
           var a = document.querySelector(".xgplayer-fullscreen-parent");
-          x.r() && a && !i.root && (i.root = a),
+          k.r() && a && !i.root && (i.root = a),
             this.textList.push(i),
             this.create((function(e) {
                 Z || e && e.handleShowToast(n)
@@ -16338,7 +15948,7 @@ window.danmaku_reload_interval = setInterval(() => {
         n
     }(E.Component);
     (0,
-      u.Z)(L, "textList", [])
+      u.Z)(I, "textList", [])
   }
   ,
   59737: (e,t,n)=>{
@@ -16410,22 +16020,22 @@ window.danmaku_reload_interval = setInterval(() => {
         width: 0,
         height: 0
       })
-        , k = (0,
+        , x = (0,
         i.Z)(E, 2)
-        , x = k[0]
-        , b = k[1]
+        , k = x[0]
+        , b = x[1]
         , C = (0,
         u.useState)(n)
-        , N = (0,
+        , T = (0,
         i.Z)(C, 2)
-        , T = N[0]
-        , Z = N[1]
+        , N = T[0]
+        , Z = T[1]
         , S = (0,
         u.useState)(!1)
-        , I = (0,
+        , L = (0,
         i.Z)(S, 2)
-        , L = I[0]
-        , D = I[1]
+        , I = L[0]
+        , D = L[1]
         , M = (0,
         u.useState)({})
         , B = (0,
@@ -16463,12 +16073,12 @@ window.danmaku_reload_interval = setInterval(() => {
             , d = a.height
             , m = l
             , f = s
-            , h = (x.width - u) / 2
-            , p = (x.height - d) / 2;
+            , h = (k.width - u) / 2
+            , p = (k.height - d) / 2;
           if (c()(e = ["left", "right"]).call(e, n)) {
             switch (n) {
               case "left":
-                m -= x.width + 10;
+                m -= k.width + 10;
                 break;
               case "right":
                 m += u + 10
@@ -16477,7 +16087,7 @@ window.danmaku_reload_interval = setInterval(() => {
           } else if (c()(t = ["top", "bottom"]).call(t, n)) {
             switch (n) {
               case "top":
-                f -= x.height + 10;
+                f -= k.height + 10;
                 break;
               case "bottom":
                 f += d + 10
@@ -16497,7 +16107,7 @@ window.danmaku_reload_interval = setInterval(() => {
               right: e + n > o ? o - e - n : 0,
               bottom: t + r > i ? i - t - r : 0
             }
-          }(m, f, x.width, x.height)
+          }(m, f, k.width, k.height)
             , y = g.top
             , w = g.left
             , _ = g.right
@@ -16505,16 +16115,16 @@ window.danmaku_reload_interval = setInterval(() => {
           return Z(n),
             c()(r = ["left", "right"]).call(r, n) ? (y && (f -= y),
             E && (f += E),
-            w && !_ && (m += x.width + 20 + u,
+            w && !_ && (m += k.width + 20 + u,
               Z("right")),
-            _ && !w && (m -= x.width + 20 + u,
+            _ && !w && (m -= k.width + 20 + u,
               Z("left"))) : c()(i = ["top", "bottom"]).call(i, n) && (w && (R(w),
               m -= w),
             _ && (R(_),
               m += _),
-            y && !E && (f += x.height + 20 + d,
+            y && !E && (f += k.height + 20 + d,
               Z("bottom")),
-            E && !y && (f -= x.height + 20 + d,
+            E && !y && (f -= k.height + 20 + d,
               Z("top"))),
             (0,
               o.Z)((0,
@@ -16523,7 +16133,7 @@ window.danmaku_reload_interval = setInterval(() => {
               top: "".concat(f, "px")
             })
         }
-      ), [A, x])
+      ), [A, k])
         , K = (0,
         u.useCallback)((function() {
           var e = u.Children.only(y);
@@ -16539,11 +16149,11 @@ window.danmaku_reload_interval = setInterval(() => {
             }
           })
         }
-      ), [x]);
+      ), [k]);
       return (0,
         u.useEffect)((function() {
           var e = function(e) {
-            L && P(j())
+            I && P(j())
           };
           return document.addEventListener("scroll", e, !0),
             function() {
@@ -16555,13 +16165,13 @@ window.danmaku_reload_interval = setInterval(() => {
           u.useEffect)((function() {
             F.current && b(F.current.getBoundingClientRect())
           }
-        ), [L]),
+        ), [I]),
         (0,
           u.useEffect)((function() {
             U.current && P(j())
           }
-        ), [x]),
-        u.createElement(u.Fragment, null, L && d.createPortal(u.createElement("div", {
+        ), [k]),
+        u.createElement(u.Fragment, null, I && d.createPortal(u.createElement("div", {
           ref: F,
           style: (0,
             o.Z)({
@@ -16583,8 +16193,8 @@ window.danmaku_reload_interval = setInterval(() => {
             reportOnly: !1
           }),
           style: (0,
-            r.Z)({}, p[T], W && "calc(50% - ".concat(W, "px)")),
-          className: w()(m.icon, m[T]),
+            r.Z)({}, p[N], W && "calc(50% - ".concat(W, "px)")),
+          className: w()(m.icon, m[N]),
           viewBox: "0 0 4 17"
         }), u.createElement("span", {
           className: ""
@@ -16685,7 +16295,7 @@ window.danmaku_reload_interval = setInterval(() => {
       O: ()=>r,
       x: ()=>C
     });
-    var r, o = n(30906), i = n(64408), a = n(32781), l = n(5594), s = n.n(l), c = n(62310), u = n.n(c), d = n(67827), m = n.n(d), v = n(81711), f = n.n(v), h = n(57617), p = n.n(h), g = n(44503), y = n(10790), w = n(96411), _ = n(51652), E = n(53607), k = n(72983), x = n(22983), b = n(76659);
+    var r, o = n(30906), i = n(64408), a = n(32781), l = n(5594), s = n.n(l), c = n(62310), u = n.n(c), d = n(67827), m = n.n(d), v = n(81711), f = n.n(v), h = n(57617), p = n.n(h), g = n(44503), y = n(10790), w = n(27796), _ = n(51652), E = n(53607), x = n(72983), k = n(22983), b = n(76659);
     !function(e) {
       e.LogTrace = "87A38998227CBBC23DCAD51CD7F76AB2",
         e.UserInfo = "87A38998227CBBC23DCAD51CD7F76AB2_user_beta"
@@ -16716,7 +16326,7 @@ window.danmaku_reload_interval = setInterval(() => {
         , d = function() {
         var e = (0,
           i.Z)(s().mark((function e(t) {
-            var n, i, a, l, u, d, v, h, g, w, C, N, T, Z, S, I, L;
+            var n, i, a, l, u, d, v, h, g, w, C, T, N, Z, S, L, I;
             return s().wrap((function(e) {
                 for (; ; )
                   switch (e.prev = e.next) {
@@ -16732,7 +16342,7 @@ window.danmaku_reload_interval = setInterval(() => {
                         }) || "",
                         e.next = 6,
                         (0,
-                          k.d)();
+                          x.d)();
                     case 6:
                       u = e.sent,
                         d = (u || []).join(","),
@@ -16751,22 +16361,22 @@ window.danmaku_reload_interval = setInterval(() => {
                               }
                             ));
                             var r = m()(n);
-                            x.J(r),
+                            k.J(r),
                               y.F.info("\u5df2\u590d\u5236\u8c03\u8bd5\u4fe1\u606f\u5230\u526a\u5207\u677f")
                           }
-                        )) : i === r.UserInfo && (I = 0 === p()((null === (v = window) || void 0 === v ? void 0 : v.SSR_RENDER_DATA) || {}).length ? null === (h = window) || void 0 === h ? void 0 : h.SSR_RENDER_DATA : null === (g = window) || void 0 === g ? void 0 : g.SSR_RENDER_DATA_DOC,
-                          L = {
+                        )) : i === r.UserInfo && (L = 0 === p()((null === (v = window) || void 0 === v ? void 0 : v.SSR_RENDER_DATA) || {}).length ? null === (h = window) || void 0 === h ? void 0 : h.SSR_RENDER_DATA : null === (g = window) || void 0 === g ? void 0 : g.SSR_RENDER_DATA_DOC,
+                          I = {
                             version: null === (w = window) || void 0 === w ? void 0 : w.version,
                             ab: d,
-                            slardar: null === (C = window) || void 0 === C || null === (N = C.slardar) || void 0 === N || null === (T = N.config) || void 0 === T ? void 0 : T.call(N),
+                            slardar: null === (C = window) || void 0 === C || null === (T = C.slardar) || void 0 === T || null === (N = T.config) || void 0 === N ? void 0 : N.call(T),
                             odin: b.Es(),
-                            ssr: I,
+                            ssr: L,
                             uuid: null === (Z = b.Es()) || void 0 === Z ? void 0 : Z.user_unique_id,
                             uid: null === (S = b.Es()) || void 0 === S ? void 0 : S.user_id,
                             wid: a,
                             did: l
                           },
-                          x.J(m()(L)),
+                          k.J(m()(I)),
                           y.F.info("\u5df2\u590d\u5236\u8c03\u8bd5\u4fe1\u606f\u5230\u526a\u5207\u677f")),
                         e.next = 14;
                       break;
@@ -17111,7 +16721,7 @@ window.danmaku_reload_interval = setInterval(() => {
       , o = n.n(r)
       , i = n(44503)
       , a = (n(79705),
-      n(97050))
+      n(96336))
       , l = n(26395)
       , s = n(55861)
       , c = n(36539)
@@ -17173,8 +16783,8 @@ window.danmaku_reload_interval = setInterval(() => {
       })
         , _ = w.type
         , E = w.changeType
-        , k = w.clearShowTimer
-        , x = (0,
+        , x = w.clearShowTimer
+        , k = (0,
         i.useCallback)((function() {
           s.n.loginGuideShowed && s.n.destroy(),
             E(p),
@@ -17187,7 +16797,7 @@ window.danmaku_reload_interval = setInterval(() => {
         , b = (0,
         i.useCallback)((function() {
           var e = arguments.length > 0 && void 0 !== arguments[0] && arguments[0];
-          _ ? E(void 0, !0 === e) : k()
+          _ ? E(void 0, !0 === e) : x()
         }
       ), [_]);
       return i.createElement(i.Fragment, null, i.createElement("div", {
@@ -17197,7 +16807,7 @@ window.danmaku_reload_interval = setInterval(() => {
         type: "circleButtonWithText",
         text: c,
         onMouseEnter: function() {
-          x()
+          k()
         },
         onMouseLeave: function() {
           b()
@@ -17454,10 +17064,10 @@ window.danmaku_reload_interval = setInterval(() => {
   ,
   53540: (e,t,n)=>{
     n.d(t, {
-      j1: ()=>L,
-      pL: ()=>D,
-      Q4: ()=>M,
-      gE: ()=>B
+      j1: ()=>M,
+      pL: ()=>B,
+      Q4: ()=>A,
+      gE: ()=>P
     });
     var r = n(30906)
       , o = n(32781)
@@ -17466,49 +17076,51 @@ window.danmaku_reload_interval = setInterval(() => {
       , l = n.n(a)
       , s = n(92012)
       , c = n.n(s)
-      , u = n(88438)
+      , u = n(21805)
       , d = n.n(u)
-      , m = n(5594)
+      , m = n(88438)
       , v = n.n(m)
-      , f = n(52252)
-      , h = n(36539)
-      , p = n(4592)
-      , g = n(72983)
-      , y = n(43478)
-      , w = n(16655)
+      , f = n(5594)
+      , h = n.n(f)
+      , p = n(52252)
+      , g = n(36539)
+      , y = n(4592)
+      , w = n(72983)
       , _ = n(78867)
-      , E = n(76659)
-      , k = n(25083)
-      , x = n(82016)
-      , b = n(37541)
-      , C = n(47482)
-      , N = n(45627)
-      , T = n(1021)
-      , Z = n(4014)
-      , S = !1
-      , I = function() {
+      , E = n(43478)
+      , x = n(16655)
+      , k = n(76659)
+      , b = n(25083)
+      , C = n(82016)
+      , T = n(37541)
+      , N = n(47482)
+      , Z = n(45627)
+      , S = n(1021)
+      , L = n(4014)
+      , I = !1
+      , D = function() {
       var e = (0,
-        i.Z)(v().mark((function e() {
+        i.Z)(h().mark((function e() {
           var t;
-          return v().wrap((function(e) {
+          return h().wrap((function(e) {
               for (; ; )
                 switch (e.prev = e.next) {
                   case 0:
                     return e.next = 2,
-                      Promise.all([n.e(7835), n.e(7727)]).then(n.bind(n, 67835)).then((function(e) {
+                      Promise.all([n.e(3490), n.e(7727)]).then(n.bind(n, 3490)).then((function(e) {
                           return e.default
                         }
                       ));
                   case 2:
                     if (t = e.sent,
-                      !S) {
+                      !I) {
                       e.next = 5;
                       break
                     }
                     return e.abrupt("return");
                   case 5:
                     t.use(),
-                      S = !0;
+                      I = !0;
                   case 8:
                   case "end":
                     return e.stop()
@@ -17521,17 +17133,17 @@ window.danmaku_reload_interval = setInterval(() => {
         return e.apply(this, arguments)
       }
     }()
-      , L = function() {
+      , M = function() {
       var e = (0,
-        i.Z)(v().mark((function e() {
+        i.Z)(h().mark((function e() {
           var t, r, i, a;
-          return v().wrap((function(e) {
+          return h().wrap((function(e) {
               for (; ; )
                 switch (e.prev = e.next) {
                   case 0:
-                    return t = Promise.all([n.e(8860), n.e(336)]).then(n.bind(n, 10336)),
+                    return t = Promise.all([n.e(8339), n.e(8860), n.e(3775)]).then(n.bind(n, 43775)),
                       e.next = 3,
-                      I();
+                      D();
                   case 3:
                     return e.next = 5,
                       l().all([t]);
@@ -17553,48 +17165,62 @@ window.danmaku_reload_interval = setInterval(() => {
         return e.apply(this, arguments)
       }
     }()
-      , D = function() {
+      , B = function() {
       var e, t, n;
-      return f.p() ? "" : c()(e = "".concat(null == h ? void 0 : p.tJ)).call(e, null === (t = window) || void 0 === t || null === (n = t.location) || void 0 === n ? void 0 : n.host)
+      return p.p() ? "" : c()(e = "".concat(null == g ? void 0 : y.tJ)).call(e, null === (t = window) || void 0 === t || null === (n = t.location) || void 0 === n ? void 0 : n.host)
     }
-      , M = function() {
+      , A = function() {
       var e = (0,
-        i.Z)(v().mark((function e() {
-          var t, n;
-          return v().wrap((function(e) {
+        i.Z)(h().mark((function e() {
+          var t, n, i, a, s;
+          return h().wrap((function(e) {
               for (; ; )
                 switch (e.prev = e.next) {
                   case 0:
                     return e.next = 2,
-                      l().all([g.h.getVar({
+                      l().all([w.h.getVar({
                         name: "short_link_login_new",
                         defaultValue: 0
+                      }), w.h.getVar({
+                        name: "longtask_opt",
+                        defaultValue: _.LongtaskOpt.Default
                       })]);
                   case 2:
-                    return t = e.sent,
-                      n = (0,
-                        o.Z)(t, 1),
-                      n[0],
-                      e.abrupt("return", {
+                    return n = e.sent,
+                      i = (0,
+                        o.Z)(n, 2),
+                      i[0],
+                      a = i[1],
+                      s = {},
+                    d()(t = [_.LongtaskOpt.FirstScreenOpt, _.LongtaskOpt.PremierActiveStableTotal, _.LongtaskOpt.PremierActiveTotal]).call(t, a) && (s = {
+                      slardar: {
+                        plugins: {
+                          fmp: !1,
+                          tti: !1
+                        }
+                      }
+                    }),
+                      e.abrupt("return", (0,
+                        r.Z)({
                         appName: "\u6296\u97f3 Web \u7ad9",
                         aid: 6383,
                         isFrontier: !0,
-                        frontierUrl: p.uZ ? "" : "wss://frontier100-normal.zijieapi.com",
+                        frontierUrl: y.uZ ? "" : "wss://frontier100-normal.zijieapi.com",
                         isStopCheckWhenHide: !0,
-                        isBoe: p.uZ,
+                        isBoe: y.uZ,
                         mobileCodeLength: 6,
                         isOversea: !1,
                         globalMobileSupport: !0,
                         region: "cn",
                         scope: "sso",
-                        captchaHost: y.r0.captchaHost,
+                        captchaHost: E.r0.captchaHost,
                         generalParams: {
-                          device_platform: w.HA()
+                          device_platform: x.HA()
                         },
                         isShortLink: !1,
-                        acrawler: p.uZ ? 0 : "1"
-                      });
-                  case 6:
+                        acrawler: y.uZ ? 0 : "1"
+                      }, s));
+                  case 9:
                   case "end":
                     return e.stop()
                 }
@@ -17606,34 +17232,34 @@ window.danmaku_reload_interval = setInterval(() => {
         return e.apply(this, arguments)
       }
     }()
-      , B = function() {
+      , P = function() {
       var e = (0,
-        i.Z)(v().mark((function e(t) {
-          var n, i, a, s, c, u, m, y, w, S, I, L, B, A, P, O, V, W, R, F, U, H;
-          return v().wrap((function(e) {
+        i.Z)(h().mark((function e(t) {
+          var n, i, a, s, c, u, d, m, f, E, x, I, D, M, P, O, V, W, R, F, U, H;
+          return h().wrap((function(e) {
               for (; ; )
                 switch (e.prev = e.next) {
                   case 0:
                     return c = t.success,
                       u = t.host,
-                      m = t.next,
-                      y = t.ScanCodeDescription,
-                      w = t.enterMethod,
-                      S = t.refreshNumber,
-                      I = void 0 === S ? 2 : S,
-                      L = t.teaEvtParams,
-                      B = void 0 === L ? {} : L,
-                      A = t.videoGuideFunc,
-                      P = void 0 === A ? null : A,
+                      d = t.next,
+                      m = t.ScanCodeDescription,
+                      f = t.enterMethod,
+                      E = t.refreshNumber,
+                      x = void 0 === E ? 2 : E,
+                      I = t.teaEvtParams,
+                      D = void 0 === I ? {} : I,
+                      M = t.videoGuideFunc,
+                      P = void 0 === M ? null : M,
                       O = t.operationCallback,
                       V = t.scanCodeNeedLogo,
                       W = void 0 !== V && V,
                       e.next = 3,
-                      M();
+                      A();
                   case 3:
                     return R = e.sent,
                       e.next = 6,
-                      l().all([g.h.getVar({
+                      l().all([w.h.getVar({
                         name: "check_qr_code_delay_time",
                         defaultValue: _.CheckQrCodeDelayTimeABVal.Normal
                       })]);
@@ -17647,43 +17273,43 @@ window.danmaku_reload_interval = setInterval(() => {
                         r.Z)({}, R), {}, {
                         scanCodeNeedLogo: W,
                         checkQrCodeDelayTime: H,
-                        device_id: null === (n = E.Es()) || void 0 === n ? void 0 : n.user_unique_id,
+                        device_id: null === (n = k.Es()) || void 0 === n ? void 0 : n.user_unique_id,
                         slardarContext: {
-                          enter_method: w,
-                          enter_from: k.vM() || "",
-                          page_type: k.yW() || "",
+                          enter_method: f,
+                          enter_from: b.vM() || "",
+                          page_type: b.yW() || "",
                           delay_time: H.toString() || "0",
                           is_short_link: (null == R ? void 0 : R.isShortLink.toString()) || "false"
                         },
-                        refreshNumber: I,
+                        refreshNumber: x,
                         teaConfig: {
                           appId: 6383,
                           config: {
                             evtParams: (0,
                               r.Z)({
-                              page_type: k.yW() || "",
-                              enter_method: w,
-                              enter_from: k.vM() || "",
-                              url_path: f.p() ? "" : null === (i = window) || void 0 === i || null === (a = i.location) || void 0 === a ? void 0 : a.pathname,
+                              page_type: b.yW() || "",
+                              enter_method: f,
+                              enter_from: b.vM() || "",
+                              url_path: p.p() ? "" : null === (i = window) || void 0 === i || null === (a = i.location) || void 0 === a ? void 0 : a.pathname,
                               is_guide: "1",
-                              video_detail_enter_from: x.z("web_link"),
-                              previous_page: k.yW("previous_page"),
+                              video_detail_enter_from: C.z("web_link"),
+                              previous_page: b.yW("previous_page"),
                               is_active: "0",
                               is_video_guide: "0",
                               is_topknot: "0",
-                              is_full_screen: b.r() ? "1" : "0",
-                              is_full_webscreen: Z.s.getIsPageFullscreen() ? "1" : "0"
-                            }, B),
+                              is_full_screen: T.r() ? "1" : "0",
+                              is_full_webscreen: L.s.getIsPageFullscreen() ? "1" : "0"
+                            }, D),
                             videoGuideFunc: P,
-                            ug_source: C.Rs("ug_source"),
-                            sem_keyword: C.Rs("sem_keyword"),
-                            browser_is_360: N.a2() ? "1" : "0"
+                            ug_source: N.Rs("ug_source"),
+                            sem_keyword: N.Rs("sem_keyword"),
+                            browser_is_360: Z.a2() ? "1" : "0"
                           }
                         },
-                        host: u || (null == h || null === (s = p.k4) || void 0 === s ? void 0 : s.sso) || "https://sso.douyin.com",
-                        next: m || D() || "https://www.douyin.com/",
+                        host: u || (null == g || null === (s = y.k4) || void 0 === s ? void 0 : s.sso) || "https://sso.douyin.com",
+                        next: d || B() || "https://www.douyin.com/",
                         loginType: ["LOGIN_SCAN_CODE"],
-                        ScanCodeDescription: y,
+                        ScanCodeDescription: m,
                         operationCallback: O,
                         textConfig: {
                           scanCodeLoginText: {
@@ -17695,9 +17321,9 @@ window.danmaku_reload_interval = setInterval(() => {
                         },
                         success: function(e) {
                           null == c || c(e),
-                            d()((function() {
+                            v()((function() {
                                 (0,
-                                  T.tokenBeatInit)()
+                                  S.tokenBeatInit)()
                               }
                             ), 800)
                         }
