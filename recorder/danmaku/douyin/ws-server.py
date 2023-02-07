@@ -31,23 +31,31 @@ async def consumer_handler(websocket):
                 logging.info(msg_decoded['payload']['content'])
 
 
-async def main(room_id, interval):
-    async with websockets.serve(consumer_handler, "localhost", 18964):
+async def _main(room_id, interval):
+    while True:
+        if not douyin.get_stream(room_id):
+            # not live yet
+            await asyncio.sleep(interval)
+            continue
+
+        logging.info(f'Live started: {room_id}')
+        webbrowser.open(f'https://live.douyin.com/{room_id}')
+
         while True:
-            if not douyin.get_stream(room_id):
-                # not live yet
-                await asyncio.sleep(interval)
-                continue
+            await asyncio.sleep(interval)
+            if last_danmaku_time < datetime.datetime.now() - datetime.timedelta(seconds=60):
+                # no danmaku for 60 seconds
+                logging.info(f'No danmaku for 60 seconds: {room_id}')
+                break
 
-            logging.info(f'Live started: {room_id}')
-            webbrowser.open(f'https://live.douyin.com/{room_id}')
 
-            while True:
-                await asyncio.sleep(interval)
-                if last_danmaku_time < datetime.datetime.now() - datetime.timedelta(seconds=60):
-                    # no danmaku for 60 seconds
-                    logging.info(f'No danmaku for 60 seconds: {room_id}')
-                    break
+async def main(room_id, interval):
+    try:
+        async with websockets.serve(consumer_handler, "localhost", 18964):
+            await _main(room_id, interval)
+    except OSError:
+        logging.info('Port 18964 is occupied, starting without websocket server')
+        await _main(room_id, interval)
 
 
 @click.group()
