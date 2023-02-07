@@ -8,11 +8,14 @@ def get_stream(room_id, **kwargs):
             'userId': room_id,
         }, cookies={
             'sessKey': kwargs['sess_key'],
-        })
+        }).json()
     except requests.exceptions.RequestException:
         return False
 
-    return res.json()['PlayList']['hls'][0]['url']
+    if 'PlayList' not in res:
+        return False
+
+    return res['PlayList']['hls'][0]['url']
 
 
 if __name__ == '__main__':
