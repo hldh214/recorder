@@ -65,6 +65,8 @@ async def main():
 
         await asyncio.gather(*tasks)
 
+        await asyncio.Future()  # run forever
+
 
 if __name__ == '__main__':
     asyncio.run(main())
