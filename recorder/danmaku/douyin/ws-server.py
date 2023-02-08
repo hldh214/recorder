@@ -28,7 +28,11 @@ async def consumer_handler(websocket):
         else:
             last_danmaku_time = datetime.datetime.now()
             if msg_decoded['method'] == 'WebcastChatMessage':
-                logging.info(msg_decoded['payload']['content'])
+                payload = msg_decoded.get('payload')
+                room_id = msg_decoded.get('room_id')
+                sender_nick = payload.get('user').get('nickname')
+                content = payload.get('content')
+                logging.info(f'{room_id}: {sender_nick}: {content}')
 
 
 async def _main(room_id, interval):
