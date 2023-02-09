@@ -151,6 +151,7 @@ async def _main(room_id, interval):
     logging.info(f'Started danmaku subscriber: {room_id}')
 
     while True:
+        logging.debug(f'Checking live status: {room_id}')
         if not douyin.get_stream(room_id):
             # not live yet
             await asyncio.sleep(interval)
@@ -173,6 +174,7 @@ async def _main(room_id, interval):
         webbrowser.open(f'https://live.douyin.com/{room_id}')
 
         while True:
+            logging.debug(f'Still live at [{last_danmaku_time[room_id]}]: {room_id}')
             await asyncio.sleep(interval)
             if last_danmaku_time[room_id] < datetime.datetime.now() - datetime.timedelta(seconds=60):
                 # no danmaku for 60 seconds
