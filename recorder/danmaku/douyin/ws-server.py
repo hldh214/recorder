@@ -106,7 +106,9 @@ async def get_raw_js(result: asyncio.Future):
         await page.route('**/*.js', handle_route)
 
         await page.goto('https://live.douyin.com/590890573')
-        result.set_result(False)
+
+        if not result.done():
+            result.set_result(False)
 
 
 def prepare_hook_js(raw_js, ws_port=18964):
