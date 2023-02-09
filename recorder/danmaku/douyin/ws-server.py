@@ -2,9 +2,12 @@ import asyncio
 import datetime
 import json
 import logging
+import pathlib
 import re
+import urllib.parse
 import webbrowser
 
+import playwright.async_api
 import pymongo.errors
 import websockets
 
@@ -36,6 +39,7 @@ window.danmaku_reload_interval = setInterval(() => {
   }
 }, 1000 * 60);
 '''
+# noinspection SpellCheckingInspection
 js_hook_2 = '''
 if (!window.is_danmaku_dead) {
   window.data_n = <var_name>;
@@ -68,9 +72,41 @@ if (!window.is_danmaku_dead) {
 '''
 
 
-async def get_raw_js():
-    # todo: get js by playwright
-    pass
+async def get_raw_js(result: asyncio.Future):
+    async with playwright.async_api.async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+
+        async def handle_route(route: playwright.async_api.Route):
+            response = await route.fetch()
+            body = await response.text()
+
+            if hook_pattern.search(body) is not None:
+                parsed_url = urllib.parse.urlparse(route.request.url)
+                parsed_path = pathlib.PurePath(parsed_url.path.lstrip('/'))
+                folder = pathlib.Path(
+                    pathlib.Path(__file__).resolve().parent, 'overrides', parsed_url.hostname, parsed_path.parent
+                )
+                folder.mkdir(parents=True, exist_ok=True)
+                file = pathlib.Path(folder, parsed_path.name)
+                if not file.exists():
+                    with open(file, 'w', encoding='utf-8') as f:
+                        f.write(prepare_hook_js(body))
+                    logging.info(f'JS File {file} hooked.')
+                else:
+                    logging.info(f'File {file} already exists, skip writing.')
+
+                result.set_result(True)
+
+            await route.fulfill(
+                response=response,
+                body=body,
+            )
+
+        await page.route('**/*.js', handle_route)
+
+        await page.goto('https://live.douyin.com/590890573')
+        result.set_result(False)
 
 
 def prepare_hook_js(raw_js, ws_port=18964):
@@ -108,6 +144,10 @@ async def consumer_handler(websocket):
 
 
 async def _main(room_id, interval):
+    global last_danmaku_time
+    last_danmaku_time[room_id] = datetime.datetime.now()
+    logging.info(f'Started danmaku subscriber: {room_id}')
+
     while True:
         if not douyin.get_stream(room_id):
             # not live yet
@@ -115,6 +155,19 @@ async def _main(room_id, interval):
             continue
 
         logging.info(f'Live started: {room_id}')
+        hook_result = asyncio.Future()
+        asyncio.create_task(get_raw_js(hook_result))
+        try:
+            result = await asyncio.wait_for(hook_result, 20)
+        except TimeoutError:
+            logging.error(f'Timeout! Failed to hook js: {room_id}, retrying...')
+            continue
+
+        if not result:
+            logging.critical(f'Failed to hook js: {room_id}, retrying in 60 seconds')
+            await asyncio.sleep(60)
+            continue
+
         webbrowser.open(f'https://live.douyin.com/{room_id}')
 
         while True:
