@@ -165,10 +165,7 @@ def generate_ass(room_id, start, end, path, video_id):
 
     assert danmaku is not False
 
-    # store it in memory for reuse
-    danmaku_list = list(prepare_iterator_for_caption(danmaku))
-
-    caption = Caption(danmaku_list, parse_datetime(start))
+    caption = Caption(prepare_iterator_for_caption(danmaku), parse_datetime(start))
     caption.to_ass(caption_path)
 
 
