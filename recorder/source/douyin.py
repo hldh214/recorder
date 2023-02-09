@@ -6,6 +6,8 @@ import requests
 
 from recorder import ffmpeg, logger
 
+REQUEST_TIMEOUT = 5
+
 render_data_pattern = re.compile(r'<script\s+id="RENDER_DATA"\s+type="application/json">(.+?)</script>')
 
 
@@ -15,7 +17,7 @@ def get_room_info(room_id):
             'cookie': '__ac_nonce=063b59ce0001243a9217f;',
             'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                           'Chrome/108.0.0.0 Safari/537.36'
-        })
+        }, timeout=REQUEST_TIMEOUT)
     except requests.exceptions.RequestException:
         return {}
 
