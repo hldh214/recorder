@@ -15,8 +15,14 @@ if os.name == 'nt':
     ARROW_DATETIME_FORMAT = 'YYYY-MM-DD HH-mm-ss'
 
 base_path = pathlib.Path(os.path.abspath(__file__)).parent.parent
+config_path = os.path.join(base_path, 'config.toml')
 
-config = toml.load(os.path.join(base_path, 'config.toml'))
+
+def get_config():
+    return toml.load(config_path)
+
+
+config = get_config()
 
 logger = logging.getLogger(__name__)
 handler = logging.FileHandler(filename=os.path.join(base_path, 'recorder.log'))

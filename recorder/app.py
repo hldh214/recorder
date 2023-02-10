@@ -9,6 +9,8 @@ import traceback
 
 import googleapiclient.errors
 import pytz
+import watchdog.events
+import watchdog.observers
 
 import recorder
 import recorder.destination.youtube
@@ -84,23 +86,44 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         os.rename(output_file, dst_path)
 
 
-def my_recorder(config):
+def record_spawn_thread(running_tasks):
+    config = recorder.get_config()
     source = config['source']
 
     for source_name, conf in source.items():
         if not conf['enabled']:
             continue
 
+        room_id = conf['room_id']
+        if room_id in running_tasks and running_tasks[room_id].is_alive():
+            continue
+
         conf.update(config)
         conf['source_name'] = source_name
 
+        logger.info(f'starting recorder thread: {conf["source_type"]}-{room_id}')
         task = threading.Thread(
             target=record_thread,
             kwargs=conf,
-            name=f'Thread-recorder-{conf["source_type"]}-{conf["room_id"]}'
+            name=f'Thread-recorder-{conf["source_type"]}-{room_id}'
         )
         task.daemon = True
         task.start()
+        running_tasks[room_id] = task
+
+
+def my_recorder():
+    # {"room_id": task}
+    running_tasks = {}
+
+    class Handler(watchdog.events.FileSystemEventHandler):
+        def on_modified(self, event):
+            record_spawn_thread(running_tasks)
+
+    observer = watchdog.observers.Observer()
+    observer.schedule(Handler(), path=recorder.config_path)
+    observer.start()
+    record_spawn_thread(running_tasks)
 
 
 def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
@@ -256,7 +279,7 @@ def get_file_size(path):
 def main():
     config = recorder.config
 
-    my_recorder(config)
+    my_recorder()
 
     if os.path.exists(config['youtube']['client_secrets_file']):
         youtube = recorder.destination.youtube.Youtube(config['youtube'])
