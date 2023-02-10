@@ -14,7 +14,11 @@ import websockets
 from recorder import mongo_collection_douyin_danmaku as mongo_collection, config
 from recorder.source import douyin
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+log_level = logging.INFO
+if config['app'].get('debug'):
+    log_level = logging.DEBUG
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=log_level)
+
 last_danmaku_time = {}
 
 hook_pattern = re.compile(r',\w\.publishSync\((\w+)\)')
