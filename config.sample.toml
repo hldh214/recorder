@@ -13,6 +13,10 @@ ffmpeg_path = "ffmpeg"
 client_secrets_file = ""
 credentials_file = ""
 
+[spankbang]
+username = ""
+password = ""
+
 [huya]
 app_id = ""
 app_secret = ""

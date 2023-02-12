@@ -7,6 +7,8 @@ import time
 
 import playwright.async_api
 
+import recorder
+
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 
@@ -22,8 +24,8 @@ async def upload(path, title):
             # login
             await page.locator('//*[@id="age_check_yes"]').click()
             await page.locator('//*[@id="auth_register_form"]/ul/li[1]/a').click()
-            await page.locator('//*[@id="log_username"]').fill('wechat-surveillance')
-            await page.locator('//*[@id="log_password"]').fill('wechat-surveillance')
+            await page.locator('//*[@id="log_username"]').fill(recorder.config['spankbang']['username'])
+            await page.locator('//*[@id="log_password"]').fill(recorder.config['spankbang']['password'])
             await page.locator('//*[@id="auth_login_form"]/p[1]/button').click()
 
         # goto upload
