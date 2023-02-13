@@ -20,7 +20,7 @@ tenacity = "==8.*"
 pymongo = {extras = ["srv"], version = "==4.*"}
 click = "==8.*"
 PyJWT = "==2.*"
-protobuf = "==3.19.0"
+protobuf = "==4.21.6"
 playwright = "==1.29.*"
 watchdog = "==2.2.*"
 
