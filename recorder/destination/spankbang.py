@@ -88,11 +88,16 @@ async def main():
 
     for path, title in upload_files:
         logging.info(f'uploading {path} with title {title}')
+
         try:
             await upload(path, title)
         except AssertionError as e:
             logging.error(f'upload failed: {e}')
-        logging.info(f'uploaded {path}')
+
+        dst_path = path.replace('/record/', '/validate/')
+        pathlib.Path(dst_path).parent.mkdir(parents=True, exist_ok=True)
+        os.rename(path, dst_path)
+        logging.info(f'uploaded {path} -> {dst_path}')
 
 
 if __name__ == '__main__':
