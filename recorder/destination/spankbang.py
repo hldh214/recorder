@@ -14,24 +14,30 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 async def upload(path, title):
     async with playwright.async_api.async_playwright() as p:
-        browser = await p.chromium.launch_persistent_context('./spankbang_userdata')
+        browser = await p.chromium.launch_persistent_context('./spankbang_userdata', headless=False)
         page = await browser.new_page()
 
-        await page.goto('https://spankbang.com/users/auth')
+        auth_url = 'https://spankbang.com/users/auth'
+        await page.goto(auth_url)
 
-        upload_button = page.locator('//*[@id="body-html"]/header/nav/ul/li[1]/a')
-        if not await upload_button.is_visible():
+        if auth_url == page.url:
             # login
-            await page.locator('//*[@id="age_check_yes"]').click()
+            logging.info('logging in')
+            try:
+                await page.locator('//*[@id="age_check_yes"]').click(timeout=2 * 1000)
+            except playwright.async_api.TimeoutError:
+                pass
             await page.locator('//*[@id="auth_register_form"]/ul/li[1]/a').click()
             await page.locator('//*[@id="log_username"]').fill(recorder.config['spankbang']['username'])
             await page.locator('//*[@id="log_password"]').fill(recorder.config['spankbang']['password'])
             await page.locator('//*[@id="auth_login_form"]/p[1]/button').click()
 
         # goto upload
-        await upload_button.click()
+        logging.info('goto upload page')
+        await page.locator('//*[@id="body-html"]/header/nav/ul/li[1]/a').click()
         file_input = page.locator('//*[@id="fileInput"]')
         await file_input.wait_for(timeout=10 * 1000, state='visible')
+        logging.info('file input found')
         await page.locator('//*[@id="fileInput"]').set_input_files(path)
 
         # wait until upload finished
@@ -87,6 +93,12 @@ async def main():
     logging.info(upload_files)
 
     for path, title in upload_files:
+        filesize = os.path.getsize(path)
+
+        if filesize < 1024 * 1024 * 64:
+            logging.info(f'{path} < 64MB, skip')
+            continue
+
         logging.info(f'uploading {path} with title {title}')
 
         try:
@@ -94,7 +106,7 @@ async def main():
         except AssertionError as e:
             logging.error(f'upload failed: {e}')
 
-        dst_path = path.replace('/record/', '/validate/')
+        dst_path = path.replace(f'{os.sep}record{os.sep}', f'{os.sep}validate{os.sep}')
         pathlib.Path(dst_path).parent.mkdir(parents=True, exist_ok=True)
         os.rename(path, dst_path)
         logging.info(f'uploaded {path} -> {dst_path}')
