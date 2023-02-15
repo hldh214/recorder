@@ -21,7 +21,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 last_danmaku_time = {}
 
-hook_pattern = re.compile(r',\w\.publishSync\((\w+)\)')
+hook_pattern = re.compile(r',\w+\.publishSync\((\w+)\)')
 
 js_hook_1 = '''
 console.log("======================== Recorder hook start ========================");
