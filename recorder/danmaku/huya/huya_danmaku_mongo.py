@@ -270,7 +270,7 @@ def backup(start, end):
     query = json.dumps({'_id': {'$gte': {'$oid': str(dummy_start_id)}, '$lt': {'$oid': str(dummy_end_id)}}})
 
     cmd = [
-        'mongodump', '-d', MONGODB_DATABASE, '-c', MONGODB_COLLECTION, '-q', query, '--gzip',
+        'mongodump', '-d', 'recorder', '-c', 'huya_danmaku', '-q', query, '--gzip',
         '-o', f'./mongodump_{start.format("YYYYMMDDHHmmss")}_{end.format("YYYYMMDDHHmmss")}'
     ]
 
