@@ -42,7 +42,7 @@ def download_replay(video_id):
     end_time_timestamp = arrow.get(end_time).replace(tzinfo=TZ_INFO).int_timestamp
     filename = f'{start_time}.mp4'
 
-    recorder.ffmpeg.record(video_url, filename, 0)
+    recorder.ffmpeg.record(video_url, filename, 0, 0)
 
     os.utime(filename, (end_time_timestamp, end_time_timestamp))
 

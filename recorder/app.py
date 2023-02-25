@@ -55,7 +55,12 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 
         logger.info(f'recording: {flv_url} -> {output_file}')
 
-        exit_code = ffmpeg.record(flv_url, output_file, kwargs['app']['max_duration'])
+        exit_code = ffmpeg.record(
+            flv_url,
+            output_file,
+            kwargs['app'].get('max_duration', 0),
+            kwargs['app'].get('max_size', 0)
+        )
         logger.info(f'({kwargs["source_name"]})recorded with exit_code {exit_code}: {flv_url}')
 
         if not ffmpeg.valid(output_file):

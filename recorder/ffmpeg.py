@@ -21,13 +21,16 @@ ERROR_CHECK_LIST = (
 )
 
 
-def record(input_url, output_file, max_duration, args=None):
+def record(input_url, output_file, max_duration, max_size, args=None):
     popen_args = [
         FFMPEG_BINARY, '-y', '-user_agent', random.choice(USER_AGENTS), '-hide_banner',
         '-reconnect_streamed', '1', '-reconnect_delay_max', '20',
         '-rw_timeout', TIMEOUT_US, '-timeout', TIMEOUT_US,
         '-i', input_url, '-c', 'copy'
     ]
+
+    if max_size:
+        popen_args.extend(['-fs', str(max_size)])
 
     if max_duration:
         popen_args.extend(['-t', str(max_duration)])
@@ -152,5 +155,5 @@ if __name__ == '__main__':
         'https://aldirect.hls.huya.com/backsrc/'
         '94525224-2460685313-10568562945082523648-2789274524-10057-A-0-1.m3u8',
         './{}.flv'.format(datetime.datetime.now()),
-        3600
+        0, 0
     )
