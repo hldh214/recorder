@@ -1,13 +1,25 @@
+import random
+
 import requests
+
+from recorder.ffmpeg import USER_AGENTS
 
 
 def get_stream(room_id, **kwargs):
+    sess_key = kwargs.get('sess_key')
+    if not sess_key:
+        sess_key = kwargs.get('panda').get('sess_key')
+
     try:
         res = requests.post('https://api.pandalive.co.kr/v1/live/play', data={
             'action': 'watch',
             'userId': room_id,
-        }, cookies={
-            'sessKey': kwargs['sess_key'],
+        }, headers={
+            'cookie': f'sessKey={sess_key}',
+            'origin': 'https://www.pandalive.co.kr',
+            'referer': 'https://www.pandalive.co.kr/',
+            'user-agent': random.choice(USER_AGENTS),
+            'x-device-info': '{"t":"webPc","v":"1.0","ui":17784756}'
         }).json()
     except requests.exceptions.RequestException:
         return False
