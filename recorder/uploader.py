@@ -23,7 +23,7 @@ def init_telegram():
         api_id=recorder.config.get('telegram').get('api_id'),
         api_hash=recorder.config.get('telegram').get('api_hash'),
         string_session=recorder.config.get('telegram').get('string_session'),
-        channel_chat_id=recorder.config.get('telegram').get('channel_chat_id')
+        chat_id=recorder.config.get('telegram').get('chat_id')
     )
 
 
@@ -53,8 +53,13 @@ def get_upload_videos(source_type):
             continue
 
         # check file size
-        if os.path.getsize(file) < 1024 * 1024 * 64:
+        filesize = os.path.getsize(file)
+        if filesize < 1024 * 1024 * 64:
             logger.info(f'{file} < 64MB, skip')
+            continue
+        # fixme: make this configurable
+        if filesize > 1024 * 1024 * 1024 * 2:
+            logger.info(f'{file} > 2GB, skip')
             continue
 
         path = pathlib.Path(file)

@@ -22,7 +22,7 @@ password = ""
 api_id = 0
 api_hash = ""
 string_session = ""
-channel_chat_id = 0
+chat_id = 0
 
 [huya]
 app_id = ""

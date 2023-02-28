@@ -7,10 +7,10 @@ import recorder.ffmpeg
 
 
 class Telegram:
-    def __init__(self, api_id, api_hash, string_session, channel_chat_id):
+    def __init__(self, api_id, api_hash, string_session, chat_id):
         self.client = TelegramClient(StringSession(string_session), api_id, api_hash)
         self.client.connect()
-        self.channel_chat_id = channel_chat_id
+        self.chat_id = chat_id
 
     @staticmethod
     def progress(current, total, action=None):
@@ -20,7 +20,7 @@ class Telegram:
             action.progress(current, total)
 
     def upload(self, path, title):
-        with self.client.action(self.channel_chat_id, 'video') as action:
+        with self.client.action(self.chat_id, 'video') as action:
             progress = functools.partial(self.progress, action=action)
 
             # generate video thumbnail
@@ -28,8 +28,9 @@ class Telegram:
 
             # noinspection PyTypeChecker
             message = self.client.send_file(
-                self.channel_chat_id, path,
-                caption=title, silent=True, supports_streaming=True, progress_callback=progress, thumb=thumb
+                self.chat_id, path,
+                caption=title, silent=True, supports_streaming=True,
+                progress_callback=progress, thumb=thumb
             )
             print()  # new line
 
