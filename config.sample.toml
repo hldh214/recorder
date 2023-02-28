@@ -18,6 +18,12 @@ credentials_file = ""
 username = ""
 password = ""
 
+[telegram]
+api_id = 0
+api_hash = ""
+string_session = ""
+channel_chat_id = 0
+
 [huya]
 app_id = ""
 app_secret = ""

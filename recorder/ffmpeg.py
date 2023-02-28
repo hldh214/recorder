@@ -2,6 +2,7 @@ import datetime
 import json
 import random
 import subprocess
+import tempfile
 
 import recorder
 
@@ -148,6 +149,23 @@ def start_time(input_file):
     res = ffprobe(input_file)
 
     return int(float(res['format']['start_time'])) if res else False
+
+
+def get_video_thumb(input_file, output_file=None, time=6, size=320):
+    output_file = output_file or tempfile.NamedTemporaryFile(suffix='.jpg').name
+
+    probe = ffprobe(input_file)
+    width = int(probe['streams'][0]['width'])
+    height = int(probe['streams'][0]['height'])
+    # https://trac.ffmpeg.org/wiki/Scaling#KeepingtheAspectRatio
+    scale = f'{size}:-1' if width > height else f'-1:{size}'
+
+    subprocess.run([
+        FFMPEG_BINARY, '-hide_banner', '-ss', str(time), '-i', input_file,
+        '-filter:v', f'scale={scale}', '-vframes:v', '1', output_file
+    ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+    return output_file
 
 
 if __name__ == '__main__':

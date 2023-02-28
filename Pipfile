@@ -23,6 +23,8 @@ PyJWT = "==2.*"
 protobuf = "==3.19.0"
 playwright = "==1.29.*"
 watchdog = "==2.2.*"
+telethon = "==1.27.*"
+hachoir = "==3.2.*"
 
 [dev-packages]
 
