@@ -16,6 +16,15 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 
+# Credits: https://stackoverflow.com/a/1094933
+def sizeof_fmt(num, suffix="B"):
+    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
+        if abs(num) < 1024.0:
+            return f"{num:3.1f}{unit}{suffix}"
+        num /= 1024.0
+    return f"{num:.1f}Yi{suffix}"
+
+
 def init_telegram():
     from recorder.destination.telegram import Telegram
 
@@ -55,11 +64,11 @@ def get_upload_videos(source_type):
         # check file size
         filesize = os.path.getsize(file)
         if filesize < 1024 * 1024 * 64:
-            logger.info(f'{file} < 64MB, skip')
+            logger.info(f'{file}: {sizeof_fmt(filesize)} < 64MiB, skip')
             continue
         # fixme: make this configurable
         if filesize > 1024 * 1024 * 1024 * 2:
-            logger.info(f'{file} > 2GB, skip')
+            logger.info(f'{file}: {sizeof_fmt(filesize)} > 2GiB, skip')
             continue
 
         path = pathlib.Path(file)
