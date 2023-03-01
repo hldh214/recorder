@@ -64,11 +64,11 @@ def get_upload_videos(source_type):
         # check file size
         filesize = os.path.getsize(file)
         if filesize < 1024 * 1024 * 64:
-            logger.info(f'{file}: {sizeof_fmt(filesize)} < 64MiB, skip')
+            logger.warning(f'{file}: {sizeof_fmt(filesize)} < 64MiB, skip')
             continue
         # fixme: make this configurable
         if filesize > 1024 * 1024 * 1024 * 2:
-            logger.info(f'{file}: {sizeof_fmt(filesize)} > 2GiB, skip')
+            logger.warning(f'{file}: {sizeof_fmt(filesize)} > 2GiB, skip')
             continue
 
         path = pathlib.Path(file)
@@ -100,7 +100,7 @@ def upload(source_type, destination):
     assert len(upload_files) > 0, 'no files to upload'
 
     logger.info(f'uploading {len(upload_files)} files to {destination}')
-    logger.info(upload_files)
+    logger.info('\n'.join([f'{path} -> {title}' for path, title in upload_files]))
     input('press enter to continue... (ctrl+c to cancel)')
 
     for path, title in upload_files:
