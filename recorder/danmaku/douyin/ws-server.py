@@ -59,8 +59,17 @@ if (!window.is_danmaku_dead) {
       document.querySelector('.danmu-icon').click();
     }
     // disable gift display on video player
-    if (document.querySelectorAll('.fHknbHHl')[2].querySelectorAll('div')[0].innerHTML === '屏蔽礼物特效') {
-      document.querySelectorAll('.fHknbHHl')[2].querySelectorAll('div')[1].click();
+    let xi = document.getElementsByTagName('xg-icon');
+    for (let each_xi of xi) {
+      let divs = each_xi.getElementsByTagName('div');
+      for (let each_div of divs) {
+        if (each_div.innerHTML === '屏蔽礼物特效') {
+          let children = each_div.parentElement.children;
+          for (let each_child of children) {
+            each_child.click();
+          }
+        }
+      }
     }
 
     if (window.ws_rpc_client && window.ws_rpc_client.readyState !== WebSocket.CLOSED) {
@@ -123,7 +132,7 @@ def prepare_hook_js(raw_js, ws_port=18964):
         full_match = match.group(0)
         var_name = match.group(1)
         js_code = js_hook_2.replace('<var_name>', var_name).replace('<ws_port>', str(ws_port))
-        result = result.replace(full_match, f';{js_code}')
+        result = result.replace(full_match, f'{full_match};{js_code}')
 
     return result
 
