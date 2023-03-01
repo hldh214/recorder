@@ -1,5 +1,7 @@
 import functools
+import os.path
 
+import tqdm
 from telethon.sync import TelegramClient
 from telethon.sessions import StringSession
 
@@ -13,15 +15,18 @@ class Telegram:
         self.chat_id = chat_id
 
     @staticmethod
-    def progress(current, total, action=None):
-        print('\rUploaded', current, 'out of', total, 'bytes: {:.2%}'.format(current / total), end='', flush=True)
+    def progress(current, total, pbar, action=None):
+        pbar.update(current - pbar.n)
 
         if action is not None:
             action.progress(current, total)
 
     def upload(self, path, title):
         with self.client.action(self.chat_id, 'video') as action:
-            progress = functools.partial(self.progress, action=action)
+            pbar = tqdm.tqdm(
+                total=os.path.getsize(path), desc=f'Uploading [{title}]', unit='B', unit_scale=True, unit_divisor=1024
+            )
+            progress = functools.partial(self.progress, action=action, pbar=pbar)
 
             # generate video thumbnail
             thumb = recorder.ffmpeg.get_video_thumb(path)
@@ -32,6 +37,6 @@ class Telegram:
                 caption=title, silent=True, supports_streaming=True,
                 progress_callback=progress, thumb=thumb
             )
-            print()  # new line
+            pbar.close()
 
         return message
