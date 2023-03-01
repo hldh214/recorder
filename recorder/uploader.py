@@ -100,7 +100,7 @@ def upload(source_type, destination):
     assert len(upload_files) > 0, 'no files to upload'
 
     logger.info(f'uploading {len(upload_files)} files to {destination}')
-    logger.info('\n'.join([f'{path} -> {title}' for path, title in upload_files]))
+    print('\n'.join([f'{path} -> {title}' for path, title in upload_files]))
     input('press enter to continue... (ctrl+c to cancel)')
 
     for path, title in upload_files:
