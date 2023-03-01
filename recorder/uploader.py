@@ -67,8 +67,8 @@ def get_upload_videos(source_type):
             logger.warning(f'{file}: {sizeof_fmt(filesize)} < 64MiB, skip')
             continue
         # fixme: make this configurable
-        if filesize > 1024 * 1024 * 1024 * 2:
-            logger.warning(f'{file}: {sizeof_fmt(filesize)} > 2GiB, skip')
+        if filesize > 1024 * 1024 * 2000:
+            logger.warning(f'{file}: {sizeof_fmt(filesize)} > 2000MiB, skip')
             continue
 
         path = pathlib.Path(file)
