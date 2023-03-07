@@ -1,5 +1,6 @@
 import datetime
 import json
+import os
 import random
 import subprocess
 import tempfile
@@ -166,6 +167,29 @@ def get_video_thumb(input_file, output_file=None, time=6, size=320):
     ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     return output_file
+
+
+def generate_candidate_thumbnails(input_file, output_dir, size=320, count=16):
+    probe = ffprobe(input_file)
+    width = int(probe['streams'][0]['width'])
+    height = int(probe['streams'][0]['height'])
+    # https://trac.ffmpeg.org/wiki/Scaling#KeepingtheAspectRatio
+    scale = f'{size}:-1' if width > height else f'-1:{size}'
+
+    d = duration(input_file)
+    assert d is not False
+
+    thumbnails = []
+    for i in range(count):
+        random_time = random.randint(0, d)
+        output_file = os.path.join(output_dir, f'{i}_{random_time}.jpg')
+        subprocess.run([
+            FFMPEG_BINARY, '-hide_banner', '-ss', str(random_time), '-i', input_file,
+            '-filter:v', f'scale={scale}', '-vframes:v', '1', output_file
+        ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        thumbnails.append(output_file)
+
+    return thumbnails
 
 
 if __name__ == '__main__':
