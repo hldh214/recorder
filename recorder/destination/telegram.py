@@ -28,8 +28,10 @@ class Telegram:
             )
             progress = functools.partial(self.progress, action=action, pbar=pbar)
 
-            # generate video thumbnail
-            thumb = recorder.ffmpeg.get_video_thumb(path)
+            thumb = path.replace('.mp4', '.jpg')
+            if not os.path.exists(thumb):
+                # generate video thumbnail
+                thumb = recorder.ffmpeg.get_video_thumb(path)
 
             # noinspection PyTypeChecker
             message = self.client.send_file(
