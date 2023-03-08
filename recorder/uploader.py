@@ -73,7 +73,7 @@ def get_upload_videos(source_type):
 
         path = pathlib.Path(file)
         source_name = path.parent.name
-        title = f'#{source_type} #{source_name} {path.stem}'
+        title = f'#{source_type} #{source_name} `{path.stem}`'
         upload_files.append((file, title))
 
     return upload_files
