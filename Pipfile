@@ -25,6 +25,7 @@ playwright = "==1.29.*"
 watchdog = "==2.2.*"
 telethon = "==1.27.*"
 hachoir = "==3.2.*"
+fire = "==0.5.*"
 
 [dev-packages]
 
