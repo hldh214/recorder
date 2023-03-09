@@ -8,6 +8,11 @@ if [[ $# -lt 1 ]]; then
 fi
 
 find $1 -name "*.mp4" | while read video; do
+    if lsof "$video" > /dev/null; then
+        echo "Skipping $video because it is being used by another process"
+        continue
+    fi
+
     echo "Processing $video"
     # pick random frames from video
     rm -rf "$video.frames"
