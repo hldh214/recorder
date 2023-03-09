@@ -28,7 +28,7 @@ class Telegram:
             )
             progress = functools.partial(self.progress, action=action, pbar=pbar)
 
-            thumb = path.replace('.mp4', '.jpg')
+            thumb = path + '.thumbnail.jpg'
             if not os.path.exists(thumb):
                 # generate video thumbnail
                 thumb = recorder.ffmpeg.get_video_thumb(path)
