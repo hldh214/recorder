@@ -21,5 +21,6 @@ find $1 -name "*.mp4" | while read video; do
     # get NSFW score for each frame and keep only the frame with the highest NSFW score
     (cd ~/tensorflow-open_nsfw && python ~/tensorflow-open_nsfw/classify_nsfw.py pred_folder "$video.frames" -k)
     # move the frame with the highest NSFW score to the video folder and rename it to $video.thumbnail.jpg
-    mv $video.frames/*.jpg "$video.thumbnail.jpg"
+    mv "$video".frames/*.jpg "$video".thumbnail.jpg
+    rm -rf "$video.frames"
 done
