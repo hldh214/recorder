@@ -40,5 +40,6 @@ class Telegram:
                 progress_callback=progress, thumb=thumb
             )
             pbar.close()
+            os.unlink(thumb)
 
         return message
