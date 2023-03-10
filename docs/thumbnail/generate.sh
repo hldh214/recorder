@@ -13,6 +13,11 @@ process () {
         return
     fi
 
+    if [[ -f "$1.thumbnail.jpg" ]]; then
+        echo "Skipping $1 because it already has a thumbnail"
+        return
+    fi
+
     echo "Processing $1"
     # pick random frames from video
     rm -rf "$1.frames"
