@@ -103,8 +103,8 @@ def upload(source_type, destination):
     print('\n'.join([f'{path} -> {title}' for path, title in upload_files]))
     input('press enter to continue... (ctrl+c to cancel)')
 
-    for path, title in upload_files:
-        logger.info(f'uploading {path} with title {title}')
+    for index, (path, title) in enumerate(upload_files):
+        logger.info(f'uploading {index + 1}/{len(upload_files)}: {path} -> {title}')
 
         try:
             upload_function(path, title)
