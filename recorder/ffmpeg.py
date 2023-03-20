@@ -182,11 +182,11 @@ def generate_candidate_thumbnails(input_file, output_dir, size=320, count=16):
     assert d is not False
 
     thumbnails = []
-    for i in tqdm.tqdm(range(count), desc=f'Generating {count} thumbnails for {os.path.basename(input_file)}'):
-        random_time = random.randint(0, d)
-        output_file = os.path.join(output_dir, f'{i}_{random_time}.jpg')
+    for i in tqdm.tqdm(range(1, count + 1), desc=f'Generating {count} thumbnails for {os.path.basename(input_file)}'):
+        current_time = d * i // (count + 1)
+        output_file = os.path.join(output_dir, f'{i}_{current_time}.jpg')
         subprocess.run([
-            FFMPEG_BINARY, '-hide_banner', '-ss', str(random_time), '-i', input_file,
+            FFMPEG_BINARY, '-hide_banner', '-ss', str(current_time), '-i', input_file,
             '-filter:v', f'scale={scale}', '-vframes:v', '1', output_file
         ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         thumbnails.append(output_file)
