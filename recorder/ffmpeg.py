@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import random
+import shutil
 import subprocess
 import tempfile
 
@@ -180,6 +181,11 @@ def generate_candidate_thumbnails(input_file, output_dir, size=320, count=16):
 
     d = duration(input_file)
     assert d is not False
+
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
+
+    os.makedirs(output_dir)
 
     thumbnails = []
     for i in tqdm.tqdm(range(1, count + 1), desc=f'Generating {count} thumbnails for {os.path.basename(input_file)}'):
