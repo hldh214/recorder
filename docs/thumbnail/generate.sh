@@ -25,6 +25,13 @@ process () {
     (cd ~/recorder && pipenv run python recorder/ffmpeg.py generate_candidate_thumbnails "$1" "$1.frames")
     # get NSFW score for each frame and keep only the frame with the highest NSFW score
     (cd ~/tensorflow-open_nsfw && python ~/tensorflow-open_nsfw/classify_nsfw.py pred_folder "$1.frames" -k)
+    # get avg_score
+    avg_score=$(cat "$1.frames"/avg_score.txt)
+    if (( $(echo "$avg_score < 0.2" | bc -l) )); then
+        echo "Skipping $1 because it has an average NSFW score of $avg_score"
+        mv "$1" "$1".skipped
+        return
+    fi
     # move the frame with the highest NSFW score to the video folder and rename it to $1.thumbnail.jpg
     mv "$1".frames/*.jpg "$1".thumbnail.jpg
     rm -rf "$1.frames"
