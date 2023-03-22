@@ -67,7 +67,7 @@ class Telegram:
         # generate index
         index = ''
         for source in sources:
-            index += f'`#{source[0]}`: {source[1]["views"]} views, {source[1]["count"]} videos, ' \
+            index += f'#{source[0]}: {source[1]["views"]} views, {source[1]["count"]} videos, ' \
                      f'{recorder.utils.sizeof_fmt(source[1]["size"])}, ' \
                      f'{source[1]["duration"] // 3600} hours\n'
 
