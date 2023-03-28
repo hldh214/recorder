@@ -3,6 +3,7 @@ import random
 import requests
 
 from recorder.ffmpeg import USER_AGENTS
+from recorder import logger
 
 
 def get_stream(room_id, **kwargs):
@@ -24,10 +25,16 @@ def get_stream(room_id, **kwargs):
     except requests.exceptions.RequestException:
         return False
 
+    logger.debug(f'panda.get_stream: {res}')
+
     if 'PlayList' not in res:
         return False
 
-    return res['PlayList']['hls'][0]['url']
+    try:
+        return res['PlayList']['hls'][0]['url']
+    except (TypeError, LookupError) as e:
+        logger.warning(f'panda.get_stream with error[{e}]: {res}')
+        return False
 
 
 if __name__ == '__main__':
