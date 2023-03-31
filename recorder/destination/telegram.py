@@ -83,16 +83,16 @@ if __name__ == '__main__':
 
     from recorder import config
 
-    app_id = config.get('telegram').get('api_id')
-    api_hash = config.get('telegram').get('api_hash')
-    string_session = config.get('telegram').get('string_session')
-    chat_id = config.get('telegram').get('chat_id')
+    _app_id = config.get('telegram').get('api_id')
+    _api_hash = config.get('telegram').get('api_hash')
+    _string_session = config.get('telegram').get('string_session')
+    _chat_id = config.get('telegram').get('chat_id')
 
-    telegram = Telegram(app_id, api_hash, string_session, chat_id)
+    telegram = Telegram(_app_id, _api_hash, _string_session, _chat_id)
 
 
     def get_string_session():
-        with TelegramClient(StringSession(), app_id, api_hash) as client:
+        with TelegramClient(StringSession(), _app_id, _api_hash) as client:
             print(client.session.save())
 
 
