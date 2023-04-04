@@ -188,6 +188,7 @@ def generate_candidate_thumbnails(input_file, output_dir, size=320, sampling_int
     os.makedirs(output_dir)
 
     count = d // sampling_interval
+    count = count if count >= 3 else 3
 
     thumbnails = []
     for i in tqdm.tqdm(range(1, count + 1), desc=f'Generating {count} thumbnails for {os.path.basename(input_file)}'):
