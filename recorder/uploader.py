@@ -39,19 +39,20 @@ def init_telegram(videos):
             continue
 
         thumbs = generate_candidate_thumbnails(video[0], f'{video[0]}.frames')
-        logger.info(f'Generating NSFW score for {video[0]}')
+        logger.info(f'Predicting {video[0]}')
         nsfw_score_list = n2.predict_images(thumbs)
         avg_score = sum(nsfw_score_list) / len(nsfw_score_list)
         max_score = max(nsfw_score_list)
-        logger.info(f'NSFW score for {video[0]}: (avg: {avg_score:.4f}, max: {max_score:.4f})')
+        thumb = thumbs[nsfw_score_list.index(max_score)]
 
-        if avg_score < 0.1 and max_score < 0.9:
-            logger.info(f'Skipping {video[0]}, avg_score: {avg_score:.4f}, max_score: {max_score:.4f}')
+        logger.info(f'Result: (avg: {avg_score:.4f}, max: {max_score:.4f}({thumb.split(os.sep)[-1]}))')
+
+        if avg_score < 0.1 and max_score < 0.8:
+            logger.info(f'Skipping {video[0]}')
             os.rename(video[0], f'{video[0]}.skipped')
             continue
 
         upload_files.append(video)
-        thumb = thumbs[nsfw_score_list.index(max_score)]
         os.rename(thumb, f'{video[0]}.thumbnail.jpg')
         shutil.rmtree(f'{video[0]}.frames')
 
