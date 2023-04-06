@@ -34,7 +34,7 @@ def init_telegram(videos):
     upload_files = []
     for video in videos:
         if os.path.exists(f'{video[0]}.thumbnail.jpg'):
-            logger.info(f'Skipping {video[0]}, thumbnail exists')
+            print(f'Skipping {video[0]}, thumbnail exists')
             upload_files.append(video)
             continue
 
