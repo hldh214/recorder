@@ -2,11 +2,14 @@ import glob
 import logging
 import os
 import pathlib
+import shutil
 import time
 
 import click
+import opennsfw2 as n2
 
 import recorder.exceptions
+from recorder.ffmpeg import generate_candidate_thumbnails
 
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
@@ -25,10 +28,34 @@ def sizeof_fmt(num, suffix="B"):
     return f"{num:.1f}Yi{suffix}"
 
 
-def init_telegram():
+def init_telegram(videos):
     from recorder.destination.telegram import Telegram
 
-    return Telegram(
+    upload_files = []
+    for video in videos:
+        if os.path.exists(f'{video[0]}.thumbnail.jpg'):
+            logger.info(f'Skipping {video[0]}, thumbnail exists')
+            upload_files.append(video)
+            continue
+
+        thumbs = generate_candidate_thumbnails(video[0], f'{video[0]}.frames')
+        logger.info(f'Generating NSFW score for {video[0]}')
+        nsfw_score_list = n2.predict_images(thumbs)
+        avg_score = sum(nsfw_score_list) / len(nsfw_score_list)
+        max_score = max(nsfw_score_list)
+        logger.info(f'NSFW score for {video[0]}: (avg: {avg_score:.4f}, max: {max_score:.4f})')
+
+        if avg_score < 0.1 and max_score < 0.9:
+            logger.info(f'Skipping {video[0]}, avg_score: {avg_score:.4f}, max_score: {max_score:.4f}')
+            os.rename(video[0], f'{video[0]}.skipped')
+            continue
+
+        upload_files.append(video)
+        thumb = thumbs[nsfw_score_list.index(max_score)]
+        os.rename(thumb, f'{video[0]}.thumbnail.jpg')
+        shutil.rmtree(f'{video[0]}.frames')
+
+    return upload_files, Telegram(
         api_id=recorder.config.get('telegram').get('api_id'),
         api_hash=recorder.config.get('telegram').get('api_hash'),
         string_session=recorder.config.get('telegram').get('string_session'),
@@ -45,7 +72,12 @@ def init_spankbang():
     )
 
 
-def get_upload_videos(source_type):
+def get_upload_videos(
+    source_type,
+    filesize_min=1024 * 1024 * 64,
+    filesize_max=1024 * 1024 * 2000,
+    should_delete_small_files=True
+):
     video_path = pathlib.Path(
         recorder.base_path,
         recorder.config.get('app').get('video_path'),
@@ -54,6 +86,7 @@ def get_upload_videos(source_type):
 
     files = glob.glob(str(video_path), recursive=True)
     upload_files = []
+    delete_files = []
 
     for file in files:
         # check if recently modified
@@ -63,11 +96,11 @@ def get_upload_videos(source_type):
 
         # check file size
         filesize = os.path.getsize(file)
-        if filesize < 1024 * 1024 * 64:
+        if filesize < filesize_min:
             logger.warning(f'{file}: {sizeof_fmt(filesize)} < 64MiB, skip')
+            delete_files.append(file)
             continue
-        # fixme: make this configurable
-        if filesize > 1024 * 1024 * 2000:
+        if filesize > filesize_max:
             logger.warning(f'{file}: {sizeof_fmt(filesize)} > 2000MiB, skip')
             continue
 
@@ -75,6 +108,19 @@ def get_upload_videos(source_type):
         source_name = path.parent.name
         title = f'#{source_type} #{source_name} `{path.stem}`'
         upload_files.append((file, title))
+
+    print('=' * 64)
+    print(f'{len(upload_files)} files found: (64MiB < size < 2000MiB)')
+    print('\n'.join([f'{path}: {sizeof_fmt(os.path.getsize(path))}' for path, _ in upload_files]))
+    input('press enter to continue... (ctrl+c to cancel)')
+
+    if should_delete_small_files and delete_files:
+        print('=' * 64)
+        print(f'{len(delete_files)} small files found: (less than 64MiB)')
+        print('\n'.join([f'{path}: {sizeof_fmt(os.path.getsize(path))}' for path in delete_files]))
+        input('press enter to delete small files... (ctrl+c to cancel)')
+        for path in delete_files:
+            os.remove(path)
 
     return upload_files
 
@@ -88,14 +134,15 @@ def cli():
 @click.option('--source_type', '-s', type=str, required=True)
 @click.option('--destination', '-d', type=str, required=True)
 def upload(source_type, destination):
+    upload_files = get_upload_videos(source_type)
+
     if destination == 'telegram':
-        upload_function = init_telegram().upload
+        upload_files, telegram = init_telegram(upload_files)
+        upload_function = telegram.upload
     elif destination == 'spankbang':
         upload_function = init_spankbang().upload
     else:
         raise ValueError(f'unknown destination: {destination}')
-
-    upload_files = get_upload_videos(source_type)
 
     assert len(upload_files) > 0, 'no files to upload'
 

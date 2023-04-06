@@ -172,7 +172,7 @@ def get_video_thumb(input_file, output_file=None, time=6, size=320):
     return output_file
 
 
-def generate_candidate_thumbnails(input_file, output_dir, size=320, sampling_interval=180):
+def generate_candidate_thumbnails(input_file, output_dir, size=320, sampling_interval=60):
     probe = ffprobe(input_file)
     width = int(probe['streams'][0]['width'])
     height = int(probe['streams'][0]['height'])
@@ -188,11 +188,11 @@ def generate_candidate_thumbnails(input_file, output_dir, size=320, sampling_int
     os.makedirs(output_dir)
 
     count = d // sampling_interval
-    count = count if count >= 3 else 3
+    count = count if count >= 3 else 3  # at least 3 thumbnails
 
     thumbnails = []
     for i in tqdm.tqdm(range(1, count + 1), desc=f'Generating {count} thumbnails for {os.path.basename(input_file)}'):
-        current_time = d // count * i
+        current_time = d // (count + 1) * i
         output_file = os.path.join(output_dir, f'{i}_{current_time}.jpg')
         subprocess.run([
             FFMPEG_BINARY, '-hide_banner', '-ss', str(current_time), '-i', input_file,
