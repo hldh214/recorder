@@ -27,8 +27,9 @@ process () {
     (cd ~/tensorflow-open_nsfw && python ~/tensorflow-open_nsfw/classify_nsfw.py pred_folder "$1.frames" -k)
     # get avg_score
     avg_score=$(cat "$1.frames"/avg_score.txt)
-    if (( $(echo "$avg_score < 0.1" | bc -l) )); then
-        echo "Skipping $1 because it has an average NSFW score of $avg_score"
+    max_score=$(cat "$1.frames"/max_score.txt)
+    if (( $(echo "$avg_score < 0.1" | bc -l) && $(echo "$max_score < 0.9" | bc -l) )); then
+        echo "Skipping $1 because it has an average NSFW score of $avg_score and a max NSFW score of $max_score"
         mv "$1" "$1".skipped
         return
     fi
