@@ -201,8 +201,14 @@ def generate_candidate_thumbnails(input_file, output_dir, size=320, sampling_int
         try:
             subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
         except subprocess.CalledProcessError as e:
-            print(f'FFmpeg Error when generating thumbnail, cmd: {cmd}')
+            print(f'FFmpeg Error when generating thumbnail, cmd: {cmd}, output: {e.output.decode()}')
             continue
+
+        # check if the thumbnail is valid
+        if not os.path.exists(output_file):
+            print(f'FFmpeg Error when generating thumbnail, file not exists: {output_file}')
+            continue
+
         thumbnails.append(output_file)
 
     return thumbnails
