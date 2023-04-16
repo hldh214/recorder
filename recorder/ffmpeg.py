@@ -194,10 +194,15 @@ def generate_candidate_thumbnails(input_file, output_dir, size=320, sampling_int
     for i in tqdm.tqdm(range(1, count + 1), desc=f'Generating {count} thumbnails for {os.path.basename(input_file)}'):
         current_time = d // (count + 1) * i
         output_file = os.path.join(output_dir, f'{i}_{current_time}.jpg')
-        subprocess.run([
+        cmd = [
             FFMPEG_BINARY, '-hide_banner', '-ss', str(current_time), '-i', input_file,
             '-filter:v', f'scale={scale}', '-vframes:v', '1', output_file
-        ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        ]
+        try:
+            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
+        except subprocess.CalledProcessError as e:
+            print(f'FFmpeg Error when generating thumbnail, cmd: {cmd}')
+            continue
         thumbnails.append(output_file)
 
     return thumbnails

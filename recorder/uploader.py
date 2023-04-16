@@ -39,6 +39,10 @@ def init_telegram(videos):
             continue
 
         thumbs = generate_candidate_thumbnails(video[0], f'{video[0]}.frames')
+        if len(thumbs) == 0:
+            logger.warning(f'No thumbnails generated for {video[0]}, skipping')
+            continue
+
         logger.info(f'Predicting {video[0]}')
         nsfw_score_list = n2.predict_images(thumbs)
         avg_score = sum(nsfw_score_list) / len(nsfw_score_list)
