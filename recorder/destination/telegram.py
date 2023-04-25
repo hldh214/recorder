@@ -50,10 +50,12 @@ class Telegram:
         # get all messages from telegram channel
         # group by source and sum up by views and count
         sources = {}
+        top_n = {}
         for message in self.client.iter_messages(self.chat_id, filter=InputMessagesFilterVideo):
             if message.views is None:
                 continue
             source = message.text.split('#')[2].split(' ')[0]
+
             if source not in sources:
                 sources[source] = {'views': 0, 'count': 0, 'size': 0, 'duration': 0}
             sources[source]['views'] += message.views
@@ -61,19 +63,29 @@ class Telegram:
             sources[source]['size'] += message.media.document.size
             sources[source]['duration'] += message.media.document.attributes[0].duration
 
+            if source not in top_n:
+                top_n[source] = []
+            top_n[source].append({
+                'views': message.views,
+                'message_link': f'https://t.me/{message.chat.username}/{message.id}'
+            })
+
         # sort by views
         sources = sorted(sources.items(), key=lambda x: x[1]['views'], reverse=True)
+        top_3 = {k: sorted(v, key=lambda x: x['views'], reverse=True)[:3] for k, v in top_n.items()}
 
         # generate index
-        index = ''
+        index = '#Index\n'
         for source in sources:
             index += f'#{source[0]}: {source[1]["views"]} views, {source[1]["count"]} videos, ' \
                      f'{recorder.utils.sizeof_fmt(source[1]["size"])}, ' \
                      f'{source[1]["duration"] // 3600} hours\n'
+            for top_x, video in enumerate(top_3[source[0]]):
+                index += f'    • [Top{top_x + 1}]({video["message_link"]})\n'
 
         # send index to telegram channel
         if message_id is not None:
-            self.client.edit_message(self.chat_id, message_id, index)
+            self.client.edit_message(self.chat_id, message_id, index, link_preview=False)
 
         return index
 
