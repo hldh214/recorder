@@ -10,7 +10,7 @@ import tqdm
 
 import recorder
 
-TIMEOUT_US = str(20 * 1000000)  # 20s
+TIMEOUT_US = str(4 * 1000000)  # 4s
 USER_AGENTS = (
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.114',
     'Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0 Iceweasel/38.2.1',
@@ -29,7 +29,12 @@ ERROR_CHECK_LIST = (
 def record(input_url, output_file, max_duration, max_size, args=None):
     popen_args = [
         FFMPEG_BINARY, '-y', '-user_agent', random.choice(USER_AGENTS), '-hide_banner',
-        '-reconnect_streamed', '1', '-reconnect_delay_max', '20',
+        # If set then eof is treated like an error and causes reconnection, this is useful for live / endless streams.
+        '-reconnect_at_eof', '1',
+        # If set then even streamed/non seekable streams will be reconnected on errors.
+        '-reconnect_streamed', '1',
+        # Sets the maximum delay in seconds after which to give up reconnecting.
+        '-reconnect_delay_max', '16',
         '-rw_timeout', TIMEOUT_US, '-timeout', TIMEOUT_US,
         '-i', input_url, '-c', 'copy'
     ]
