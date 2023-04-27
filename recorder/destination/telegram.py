@@ -1,6 +1,7 @@
 import functools
 import os.path
 
+import tenacity
 import tqdm
 from telethon.sync import TelegramClient
 from telethon.sessions import StringSession
@@ -23,6 +24,12 @@ class Telegram:
         if action is not None:
             action.progress(current, total)
 
+    @tenacity.retry(
+        wait=tenacity.wait_exponential(min=4),
+        stop=tenacity.stop_after_attempt(4),
+        reraise=True,
+        retry=tenacity.retry_if_exception_type(RuntimeError)
+    )
     def upload(self, path, title):
         with self.client.action(self.chat_id, 'video') as action:
             pbar = tqdm.tqdm(
