@@ -44,15 +44,7 @@ if os.name == 'nt':
     retry=tenacity.retry_if_exception_type(requests.exceptions.RequestException)
 )
 def download(src, dst):
-    return open(dst, 'wb').write(requests.get(src).content)
-
-
-async def ts_downloader(q):
-    while True:
-        src, dst = await q.get()
-        logger.info(f'downloading {src} -> {dst}')
-        download(src, dst)
-        q.task_done()
+    return open(dst, 'ab').write(requests.get(src).content)
 
 
 def record_thread(source_type, room_id, interval=5, **kwargs):
@@ -70,13 +62,12 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             continue
 
         start = datetime.datetime.now(tz).strftime(datetime_format)
-        folder_path = os.path.join(video_folder_path, 'record', source_type, kwargs['source_name'], start)
+        folder_path = os.path.join(video_folder_path, 'record', source_type, kwargs['source_name'])
+        output_ts_file = os.path.join(folder_path, f'{start}.ts')
         pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
-        pathlib.Path(os.path.join(folder_path, f'{start}.start')).touch()
-        m3u8_file = os.path.join(folder_path, 'index.m3u8')
-        open(m3u8_file, 'w').write('#EXTM3U\n#EXT-X-VERSION:3\n\n')
+        pathlib.Path(output_ts_file).touch()
 
-        logger.info(f'recording: {hls_url} -> {folder_path}')
+        logger.info(f'recording: {hls_url} -> {output_ts_file}')
 
         while True:
             try:
@@ -84,7 +75,6 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             except (ValueError, IOError) as e:
                 traceback.print_exc()
                 logger.error(f'failed to load m3u8: {hls_url}, {e}')
-                open(m3u8_file, 'a').write(f'#EXT-X-ENDLIST\n')
                 break
             for segment in m3u8_obj.segments:
                 filename = urllib.parse.urlparse(segment.uri).path
@@ -94,11 +84,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
                     continue
 
                 download(segment.absolute_uri, dst)
-                open(m3u8_file, 'a').write(f'#EXTINF:{segment.duration},\n{filename}\n')
             time.sleep(1)
-
-        end = datetime.datetime.now(tz).strftime(datetime_format)
-        pathlib.Path(os.path.join(folder_path, f'{end}.end')).touch()
 
 
 def record_spawn_thread(running_tasks):
