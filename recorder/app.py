@@ -6,7 +6,6 @@ import pathlib
 import threading
 import time
 import traceback
-import urllib.parse
 
 import googleapiclient.errors
 import m3u8
@@ -77,13 +76,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
                 logger.error(f'failed to load m3u8: {hls_url}, {e}')
                 break
             for segment in m3u8_obj.segments:
-                filename = urllib.parse.urlparse(segment.uri).path
-                dst = os.path.join(folder_path, filename)
-
-                if os.path.exists(dst):
-                    continue
-
-                download(segment.absolute_uri, dst)
+                download(segment.absolute_uri, output_ts_file)
             time.sleep(1)
 
 
