@@ -46,7 +46,7 @@ def get_stream(room_id, **kwargs):
     logger.debug(f'[{room_id}]room_data: {json.dumps(room_data)}')
 
     try:
-        result = room_data['stream_url']['flv_pull_url']['FULL_HD1']
+        result = room_data['stream_url']['hls_pull_url_map']['FULL_HD1']
     except KeyError:
         logger.error(f'Failed to get stream url, room_data: {room_data}')
         return False

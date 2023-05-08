@@ -6,9 +6,13 @@ import pathlib
 import threading
 import time
 import traceback
+import urllib.parse
 
 import googleapiclient.errors
+import m3u8
 import pytz
+import requests
+import tenacity
 import watchdog.events
 import watchdog.observers
 
@@ -33,6 +37,24 @@ if os.name == 'nt':
     datetime_format = '%Y-%m-%d %H-%M-%S'
 
 
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(4),
+    wait=tenacity.wait_exponential(min=4),
+    reraise=True,
+    retry=tenacity.retry_if_exception_type(requests.exceptions.RequestException)
+)
+def download(src, dst):
+    return open(dst, 'wb').write(requests.get(src).content)
+
+
+async def ts_downloader(q):
+    while True:
+        src, dst = await q.get()
+        logger.info(f'downloading {src} -> {dst}')
+        download(src, dst)
+        q.task_done()
+
+
 def record_thread(source_type, room_id, interval=5, **kwargs):
     source = importlib.import_module(f'recorder.source.{source_type}')
 
@@ -41,54 +63,42 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
     video_folder_path = os.path.join(base_path, kwargs['app']['video_path'])
 
     while True:
-        flv_url = source.get_stream(room_id, **kwargs)
+        hls_url = source.get_stream(room_id, **kwargs)
 
-        if not flv_url:
+        if not hls_url:
             time.sleep(interval)
             continue
 
-        folder_path = os.path.join(video_folder_path, 'record', source_type, kwargs['source_name'])
         start = datetime.datetime.now(tz).strftime(datetime_format)
-        filename = f'{start}.{video_extension}'
+        folder_path = os.path.join(video_folder_path, 'record', source_type, kwargs['source_name'], start)
         pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
-        output_file = os.path.join(folder_path, filename)
+        pathlib.Path(os.path.join(folder_path, f'{start}.start')).touch()
+        m3u8_file = os.path.join(folder_path, 'index.m3u8')
+        open(m3u8_file, 'w').write('#EXTM3U\n#EXT-X-VERSION:3\n\n')
 
-        logger.info(f'recording: {flv_url} -> {output_file}')
+        logger.info(f'recording: {hls_url} -> {folder_path}')
 
-        exit_code = ffmpeg.record(
-            flv_url,
-            output_file,
-            kwargs['app'].get('max_duration', 0),
-            kwargs['app'].get('max_size', 0)
-        )
-        logger.info(f'({kwargs["source_name"]})recorded with exit_code {exit_code}: {flv_url}')
+        while True:
+            try:
+                m3u8_obj = m3u8.load(hls_url)
+            except (ValueError, IOError) as e:
+                traceback.print_exc()
+                logger.error(f'failed to load m3u8: {hls_url}, {e}')
+                open(m3u8_file, 'a').write(f'#EXT-X-ENDLIST\n')
+                break
+            for segment in m3u8_obj.segments:
+                filename = urllib.parse.urlparse(segment.uri).path
+                dst = os.path.join(folder_path, filename)
 
-        if not ffmpeg.valid(output_file):
-            if not os.path.exists(output_file):
-                logger.warning(f'output_file does not exist: {output_file}')
-                continue
+                if os.path.exists(dst):
+                    continue
 
-            # unlink that file and save log
-            os.unlink(output_file)
-            logger.warning(f'not valid and unlinked: {output_file}')
-            continue
+                download(segment.absolute_uri, dst)
+                open(m3u8_file, 'a').write(f'#EXTINF:{segment.duration},\n{filename}\n')
+            time.sleep(1)
 
-        if not kwargs.get('auto_upload'):
-            continue
-
-        if kwargs.get('auto_upload_minimal_size', 0) > get_file_size(output_file):
-            logger.info(f'auto_upload_minimal_size > get_file_size(output_file): {output_file}')
-            continue
-
-        if kwargs.get('auto_upload_minimal_duration', 0) > ffmpeg.duration(output_file):
-            logger.info(f'auto_upload_minimal_duration > ffmpeg.duration(output_file): {output_file}')
-            continue
-
-        # move to upload folder
-        dst_dir = os.path.join(video_folder_path, 'upload', source_type, kwargs['source_name'])
-        pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
-        dst_path = os.path.join(dst_dir, filename)
-        os.rename(output_file, dst_path)
+        end = datetime.datetime.now(tz).strftime(datetime_format)
+        pathlib.Path(os.path.join(folder_path, f'{end}.end')).touch()
 
 
 def record_spawn_thread(running_tasks):
