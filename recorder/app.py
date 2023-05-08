@@ -68,6 +68,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 
         logger.info(f'recording: {hls_url} -> {output_ts_file}')
 
+        ts_memo = set()
         while True:
             try:
                 m3u8_obj = m3u8.load(hls_url)
@@ -76,6 +77,10 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
                 logger.error(f'failed to load m3u8: {hls_url}, {e}')
                 break
             for segment in m3u8_obj.segments:
+                if segment.uri in ts_memo:
+                    continue
+
+                ts_memo.add(segment.uri)
                 download(segment.absolute_uri, output_ts_file)
             time.sleep(1)
 
