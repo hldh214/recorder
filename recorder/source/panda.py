@@ -31,7 +31,9 @@ def get_stream(room_id, **kwargs):
         return False
 
     try:
-        return res['PlayList']['hls'][0]['url']
+        return {
+            'hls_url': res['PlayList']['hls'][0]['url']
+        }
     except (TypeError, LookupError) as e:
         logger.warning(f'panda.get_stream with error[{e}]: {res}')
         return False

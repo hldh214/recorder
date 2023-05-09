@@ -1,12 +1,14 @@
 import datetime
 import glob
 import importlib
+import json
 import os
 import pathlib
 import threading
 import time
 import traceback
 
+# noinspection PyPackageRequirements
 import googleapiclient.errors
 import pytz
 import watchdog.events
@@ -41,27 +43,28 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
     video_folder_path = os.path.join(base_path, kwargs['app']['video_path'])
 
     while True:
-        flv_url = source.get_stream(room_id, **kwargs)
+        stream = source.get_stream(room_id, **kwargs)
 
-        if not flv_url:
+        if not stream:
             time.sleep(interval)
             continue
+
+        url = stream.get('flv_url', stream.get('hls_url'))
 
         folder_path = os.path.join(video_folder_path, 'record', source_type, kwargs['source_name'])
         start = datetime.datetime.now(tz).strftime(datetime_format)
         filename = f'{start}.{video_extension}'
+        metadata_filename = f'{start}.metadata'
         pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
         output_file = os.path.join(folder_path, filename)
+        open(os.path.join(folder_path, metadata_filename), 'w').write(json.dumps(stream))
 
-        logger.info(f'recording: {flv_url} -> {output_file}')
+        logger.info(f'recording: {url} -> {output_file}')
 
         exit_code = ffmpeg.record(
-            flv_url,
-            output_file,
-            kwargs['app'].get('max_duration', 0),
-            kwargs['app'].get('max_size', 0)
+            url, output_file, kwargs['app'].get('max_duration', 0), kwargs['app'].get('max_size', 0)
         )
-        logger.info(f'({kwargs["source_name"]})recorded with exit_code {exit_code}: {flv_url}')
+        logger.info(f'({kwargs["source_name"]})recorded with exit_code {exit_code}: {url}')
 
         if not ffmpeg.valid(output_file):
             if not os.path.exists(output_file):
@@ -131,6 +134,7 @@ def my_recorder():
     record_spawn_thread(running_tasks)
 
 
+# noinspection PyBroadException
 def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
     while True:
         videos = glob.glob(os.path.join(
@@ -143,6 +147,7 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
             source_name = split_video_path[-2]
             video_filename = split_video_path[-1]
             filename_datetime = video_filename.split('.')[0]
+            metadata_path = video_path.split('.')[0] + '.metadata'
 
             current_config = config['source'].get(source_name)
 
@@ -153,6 +158,13 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
             start = filename_datetime
             end = ffmpeg.calc_end_time(video_path, start, datetime_format)
             description = current_config.get('description', '')
+            title = current_config['title'].format(datetime=filename_datetime)
+
+            if os.path.exists(metadata_path):
+                metadata = json.loads(open(metadata_path).read())
+                if metadata.get('title'):
+                    title += f': {metadata["title"]}'
+
             caption_folder_path = os.path.join(
                 os.path.abspath(config['app']['danmaku_path']), source_type, source_name
             )
@@ -189,11 +201,7 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
 
             logger.info(f'uploading: {video_path}')
             try:
-                video_id = youtube.upload(
-                    video_path,
-                    current_config['title'].format(datetime=filename_datetime),
-                    description,
-                )
+                video_id = youtube.upload(video_path, title, description)
             except googleapiclient.errors.HttpError as exception:
                 time.sleep(interval)
                 logger.warning(f'A HTTP error occurred:\n{exception}')

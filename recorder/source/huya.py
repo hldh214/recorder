@@ -124,11 +124,15 @@ def get_stream(room_id, **kwargs):
 
     result = parse_by_mini_program(sub_sid, preferred_cdn_type, preferred_format, ratio, min_start_time)
     if result:
-        return result
+        return {
+            'flv_url': result
+        }
 
     result = parse_by_ws(sub_sid, ws_api, preferred_cdn_type, preferred_format, ratio, min_start_time)
     if result:
-        return result
+        return {
+            'flv_url': result
+        }
 
     return False
 
