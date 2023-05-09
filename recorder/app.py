@@ -161,7 +161,7 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
             title = current_config['title'].format(datetime=filename_datetime)
 
             if os.path.exists(metadata_path):
-                metadata = json.loads(open(metadata_path).read())
+                metadata = json.load(open(metadata_path))
                 if metadata.get('title'):
                     title += f': {metadata["title"]}'
 
