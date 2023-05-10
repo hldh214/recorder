@@ -40,13 +40,17 @@ if os.name == 'nt':
 
 
 @tenacity.retry(
-    stop=tenacity.stop_after_attempt(4),
     wait=tenacity.wait_exponential(min=4),
     reraise=True,
     retry=tenacity.retry_if_exception_type(requests.exceptions.RequestException)
 )
 def download_ts(src, dst):
-    return open(dst, 'ab').write(requests.get(src, timeout=REQUEST_TIMEOUT).content)
+    try:
+        return open(dst, 'ab').write(requests.get(src, timeout=REQUEST_TIMEOUT).content)
+    except requests.exceptions.RequestException as e:
+        traceback.print_exc()
+        logger.error(f'download_ts: {e}')
+        raise
 
 
 def download_ts_thread(q: queue.Queue, dst):
@@ -114,7 +118,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
                 ts_memo.add(segment.uri)
                 q.put(segment.absolute_uri)
                 logger.info(f'record_thread: enqueue {segment.absolute_uri}')
-            time.sleep(1)
+            time.sleep(2)
 
 
 def record_spawn_thread(running_tasks):
