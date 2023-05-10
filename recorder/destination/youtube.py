@@ -202,4 +202,6 @@ if __name__ == '__main__':
         print(youtube.check_processed(sys.argv[1]))
 
     if len(sys.argv) == 3:
-        print(youtube.add_caption(sys.argv[1], sys.argv[2]))
+        if youtube.add_caption(sys.argv[1], sys.argv[2]):
+            print('The caption has been added to YouTube and removed from the local file')
+            os.unlink(sys.argv[2])
