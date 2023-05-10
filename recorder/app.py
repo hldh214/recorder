@@ -23,8 +23,6 @@ import recorder.utils
 
 from recorder import logger, base_path, video_name_sep
 
-REQUEST_TIMEOUT = 5
-
 huya_danmaku_mongo = None
 douyin_danmaku_mongo = None
 if recorder.config['app'].get('mongo_dsn'):
@@ -67,7 +65,7 @@ def download_ts_thread(stop_event: threading.Event, q: queue.Queue, dst):
     retry=tenacity.retry_if_exception_type(requests.exceptions.RequestException)
 )
 def get_m3u8_obj(hls_url):
-    res = requests.get(hls_url, timeout=REQUEST_TIMEOUT)
+    res = requests.get(hls_url, timeout=5)
     res.raise_for_status()
 
     return m3u8.loads(res.text, uri=hls_url)
