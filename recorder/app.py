@@ -22,6 +22,8 @@ import recorder.utils
 
 from recorder import logger, base_path, video_name_sep
 
+REQUEST_TIMEOUT = 5
+
 huya_danmaku_mongo = None
 douyin_danmaku_mongo = None
 if recorder.config['app'].get('mongo_dsn'):
@@ -42,8 +44,21 @@ if os.name == 'nt':
     reraise=True,
     retry=tenacity.retry_if_exception_type(requests.exceptions.RequestException)
 )
-def download(src, dst):
-    return open(dst, 'ab').write(requests.get(src).content)
+def download_ts(src, dst):
+    return open(dst, 'ab').write(requests.get(src, timeout=REQUEST_TIMEOUT).content)
+
+
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(4),
+    wait=tenacity.wait_exponential(),
+    reraise=True,
+    retry=tenacity.retry_if_exception_type(requests.exceptions.RequestException)
+)
+def get_m3u8_obj(hls_url):
+    res = requests.get(hls_url, timeout=REQUEST_TIMEOUT)
+    res.raise_for_status()
+
+    return m3u8.loads(res.text)
 
 
 def record_thread(source_type, room_id, interval=5, **kwargs):
@@ -71,8 +86,8 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         ts_memo = set()
         while True:
             try:
-                m3u8_obj = m3u8.load(hls_url)
-            except (ValueError, IOError) as e:
+                m3u8_obj = get_m3u8_obj(hls_url)
+            except (ValueError, requests.exceptions.RequestException) as e:
                 traceback.print_exc()
                 logger.error(f'failed to load m3u8: {hls_url}, {e}')
                 break
@@ -81,7 +96,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
                     continue
 
                 ts_memo.add(segment.uri)
-                download(segment.absolute_uri, output_ts_file)
+                download_ts(segment.absolute_uri, output_ts_file)
             time.sleep(1)
 
 
