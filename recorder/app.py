@@ -16,7 +16,7 @@ import tenacity
 import watchdog.events
 import watchdog.observers
 
-import recorder
+import recorder.exceptions
 import recorder.destination.youtube
 import recorder.ffmpeg as ffmpeg
 import recorder.utils
@@ -62,11 +62,16 @@ def download_ts_thread(stop_event: threading.Event, q: queue.Queue, dst):
     wait=tenacity.wait_fixed(1),
     retry=tenacity.retry_if_exception_type(requests.exceptions.RequestException)
 )
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(4),
+    wait=tenacity.wait_exponential(),
+    retry=tenacity.retry_if_exception_type(recorder.exceptions.M3U8EOFError)
+)
 def get_m3u8_obj(hls_url):
     res = requests.get(hls_url, timeout=30)
 
     if res.status_code == 404:
-        return None
+        raise recorder.exceptions.M3U8EOFError
 
     res.raise_for_status()
 

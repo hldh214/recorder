@@ -16,3 +16,11 @@ class YoutubeUploadError(UploadError):
 class TelegramUploadError(UploadError):
     """Raised when an upload fails"""
     pass
+
+
+class SourceError(Exception):
+    pass
+
+
+class M3U8EOFError(SourceError):
+    pass
