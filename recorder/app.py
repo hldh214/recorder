@@ -58,7 +58,7 @@ def get_m3u8_obj(hls_url):
     res = requests.get(hls_url, timeout=REQUEST_TIMEOUT)
     res.raise_for_status()
 
-    return m3u8.loads(res.text)
+    return m3u8.loads(res.text, uri=hls_url)
 
 
 def record_thread(source_type, room_id, interval=5, **kwargs):
