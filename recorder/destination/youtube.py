@@ -191,17 +191,15 @@ class Youtube:
 
 
 if __name__ == '__main__':
-    import sys
+    import fire
 
     youtube = Youtube(recorder.config.get('youtube'))
 
-    if len(sys.argv) == 1:
-        print('Usage: python3 youtube.py <video_id> <caption_path>')
 
-    if len(sys.argv) == 2:
-        print(youtube.check_processed(sys.argv[1]))
-
-    if len(sys.argv) == 3:
-        if youtube.add_caption(sys.argv[1], sys.argv[2]):
+    def add_caption_and_delete(video_id, caption_path):
+        if youtube.add_caption(video_id, caption_path):
             print('The caption has been added to YouTube and removed from the local file')
-            os.unlink(sys.argv[2])
+            os.unlink(caption_path)
+
+
+    fire.Fire()
