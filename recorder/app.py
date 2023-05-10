@@ -48,7 +48,6 @@ def download_ts(src, dst):
     try:
         return open(dst, 'ab').write(requests.get(src, timeout=REQUEST_TIMEOUT).content)
     except requests.exceptions.RequestException as e:
-        traceback.print_exc()
         logger.error(f'download_ts: {e}')
         raise
 
@@ -117,7 +116,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 
                 ts_memo.add(segment.uri)
                 q.put(segment.absolute_uri)
-                logger.info(f'record_thread: enqueue {segment.absolute_uri}')
+                logger.info(f'record_thread: ({q.qsize()})enqueue {segment.absolute_uri}')
             time.sleep(2)
 
 
