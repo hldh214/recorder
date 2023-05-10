@@ -48,7 +48,7 @@ def download_ts(src, dst):
     try:
         return open(dst, 'ab').write(requests.get(src, timeout=REQUEST_TIMEOUT).content)
     except requests.exceptions.RequestException as e:
-        logger.error(f'download_ts: {e}')
+        logger.error(f'download_ts("{src}", "{dst}"): {e}')
         raise
 
 
