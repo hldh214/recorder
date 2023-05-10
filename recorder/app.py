@@ -59,13 +59,15 @@ def download_ts_thread(stop_event: threading.Event, q: queue.Queue, dst):
 
 
 @tenacity.retry(
-    stop=tenacity.stop_after_attempt(4),
-    wait=tenacity.wait_exponential(),
-    reraise=True,
+    wait=tenacity.wait_fixed(1),
     retry=tenacity.retry_if_exception_type(requests.exceptions.RequestException)
 )
 def get_m3u8_obj(hls_url):
     res = requests.get(hls_url, timeout=5)
+
+    if res.status_code == 404:
+        return None
+
     res.raise_for_status()
 
     return m3u8.loads(res.text, uri=hls_url)
@@ -100,11 +102,17 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         while True:
             try:
                 m3u8_obj = get_m3u8_obj(hls_url)
-            except (ValueError, requests.exceptions.RequestException) as e:
+            except ValueError as e:
                 traceback.print_exc()
                 logger.error(f'failed to load m3u8: {hls_url}, {e}')
                 q.put('DONE')
                 break
+
+            if m3u8_obj is None:
+                logger.error(f'failed to load m3u8 with HTTP 404: {hls_url}')
+                q.put('DONE')
+                break
+
             for segment in m3u8_obj.segments:
                 if segment.uri in ts_memo:
                     continue
