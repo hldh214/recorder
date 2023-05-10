@@ -3,6 +3,7 @@ import glob
 import importlib
 import os
 import pathlib
+import queue
 import threading
 import time
 import traceback
@@ -48,6 +49,18 @@ def download_ts(src, dst):
     return open(dst, 'ab').write(requests.get(src, timeout=REQUEST_TIMEOUT).content)
 
 
+def download_ts_thread(q: queue.Queue, dst):
+    while True:
+        src = q.get()
+        if src == 'DONE':
+            break
+
+        logger.info(f'download_ts_thread: starting download_ts("{src}", "{dst}")')
+        download_ts(src, dst)
+        q.task_done()
+        logger.info(f'download_ts_thread: finished download_ts("{src}", "{dst}")')
+
+
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(4),
     wait=tenacity.wait_exponential(),
@@ -84,19 +97,23 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         logger.info(f'recording: {hls_url} -> {output_ts_file}')
 
         ts_memo = set()
+        q = queue.Queue()
+        threading.Thread(target=download_ts_thread, args=(q, output_ts_file), daemon=True).start()
         while True:
             try:
                 m3u8_obj = get_m3u8_obj(hls_url)
             except (ValueError, requests.exceptions.RequestException) as e:
                 traceback.print_exc()
                 logger.error(f'failed to load m3u8: {hls_url}, {e}')
+                q.put('DONE')
                 break
             for segment in m3u8_obj.segments:
                 if segment.uri in ts_memo:
                     continue
 
                 ts_memo.add(segment.uri)
-                download_ts(segment.absolute_uri, output_ts_file)
+                q.put(segment.absolute_uri)
+                logger.info(f'record_thread: enqueue {segment.absolute_uri}')
             time.sleep(1)
 
 
@@ -307,4 +324,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # obj = m3u8.load('http://pull-hls-l26.douyincdn.com/third/stream-112991454030463462_or4.m3u8?expire=64648534&sign=56d49ae6c409475caf8f862a6bf26bb0')
+    obj = m3u8.load('http://pull-hs-f5.flive.douyincdn.com/thirdgame/stream-112991104193790730_expuhd/index.m3u8')
+
+    print(123)

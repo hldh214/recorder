@@ -4,7 +4,7 @@ import urllib.parse
 
 import requests
 
-from recorder import ffmpeg, logger
+from recorder import logger
 
 REQUEST_TIMEOUT = 5
 
@@ -35,9 +35,7 @@ def get_room_info(room_id):
         return {}
 
 
-def get_stream(room_id, **kwargs):
-    min_start_time = 0 if kwargs.get('min_start_time') is None else kwargs['min_start_time']
-
+def get_stream(room_id, **_):
     room_data = get_room_info(room_id)
 
     if 'stream_url' not in room_data:
@@ -49,10 +47,6 @@ def get_stream(room_id, **kwargs):
         result = room_data['stream_url']['hls_pull_url_map']['FULL_HD1']
     except KeyError:
         logger.error(f'Failed to get stream url, room_data: {room_data}')
-        return False
-
-    start_time = ffmpeg.start_time(result)
-    if not start_time or start_time < min_start_time:
         return False
 
     return result
