@@ -39,29 +39,25 @@ if os.name == 'nt':
     datetime_format = '%Y-%m-%d %H-%M-%S'
 
 
-@tenacity.retry(
-    wait=tenacity.wait_exponential(min=4),
-    reraise=True,
-    retry=tenacity.retry_if_exception_type(requests.exceptions.RequestException)
-)
-def download_ts(src, dst):
-    try:
-        return open(dst, 'ab').write(requests.get(src, timeout=REQUEST_TIMEOUT).content)
-    except requests.exceptions.RequestException as e:
-        logger.error(f'download_ts("{src}", "{dst}"): {e}')
-        raise
-
-
-def download_ts_thread(q: queue.Queue, dst):
+def download_ts_thread(stop_event: threading.Event, q: queue.Queue, dst):
     while True:
         src = q.get()
         if src == 'DONE':
             break
 
-        logger.info(f'download_ts_thread: starting download_ts("{src}", "{dst}")')
-        download_ts(src, dst)
+        while True:
+            if stop_event.is_set():
+                return
+
+            try:
+                open(dst, 'ab').write(requests.get(src, timeout=REQUEST_TIMEOUT).content)
+            except requests.exceptions.RequestException as e:
+                logger.error(f'download_ts("{src}", "{dst}"): {e}')
+                time.sleep(1)
+            else:
+                break
         q.task_done()
-        logger.info(f'download_ts_thread: finished download_ts("{src}", "{dst}")')
+        logger.info(f'finished download_ts("{src}", "{dst}")')
 
 
 @tenacity.retry(
@@ -101,7 +97,8 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 
         ts_memo = set()
         q = queue.Queue()
-        threading.Thread(target=download_ts_thread, args=(q, output_ts_file), daemon=True).start()
+        ev = threading.Event()
+        threading.Thread(target=download_ts_thread, args=(ev, q, output_ts_file), daemon=True).start()
         while True:
             try:
                 m3u8_obj = get_m3u8_obj(hls_url)
@@ -115,8 +112,15 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
                     continue
 
                 ts_memo.add(segment.uri)
+
                 q.put(segment.absolute_uri)
                 logger.info(f'record_thread: ({q.qsize()})enqueue {segment.absolute_uri}')
+
+            if q.qsize() > 32:
+                logger.error(f'record_thread: ({q.qsize()})queue is overflowing, quit')
+                ev.set()
+                break
+
             time.sleep(2)
 
 
