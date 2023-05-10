@@ -147,7 +147,7 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
             source_name = split_video_path[-2]
             video_filename = split_video_path[-1]
             filename_datetime = video_filename.split('.')[0]
-            metadata_path = video_path.split('.')[0] + '.metadata'
+            metadata_path = video_path.split('.')[0].replace('upload', 'record') + '.metadata'
 
             current_config = config['source'].get(source_name)
 
