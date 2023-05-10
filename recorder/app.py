@@ -50,7 +50,7 @@ def download_ts_thread(stop_event: threading.Event, q: queue.Queue, dst):
                 return
 
             try:
-                open(dst, 'ab').write(requests.get(src, timeout=REQUEST_TIMEOUT).content)
+                open(dst, 'ab').write(requests.get(src, timeout=60).content)
             except requests.exceptions.RequestException as e:
                 logger.error(f'download_ts("{src}", "{dst}"): {e}')
                 time.sleep(1)
