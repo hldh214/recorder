@@ -63,7 +63,7 @@ def download_ts_thread(stop_event: threading.Event, q: queue.Queue, dst):
     retry=tenacity.retry_if_exception_type(requests.exceptions.RequestException)
 )
 def get_m3u8_obj(hls_url):
-    res = requests.get(hls_url, timeout=5)
+    res = requests.get(hls_url, timeout=30)
 
     if res.status_code == 404:
         return None
