@@ -73,9 +73,7 @@ def download_ts_thread(stop_event: threading.Event, q: queue.Queue, dst):
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(1),
     retry=tenacity.retry_if_exception_type(recorder.exceptions.M3U8EOFError),
-    reraise=True,
-    before=tenacity.before.before_log(logger, logging.INFO),
-    after=tenacity.after.after_log(logger, logging.INFO)
+    reraise=True
 )
 def get_m3u8_obj(hls_url):
     res = requests.get(hls_url, timeout=8)
