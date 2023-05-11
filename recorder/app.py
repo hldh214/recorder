@@ -64,15 +64,15 @@ def download_ts_thread(stop_event: threading.Event, q: queue.Queue, dst):
     stop=tenacity.stop_after_attempt(3),
     retry=tenacity.retry_if_exception_type(requests.exceptions.RequestException),
     reraise=True,
-    before=tenacity.before.before_log(logger, logging.WARNING),
-    after=tenacity.after.after_log(logger, logging.WARNING)
+    before=tenacity.before.before_log(logger, logging.INFO),
+    after=tenacity.after.after_log(logger, logging.INFO)
 )
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(1),
     retry=tenacity.retry_if_exception_type(recorder.exceptions.M3U8EOFError),
     reraise=True,
-    before=tenacity.before.before_log(logger, logging.WARNING),
-    after=tenacity.after.after_log(logger, logging.WARNING)
+    before=tenacity.before.before_log(logger, logging.INFO),
+    after=tenacity.after.after_log(logger, logging.INFO)
 )
 def get_m3u8_obj(hls_url):
     res = requests.get(hls_url, timeout=8)
@@ -85,10 +85,11 @@ def get_m3u8_obj(hls_url):
     m3u8_obj = m3u8.loads(res.text, uri=hls_url)
 
     if m3u8_obj.is_variant:
-        logger.info(f'get_m3u8_obj: {hls_url} is variant, use {m3u8_obj.playlists[0].absolute_uri}')
-        return get_m3u8_obj(m3u8_obj.playlists[0].absolute_uri)
+        new_hls_url = m3u8_obj.playlists[0].absolute_uri
+        logger.info(f'get_m3u8_obj: {hls_url} is variant, use {new_hls_url}')
+        return get_m3u8_obj(new_hls_url), new_hls_url
 
-    return m3u8.loads(res.text, uri=hls_url)
+    return m3u8.loads(res.text, uri=hls_url), hls_url
 
 
 def record_thread(source_type, room_id, interval=5, **kwargs):
@@ -119,7 +120,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         threading.Thread(target=download_ts_thread, args=(ev, q, output_ts_file), daemon=True).start()
         while True:
             try:
-                m3u8_obj = get_m3u8_obj(hls_url)
+                m3u8_obj, hls_url = get_m3u8_obj(hls_url)
             except (ValueError, recorder.exceptions.M3U8EOFError, requests.exceptions.RequestException) as e:
                 traceback.print_exc()
                 logger.error(f'failed to load m3u8: {hls_url}, {e}')
