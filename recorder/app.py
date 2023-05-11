@@ -92,7 +92,7 @@ def get_m3u8_obj(hls_url):
         logger.info(f'get_m3u8_obj: {hls_url} is variant, use {new_hls_url}')
         return get_m3u8_obj(new_hls_url)
 
-    return m3u8.loads(res.text, uri=hls_url), hls_url
+    return m3u8_obj, hls_url
 
 
 def record_thread(source_type, room_id, interval=5, **kwargs):
@@ -147,7 +147,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
                 ev.set()
                 break
 
-            time.sleep(2)
+            time.sleep(m3u8_obj.target_duration - 1)
 
 
 def record_spawn_thread(running_tasks):
