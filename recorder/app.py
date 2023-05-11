@@ -87,7 +87,7 @@ def get_m3u8_obj(hls_url):
     if m3u8_obj.is_variant:
         new_hls_url = m3u8_obj.playlists[0].absolute_uri
         logger.info(f'get_m3u8_obj: {hls_url} is variant, use {new_hls_url}')
-        return get_m3u8_obj(new_hls_url), new_hls_url
+        return get_m3u8_obj(new_hls_url)
 
     return m3u8.loads(res.text, uri=hls_url), hls_url
 
