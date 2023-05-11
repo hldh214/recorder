@@ -79,7 +79,7 @@ def get_m3u8_obj(hls_url):
     res = requests.get(hls_url, timeout=8)
 
     if res.status_code == 404:
-        raise recorder.exceptions.M3U8EOFError
+        raise recorder.exceptions.M3U8EOFError('404')
 
     res.raise_for_status()
 
