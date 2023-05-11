@@ -1,6 +1,7 @@
 import datetime
 import glob
 import importlib
+import logging
 import os
 import pathlib
 import queue
@@ -60,17 +61,21 @@ def download_ts_thread(stop_event: threading.Event, q: queue.Queue, dst):
 
 
 @tenacity.retry(
-    wait=tenacity.wait_fixed(1),
-    retry=tenacity.retry_if_exception_type(requests.exceptions.RequestException)
+    stop=tenacity.stop_after_attempt(3),
+    retry=tenacity.retry_if_exception_type(requests.exceptions.RequestException),
+    reraise=True,
+    before=tenacity.before.before_log(logger, logging.WARNING),
+    after=tenacity.after.after_log(logger, logging.WARNING)
 )
 @tenacity.retry(
-    stop=tenacity.stop_after_attempt(3),
-    wait=tenacity.wait_fixed(1),
+    stop=tenacity.stop_after_attempt(1),
     retry=tenacity.retry_if_exception_type(recorder.exceptions.M3U8EOFError),
-    reraise=True
+    reraise=True,
+    before=tenacity.before.before_log(logger, logging.WARNING),
+    after=tenacity.after.after_log(logger, logging.WARNING)
 )
 def get_m3u8_obj(hls_url):
-    res = requests.get(hls_url, timeout=32)
+    res = requests.get(hls_url, timeout=8)
 
     if res.status_code == 404:
         raise recorder.exceptions.M3U8EOFError
@@ -115,7 +120,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         while True:
             try:
                 m3u8_obj = get_m3u8_obj(hls_url)
-            except (ValueError, recorder.exceptions.M3U8EOFError) as e:
+            except (ValueError, recorder.exceptions.M3U8EOFError, requests.exceptions.RequestException) as e:
                 traceback.print_exc()
                 logger.error(f'failed to load m3u8: {hls_url}, {e}')
                 q.put('DONE')
