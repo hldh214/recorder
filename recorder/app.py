@@ -8,6 +8,7 @@ import threading
 import time
 import traceback
 
+# noinspection PyPackageRequirements
 import googleapiclient.errors
 import m3u8
 import pytz
@@ -41,14 +42,14 @@ def download_ts_thread(stop_event: threading.Event, q: queue.Queue, dst):
     while True:
         src = q.get()
         if src == 'DONE':
-            break
+            return q.task_done()
 
         while True:
             if stop_event.is_set():
-                return
+                return q.task_done()
 
             try:
-                open(dst, 'ab').write(requests.get(src, timeout=60).content)
+                open(dst, 'ab').write(requests.get(src, timeout=64).content)
             except requests.exceptions.RequestException as e:
                 logger.error(f'download_ts("{src}", "{dst}"): {e}')
                 time.sleep(1)
@@ -63,18 +64,24 @@ def download_ts_thread(stop_event: threading.Event, q: queue.Queue, dst):
     retry=tenacity.retry_if_exception_type(requests.exceptions.RequestException)
 )
 @tenacity.retry(
-    stop=tenacity.stop_after_attempt(4),
-    wait=tenacity.wait_exponential(),
+    stop=tenacity.stop_after_attempt(3),
+    wait=tenacity.wait_fixed(1),
     retry=tenacity.retry_if_exception_type(recorder.exceptions.M3U8EOFError),
     reraise=True
 )
 def get_m3u8_obj(hls_url):
-    res = requests.get(hls_url, timeout=30)
+    res = requests.get(hls_url, timeout=32)
 
     if res.status_code == 404:
         raise recorder.exceptions.M3U8EOFError
 
     res.raise_for_status()
+
+    m3u8_obj = m3u8.loads(res.text, uri=hls_url)
+
+    if m3u8_obj.is_variant:
+        logger.info(f'get_m3u8_obj: {hls_url} is variant, use {m3u8_obj.playlists[0].absolute_uri}')
+        return get_m3u8_obj(m3u8_obj.playlists[0].absolute_uri)
 
     return m3u8.loads(res.text, uri=hls_url)
 
@@ -171,6 +178,7 @@ def my_recorder():
     record_spawn_thread(running_tasks)
 
 
+# noinspection PyBroadException
 def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
     while True:
         videos = glob.glob(os.path.join(
@@ -338,7 +346,4 @@ def main():
 
 
 if __name__ == '__main__':
-    # obj = m3u8.load('http://pull-hls-l26.douyincdn.com/third/stream-112991454030463462_or4.m3u8?expire=64648534&sign=56d49ae6c409475caf8f862a6bf26bb0')
-    obj = m3u8.load('http://pull-hs-f5.flive.douyincdn.com/thirdgame/stream-112991104193790730_expuhd/index.m3u8')
-
-    print(123)
+    main()
