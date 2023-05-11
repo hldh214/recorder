@@ -145,7 +145,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
                 ev.set()
                 break
 
-            time.sleep(m3u8_obj.target_duration - 1)
+            time.sleep(m3u8_obj.target_duration)
 
 
 def record_spawn_thread(running_tasks):
