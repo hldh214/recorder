@@ -43,10 +43,12 @@ def download_ts_thread(stop_event: threading.Event, q: queue.Queue, dst):
     while True:
         src = q.get()
         if src == 'DONE':
+            logger.info(f'({q.qsize()})dequeue download_ts_thread("DONE", "{dst}")')
             return q.task_done()
 
         while True:
             if stop_event.is_set():
+                logger.info(f'({q.qsize()})dequeue download_ts_thread("STOP", "{dst}")')
                 return q.task_done()
 
             try:
@@ -56,8 +58,9 @@ def download_ts_thread(stop_event: threading.Event, q: queue.Queue, dst):
                 time.sleep(1)
             else:
                 break
+
+        logger.info(f'({q.qsize()})dequeue download_ts("{src}", "{dst}")')
         q.task_done()
-        logger.info(f'finished download_ts("{src}", "{dst}")')
 
 
 @tenacity.retry(
@@ -121,9 +124,12 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         while True:
             try:
                 m3u8_obj, hls_url = get_m3u8_obj(hls_url)
-            except (ValueError, recorder.exceptions.M3U8EOFError, requests.exceptions.RequestException) as e:
-                traceback.print_exc()
+            except (recorder.exceptions.M3U8EOFError, requests.exceptions.RequestException) as e:
                 logger.error(f'failed to load m3u8: {hls_url}, {e}')
+                q.put('DONE')
+                break
+            except ValueError:
+                traceback.print_exc()
                 q.put('DONE')
                 break
 
