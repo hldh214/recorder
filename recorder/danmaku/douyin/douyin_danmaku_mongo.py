@@ -109,21 +109,21 @@ def watch(room_ids):
 
 
 def update_video(video_id, room_id=None, start=None, end=None, path=None):
-    if not (path or (room_id and start and end)):
-        print('Please provide path or room_id, start, end')
-        return
-
-    caption_path = f'./{room_id}.vtt'
-    source_config = next(filter(lambda each: each.get('room_id') == room_id, config.get('source').values()))
-
-    if path:
+    if room_id and start and end:
+        room_id = str(room_id)
+        source_config = next(filter(lambda each: each.get('room_id') == room_id, config.get('source').values()))
+        caption_path = f'./{room_id}.vtt'
+    elif path:
         source_config, start, end = get_info_from_path(path)
         room_id = source_config['room_id']
         caption_path = f'{pathlib.Path(path).parent}/{video_id}_{start}_{end}.vtt'
+    else:
+        print('Please provide path or room_id, start, end')
+        return
 
     highlights = gen_caption_and_return_highlights(room_id, start, end, caption_path)
 
-    print(add_caption_and_highlights_for_video(caption_path, highlights, video_id, source_config, start))
+    return add_caption_and_highlights_for_video(caption_path, highlights, video_id, source_config, start)
 
 
 def generate_ass(video_id, room_id=None, start=None, end=None, path=None):
