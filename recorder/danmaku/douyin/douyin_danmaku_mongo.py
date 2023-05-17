@@ -114,7 +114,7 @@ def update_video(video_id, room_id=None, start=None, end=None, path=None):
         return
 
     caption_path = f'./{room_id}.vtt'
-    source_config = next(filter(lambda each: each.get('room_id') == room_id, config.get('source').values()))
+    source_config = next(filter(lambda each: str(each.get('room_id')) == str(room_id), config.get('source').values()))
 
     if path:
         source_config, start, end = get_info_from_path(path)
