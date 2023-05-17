@@ -4,7 +4,6 @@ import time
 
 import arrow
 import bson
-import click
 
 import recorder
 from recorder import config, mongo_collection_douyin_danmaku as mongo_collection
@@ -78,13 +77,6 @@ def add_caption_and_highlights_for_video(caption_path, highlights, video_id, sou
     return youtube.add_caption(video_id, caption_path), youtube.update(video_id, title, description)
 
 
-@click.group()
-def cli():
-    pass
-
-
-@cli.command()
-@click.option('--room_ids', '-r', default=[], multiple=True, type=str)
 def watch(room_ids):
     start_id = bson.objectid.ObjectId.from_datetime(arrow.now().datetime)
 
@@ -116,47 +108,31 @@ def watch(room_ids):
         time.sleep(1)
 
 
-@cli.command()
-@click.option('--room_id', '-r', type=str)
-@click.option('--start', '-s', type=click.DateTime())
-@click.option('--end', '-e', type=click.DateTime())
-@click.option('--path', '-p', type=click.Path(exists=True))
-@click.option('--video_id', '-v', type=str)
-def generate_with_highlight(room_id, start, end, path, video_id):
-    if not (path and video_id) and not (room_id and start and end):
-        click.echo(click.get_current_context().get_help())
+def update_video(video_id, room_id=None, start=None, end=None, path=None):
+    if not (path or (room_id and start and end)):
+        print('Please provide path or room_id, start, end')
         return
 
     caption_path = f'./{room_id}.vtt'
-    source_config = None
-    if path and video_id:
+    source_config = next(filter(lambda each: each.get('room_id') == room_id, config.get('source').values()))
+
+    if path:
         source_config, start, end = get_info_from_path(path)
         room_id = source_config['room_id']
         caption_path = f'{pathlib.Path(path).parent}/{video_id}_{start}_{end}.vtt'
 
     highlights = gen_caption_and_return_highlights(room_id, start, end, caption_path)
 
-    if path and video_id:
-        assert source_config is not None
-
-        print(add_caption_and_highlights_for_video(caption_path, highlights, video_id, source_config, start))
-    else:
-        print(highlights)
+    print(add_caption_and_highlights_for_video(caption_path, highlights, video_id, source_config, start))
 
 
-@cli.command()
-@click.option('--room_id', '-r', type=str)
-@click.option('--start', '-s', type=click.DateTime())
-@click.option('--end', '-e', type=click.DateTime())
-@click.option('--path', '-p', type=click.Path(exists=True))
-@click.option('--video_id', '-v', type=str)
-def generate_ass(room_id, start, end, path, video_id):
-    if not (path and video_id) and not (room_id and start and end):
-        click.echo(click.get_current_context().get_help())
+def generate_ass(video_id, room_id=None, start=None, end=None, path=None):
+    if not (path or (room_id and start and end)):
+        print('Please provide path or room_id, start, end')
         return
 
     caption_path = f'./{room_id}.ass'
-    if path and video_id:
+    if path:
         source_config, start, end = get_info_from_path(path)
         room_id = source_config['room_id']
         caption_path = f'{pathlib.Path(path).parent}/{video_id}_{start}_{end}.ass'
@@ -170,4 +146,6 @@ def generate_ass(room_id, start, end, path, video_id):
 
 
 if __name__ == '__main__':
-    cli()
+    import fire
+
+    fire.Fire()
