@@ -4,13 +4,15 @@ import os
 import subprocess
 import time
 
+import fire
+
 from recorder.uploader import sizeof_fmt
 from recorder import config, base_path
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 
-def main():
+def moveto(rname, bwlimit='off'):
     record_folder_path = os.path.join(base_path, config['app']['video_path'], 'record/')
 
     while True:
@@ -24,8 +26,8 @@ def main():
 
             logging.info(f'Processing {file}: {sizeof_fmt(os.path.getsize(file))}')
             command = [
-                'rclone', 'moveto', '--progress', '--bwlimit', '700K',
-                file, f'upload/{file.replace(record_folder_path, "")}'
+                'rclone', 'moveto', '--progress', '--bwlimit', bwlimit,
+                file, f'{rname}:upload/{file.replace(record_folder_path, "")}'
             ]
             logging.info(' '.join(command))
             subprocess.run(command, check=True)
@@ -35,4 +37,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    fire.Fire()
