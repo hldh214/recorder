@@ -186,7 +186,7 @@ def generate_highlights(room_id, start, end):
     if not danmaku:
         return False
 
-    return recorder.danmaku.generate_highlights(danmaku, start)
+    return recorder.danmaku.generate_highlights(prepare_iterator_for_caption(danmaku), start)
 
 
 @click.group()
