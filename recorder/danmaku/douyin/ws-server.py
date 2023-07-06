@@ -14,6 +14,8 @@ import websockets
 from recorder import mongo_collection_douyin_danmaku as mongo_collection, config
 from recorder.source import douyin
 
+ws_port = 18964
+
 log_level = logging.INFO
 if config['app'].get('debug'):
     log_level = logging.DEBUG
@@ -21,8 +23,9 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 last_danmaku_time = {}
 
-hook_pattern = re.compile(r',\w+\.publishSync\((\w+)\)')
+hook_pattern = re.compile(r'\("emit async",\S+?,(\w+)\),')
 
+# noinspection SpellCheckingInspection
 js_hook_1 = '''
 console.log("======================== Recorder hook start ========================");
 window.is_danmaku_dead = false;
@@ -42,47 +45,58 @@ window.danmaku_reload_interval = setInterval(() => {
     clearInterval(window.danmaku_reload_interval);
   }
 }, 1000 * 60);
-'''
-# noinspection SpellCheckingInspection
-js_hook_2 = '''
-if (!window.is_danmaku_dead) {
-  window.data_n = <var_name>;
-  // get room_id from url
-  window.data_n.room_id = (new URL(window.location.href)).pathname.split('/')[1];
-  (() => {
-    // pause video player
-    if (document.querySelector('.xgplayer-play').getAttribute('data-state') === 'play') {
-      document.querySelector('.xgplayer-play').click();
-    }
-    // disable danmaku display on video player
-    if (document.querySelector('.danmu-icon').getAttribute('data-state') === 'active') {
-      document.querySelector('.danmu-icon').click();
-    }
-    // disable gift display on video player
-    let xi = document.getElementsByTagName('xg-icon');
-    for (let each_xi of xi) {
-      let divs = each_xi.getElementsByTagName('div');
-      for (let each_div of divs) {
-        if (each_div.innerHTML === '屏蔽礼物特效') {
-          let children = each_div.parentElement.children;
-          for (let each_child of children) {
-            each_child.click();
-          }
+
+window.pause_animate = () => {
+  // pause video player
+  if (document.querySelector('.xgplayer-play').getAttribute('data-state') === 'play') {
+    document.querySelector('.xgplayer-play').click();
+  }
+  // disable danmaku display on video player
+  if (document.querySelector('.danmu-icon').getAttribute('data-state') === 'active') {
+    document.querySelector('.danmu-icon').click();
+  }
+  // disable gift display on video player
+  let xi = document.getElementsByTagName('xg-icon');
+  for (let each_xi of xi) {
+    let divs = each_xi.getElementsByTagName('div');
+    for (let each_div of divs) {
+      if (each_div.innerHTML === '屏蔽礼物特效') {
+        let children = each_div.parentElement.children;
+        for (let each_child of children) {
+          each_child.click();
         }
       }
     }
+  }
+};
 
-    if (window.ws_rpc_client && window.ws_rpc_client.readyState !== WebSocket.CLOSED) {
-      if (window.ws_rpc_client.readyState === WebSocket.OPEN) {
-        window.ws_rpc_client.send(JSON.stringify(window.data_n));
-        window.ws_rpc_last_send_time = Date.now();
-      }
-    } else {
-      window.ws_rpc_client = new WebSocket('ws://localhost:<ws_port>');
-    }
-  })();
-}
+window.pause_animate_timeout = setTimeout(() => {
+  window.pause_animate();
+}, 4000);
+
+// get room_id from url
+window.room_id = (new URL(window.location.href)).pathname.split('/')[1];
 '''
+
+# noinspection JSUnresolvedReference
+js_hook_2 = '''
+if (!window.is_danmaku_dead) {
+  let data_array = ["data_array"];
+  data_array.forEach((by_type) => {
+    by_type[1].forEach((data) => {
+      data.room_id = window.room_id;
+      if (window.ws_rpc_client && window.ws_rpc_client.readyState !== WebSocket.CLOSED) {
+        if (window.ws_rpc_client.readyState === WebSocket.OPEN) {
+          window.ws_rpc_client.send(JSON.stringify(data));
+          window.ws_rpc_last_send_time = Date.now();
+        }
+      } else {
+        window.ws_rpc_client = new WebSocket('ws://localhost:<ws_port>');
+      }
+    });
+  });
+}
+'''.replace('<ws_port>', str(ws_port))
 
 
 async def get_raw_js(result: asyncio.Future):
@@ -124,15 +138,15 @@ async def get_raw_js(result: asyncio.Future):
             result.set_result(False)
 
 
-def prepare_hook_js(raw_js, ws_port=18964):
-    result = raw_js.replace('"use strict";', f'"use strict";{js_hook_1}')
+def prepare_hook_js(raw_js):
+    result = f'{js_hook_1}{raw_js}'  # prepend hook js
 
     matches = hook_pattern.finditer(result)
     for match in matches:
         full_match = match.group(0)
         var_name = match.group(1)
-        js_code = js_hook_2.replace('<var_name>', var_name).replace('<ws_port>', str(ws_port))
-        result = result.replace(full_match, f'{full_match};{js_code}')
+        js_code = js_hook_2.replace('["data_array"]', var_name)
+        result = result.replace(full_match, f'{full_match[:-1]};{js_code}')
 
     return result
 
@@ -199,7 +213,7 @@ async def main():
     sources = [each for each in config.get('source').values() if
                each.get('danmaku_enabled') is True and each['source_type'] == 'douyin']
 
-    async with websockets.serve(consumer_handler, "localhost", 18964):
+    async with websockets.serve(consumer_handler, "localhost", ws_port):
         tasks = []
 
         for source in sources:
