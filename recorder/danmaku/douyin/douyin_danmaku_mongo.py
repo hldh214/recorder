@@ -77,7 +77,7 @@ def add_caption_and_highlights_for_video(caption_path, highlights, video_id, sou
     return youtube.add_caption(video_id, caption_path), youtube.update(video_id, title, description)
 
 
-def watch(room_ids):
+def watch(room_ids=None):
     start_id = bson.objectid.ObjectId.from_datetime(arrow.now().datetime)
 
     while True:
