@@ -213,7 +213,9 @@ async def main():
     sources = [each for each in config.get('source').values() if
                each.get('danmaku_enabled') is True and each['source_type'] == 'douyin']
 
-    async with websockets.serve(consumer_handler, "localhost", ws_port):
+    # max_size: 16MB
+    # TODO: use a better way to handle large danmaku
+    async with websockets.serve(consumer_handler, "localhost", ws_port, max_size=2 ** 24):
         tasks = []
 
         for source in sources:
