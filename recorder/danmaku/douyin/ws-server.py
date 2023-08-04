@@ -186,11 +186,12 @@ async def _main(room_id, interval):
 
         logging.info(f'Live started: {room_id}')
         hook_result = asyncio.Future()
-        asyncio.create_task(get_raw_js(hook_result))
+        task = asyncio.create_task(get_raw_js(hook_result))
         try:
             result = await asyncio.wait_for(hook_result, 20)
-        except TimeoutError:
+        except asyncio.exceptions.TimeoutError:
             logging.error(f'Timeout! Failed to hook js: {room_id}, retrying...')
+            task.cancel()
             continue
 
         if not result:
