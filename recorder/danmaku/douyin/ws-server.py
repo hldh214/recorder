@@ -30,16 +30,8 @@ js_hook_1 = '''
 console.log("======================== Recorder hook start ========================");
 window.is_danmaku_dead = false;
 window.danmaku_reload_interval = setInterval(() => {
-  if (window.ws_rpc_last_send_time) {
-    const now = Date.now();
-    // if no danmaku in 60s
-    if (now - window.ws_rpc_last_send_time > 1000 * 60) {
-      console.log("======================== Recorder hook dead ========================");
-      window.is_danmaku_dead = true;
-      clearInterval(window.danmaku_reload_interval);
-    }
-  } else {
-    // if no danmaku yet
+  const now = Date.now();
+  if (!window.ws_rpc_last_send_time || now - window.ws_rpc_last_send_time > 1000 * 60) {
     console.log("======================== Recorder hook dead ========================");
     window.is_danmaku_dead = true;
     clearInterval(window.danmaku_reload_interval);
@@ -84,11 +76,25 @@ if (!window.is_danmaku_dead) {
   let data_array = ["data_array"];
   data_array.forEach((by_type) => {
     by_type[1].forEach((data) => {
-      data.room_id = window.room_id;
+      window.ws_rpc_last_send_time = Date.now();
+
+      if (data.method !== "WebcastChatMessage") {
+        return;
+      }
+
+      if (data.payload.chatBy != "0") {
+        return;
+      }
+
+      let payload = {
+        "room_id": window.room_id,
+        "msg_id": data.msgId,
+        "nickname": data.payload.user.nickname,
+        "content": data.payload.content
+      };
       if (window.ws_rpc_client && window.ws_rpc_client.readyState !== WebSocket.CLOSED) {
         if (window.ws_rpc_client.readyState === WebSocket.OPEN) {
-          window.ws_rpc_client.send(JSON.stringify(data));
-          window.ws_rpc_last_send_time = Date.now();
+          window.ws_rpc_client.send(JSON.stringify(payload));
         }
       } else {
         window.ws_rpc_client = new WebSocket('ws://localhost:<ws_port>');
@@ -164,12 +170,9 @@ async def consumer_handler(websocket):
             pass
         else:
             last_danmaku_time[room_id] = datetime.datetime.now()
-            if msg_decoded['method'] == 'WebcastChatMessage':
-                payload = msg_decoded.get('payload')
-                room_id = msg_decoded.get('room_id')
-                sender_nick = payload.get('user').get('nickname')
-                content = payload.get('content')
-                logging.info(f'{room_id}: {sender_nick}: {content}')
+            sender_nick = msg_decoded.get('nickname')
+            content = msg_decoded.get('content')
+            logging.info(f'{room_id}: {sender_nick}: {content}')
 
 
 async def _main(room_id, interval):
@@ -214,9 +217,7 @@ async def main():
     sources = [each for each in config.get('source').values() if
                each.get('danmaku_enabled') is True and each['source_type'] == 'douyin']
 
-    # max_size: 16MB
-    # TODO: use a better way to handle large danmaku
-    async with websockets.serve(consumer_handler, "localhost", ws_port, max_size=2 ** 24):
+    async with websockets.serve(consumer_handler, "localhost", ws_port):
         tasks = []
 
         for source in sources:

@@ -10,15 +10,10 @@ from recorder import config, mongo_collection_douyin_danmaku as mongo_collection
 from recorder.danmaku import parse_datetime, get_info_from_path, Caption
 from recorder.destination.youtube import Youtube
 
-METHOD_DANMAKU = 'WebcastChatMessage'
-CHAT_BY = '0'  # 弹幕类型，0-常规弹幕，9-功能性弹幕(福袋弹幕)
-
 
 def find_danmaku(room_id, start=None, end=None):
     where_clause = {
         'room_id': room_id,
-        'method': METHOD_DANMAKU,  # maybe we can remove it? since we have `chatBy` filter already
-        'payload.chatBy': CHAT_BY,
         '_id': {}
     }
 
@@ -46,7 +41,7 @@ def prepare_iterator_for_caption(danmaku):
     return (
         {
             'generation_time': each['_id'].generation_time,
-            'content': each['payload']['content'],
+            'content': each['content'],
         }
         for each in danmaku
     )
@@ -82,8 +77,6 @@ def watch(room_ids=None):
 
     while True:
         where_clause = {
-            'method': METHOD_DANMAKU,
-            'payload.chatBy': CHAT_BY,
             '_id': {'$gt': start_id}
         }
 
@@ -99,10 +92,9 @@ def watch(room_ids=None):
                 generation_time = arrow.get(doc.get('_id').generation_time) \
                     .to('Asia/Hong_Kong') \
                     .format('YYYY-MM-DD HH:mm:ss')
-                payload = doc.get('payload')
                 room_id = doc.get('room_id')
-                sender_nick = payload.get('user').get('nickname')
-                content = payload.get('content')
+                sender_nick = doc.get('nickname')
+                content = doc.get('content')
                 print(f'{generation_time}: {room_id}: {sender_nick}: {content}')
 
         time.sleep(1)
