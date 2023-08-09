@@ -78,20 +78,21 @@ if (!window.is_danmaku_dead) {
     by_type[1].forEach((data) => {
       window.ws_rpc_last_send_time = Date.now();
 
-      if (data.method !== "WebcastChatMessage") {
-        return;
+      let payload;
+      if (data.method !== "WebcastChatMessage" || data.payload.chatBy != "0") {
+        payload = {
+          "room_id": window.room_id
+        };
+      } else {
+        payload = {
+          "room_id": window.room_id,
+          "msg_id": data.msgId,
+          "nickname": data.payload.user.nickname,
+          "content": data.payload.content,
+          "event_time": data.payload.eventTime
+        };
       }
 
-      if (data.payload.chatBy != "0") {
-        return;
-      }
-
-      let payload = {
-        "room_id": window.room_id,
-        "msg_id": data.msgId,
-        "nickname": data.payload.user.nickname,
-        "content": data.payload.content
-      };
       if (window.ws_rpc_client && window.ws_rpc_client.readyState !== WebSocket.CLOSED) {
         if (window.ws_rpc_client.readyState === WebSocket.OPEN) {
           window.ws_rpc_client.send(JSON.stringify(payload));
@@ -163,15 +164,19 @@ async def consumer_handler(websocket):
     async for message in websocket:
         msg_decoded = json.loads(message)
         room_id = msg_decoded.get('room_id')
+        last_danmaku_time[room_id] = datetime.datetime.now()
+        sender_nick = msg_decoded.get('nickname')
+        content = msg_decoded.get('content')
+
+        if not sender_nick or not content:
+            # not danmaku, skip for keepalive
+            continue
 
         try:
             mongo_collection.insert_one(msg_decoded)
         except pymongo.errors.DuplicateKeyError:
             pass
         else:
-            last_danmaku_time[room_id] = datetime.datetime.now()
-            sender_nick = msg_decoded.get('nickname')
-            content = msg_decoded.get('content')
             logging.info(f'{room_id}: {sender_nick}: {content}')
 
 
