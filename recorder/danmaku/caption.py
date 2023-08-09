@@ -103,9 +103,9 @@ class Timer:
 class Caption:
     """
     iterator = [
-        {"content": "danmaku_content", "generation_time": "generation_time_from_mongodb_object_id"},
-        {"content": "danmaku_content", "generation_time": "generation_time_from_mongodb_object_id"},
-        {"content": "danmaku_content", "generation_time": "generation_time_from_mongodb_object_id"},
+        {"content": "danmaku_content", "generation_time": "danmaku_time"},
+        {"content": "danmaku_content", "generation_time": "danmaku_time"},
+        {"content": "danmaku_content", "generation_time": "danmaku_time"},
         ...
     ]
     """

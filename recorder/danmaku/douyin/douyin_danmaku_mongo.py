@@ -3,10 +3,9 @@ import pathlib
 import time
 
 import arrow
-import bson
 
 import recorder
-from recorder import config, mongo_collection_douyin_danmaku as mongo_collection
+from recorder import config, mongo_collection_douyin_danmaku as mongo_collection, TZ_INFO
 from recorder.danmaku import parse_datetime, get_info_from_path, Caption
 from recorder.destination.youtube import Youtube
 
@@ -14,16 +13,16 @@ from recorder.destination.youtube import Youtube
 def find_danmaku(room_id, start=None, end=None):
     where_clause = {
         'room_id': room_id,
-        '_id': {}
+        'event_time': {}
     }
 
     if start:
-        where_clause['_id']['$gt'] = bson.objectid.ObjectId.from_datetime(parse_datetime(start).datetime)
+        where_clause['event_time']['$gt'] = parse_datetime(start).int_timestamp
     if end:
-        where_clause['_id']['$lt'] = bson.objectid.ObjectId.from_datetime(parse_datetime(end).datetime)
+        where_clause['event_time']['$lt'] = parse_datetime(end).int_timestamp
 
-    if not where_clause['_id']:
-        del where_clause['_id']
+    if not where_clause['event_time']:
+        del where_clause['event_time']
 
     if not mongo_collection.count_documents(where_clause):
         logging.critical(f'Mongo_collection empty, room_id: {room_id}, start: {start}, end: {end}')
@@ -35,7 +34,7 @@ def find_danmaku(room_id, start=None, end=None):
 def prepare_iterator_for_caption(danmaku):
     return (
         {
-            'generation_time': each['_id'].generation_time,
+            'generation_time': each['event_time'],
             'content': each['content'],
         }
         for each in danmaku
@@ -68,11 +67,9 @@ def add_caption_and_highlights_for_video(caption_path, highlights, video_id, sou
 
 
 def watch(room_ids=None):
-    start_id = bson.objectid.ObjectId.from_datetime(arrow.now().datetime)
-
     while True:
         where_clause = {
-            '_id': {'$gt': start_id}
+            'event_time': {'$gt': arrow.now().int_timestamp}
         }
 
         if room_ids:
@@ -82,11 +79,7 @@ def watch(room_ids=None):
 
         while cursor.alive:
             for doc in cursor:
-                start_id = doc.get('_id')
-
-                generation_time = arrow.get(doc.get('_id').generation_time) \
-                    .to('Asia/Hong_Kong') \
-                    .format('YYYY-MM-DD HH:mm:ss')
+                generation_time = arrow.get(doc.get('event_time')).to(TZ_INFO).format('YYYY-MM-DD HH:mm:ss')
                 room_id = doc.get('room_id')
                 sender_nick = doc.get('nickname')
                 content = doc.get('content')
