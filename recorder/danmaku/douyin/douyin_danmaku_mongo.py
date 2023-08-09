@@ -29,12 +29,7 @@ def find_danmaku(room_id, start=None, end=None):
         logging.critical(f'Mongo_collection empty, room_id: {room_id}, start: {start}, end: {end}')
         return False
 
-    return mongo_collection.aggregate([
-        {'$match': where_clause},
-        {'$group': {'_id': "$msgId", 'doc': {'$first': "$$ROOT"}}},
-        {'$sort': {'doc._id': 1}},
-        {'$replaceRoot': {'newRoot': '$doc'}},
-    ])
+    return mongo_collection.find(where_clause)
 
 
 def prepare_iterator_for_caption(danmaku):
