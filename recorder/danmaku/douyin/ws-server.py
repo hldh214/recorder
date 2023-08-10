@@ -67,7 +67,7 @@ window.pause_animate_timeout = setTimeout(() => {
 }, 4000);
 
 // get room_id from url
-window.room_id = (new URL(window.location.href)).pathname.split('/')[1];
+window.room_id = parseInt((new URL(window.location.href)).pathname.split('/')[1]);
 '''
 
 # noinspection JSUnresolvedReference
@@ -86,10 +86,10 @@ if (!window.is_danmaku_dead) {
       } else {
         payload = {
           "room_id": window.room_id,
-          "msg_id": data.msgId,
+          "msg_id": parseInt(data.msgId),
           "nickname": data.payload.user.nickname,
           "content": data.payload.content,
-          "event_time": data.payload.eventTime
+          "event_time": parseInt(data.payload.eventTime)
         };
       }
 
