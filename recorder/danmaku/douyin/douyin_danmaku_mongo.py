@@ -28,7 +28,7 @@ def find_danmaku(room_id, start=None, end=None):
         logging.critical(f'Mongo_collection empty, room_id: {room_id}, start: {start}, end: {end}')
         return False
 
-    return mongo_collection.find(where_clause)
+    return mongo_collection.find(where_clause).sort('event_time')
 
 
 def prepare_iterator_for_caption(danmaku):
