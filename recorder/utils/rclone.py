@@ -43,7 +43,7 @@ def list_videos(rname):
     ], check=True, capture_output=True)
     files = json.loads(proc.stdout)
 
-    return [f for f in files if f['MimeType'] == 'video/mp4']
+    return [f["Path"] for f in files if f['MimeType'] == 'video/mp4']
 
 
 def watch_and_copy(rname):
@@ -60,14 +60,14 @@ def watch_and_copy(rname):
             continue
 
         for each_video in new_videos:
-            logging.info(f'Processing {each_video["Path"]}: {sizeof_fmt(each_video["Size"])}')
+            logging.info(f'Processing {each_video}')
             command = [
                 'rclone', 'copy', '--progress',
-                f'{rname}:upload/{each_video["Path"]}', f'{od_folder_path}/{each_video["Path"]}'
+                f'{rname}:upload/{each_video}', f'{od_folder_path}/{each_video}'
             ]
             logging.info(' '.join(command))
             subprocess.run(command, check=True)
-            logging.info(f'Done {each_video["Path"]}')
+            logging.info(f'Done {each_video}')
 
         existing_videos.update([f for f in videos])
 
