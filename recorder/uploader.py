@@ -10,6 +10,7 @@ import opennsfw2 as n2
 
 import recorder.exceptions
 from recorder.ffmpeg import generate_candidate_thumbnails
+from recorder.utils import sizeof_fmt
 
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
@@ -17,15 +18,6 @@ logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
-
-
-# Credits: https://stackoverflow.com/a/1094933
-def sizeof_fmt(num, suffix="B"):
-    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
-        if abs(num) < 1024.0:
-            return f"{num:3.1f}{unit}{suffix}"
-        num /= 1024.0
-    return f"{num:.1f}Yi{suffix}"
 
 
 def init_telegram(videos):
