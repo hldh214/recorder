@@ -62,7 +62,7 @@ def watch_and_copy(rname):
         for each_video in new_videos:
             logging.info(f'Processing {each_video}')
             command = [
-                'rclone', 'copy', '--progress',
+                'rclone', 'copyto', '--progress',
                 f'{rname}:upload/{each_video}', f'{od_folder_path}/{each_video}'
             ]
             logging.info(' '.join(command))
