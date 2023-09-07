@@ -86,10 +86,10 @@ if (!window.is_danmaku_dead) {
       } else {
         payload = {
           "room_id": window.room_id,
-          "msg_id": data.msgId,
+          "msg_id": data.msg_id,
           "nickname": data.payload.user.nickname,
           "content": data.payload.content,
-          "event_time": parseInt(data.payload.eventTime)
+          "event_time": parseInt(data.payload.event_time)
         };
       }
 
