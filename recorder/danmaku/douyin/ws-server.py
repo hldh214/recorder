@@ -79,7 +79,7 @@ if (!window.is_danmaku_dead) {
       window.ws_rpc_last_send_time = Date.now();
 
       let payload;
-      if (data.method !== "WebcastChatMessage" || data.payload.chatBy != "0") {
+      if (data.method !== "WebcastChatMessage" || data.payload.chat_by != "0") {
         payload = {
           "room_id": window.room_id
         };
