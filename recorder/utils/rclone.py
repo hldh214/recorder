@@ -38,9 +38,14 @@ def moveto(rname, bwlimit='off'):
 
 
 def list_videos(rname):
-    proc = subprocess.run([
-        'rclone', 'lsjson', '--recursive', f'{rname}:upload'
-    ], check=True, capture_output=True)
+    try:
+        proc = subprocess.run([
+            'rclone', 'lsjson', '--recursive', f'{rname}:upload'
+        ], check=True, capture_output=True)
+    except subprocess.CalledProcessError as e:
+        logging.error(f'Error when listing videos: {e}\n{e.stdout}\n{e.stderr}')
+        raise
+
     files = json.loads(proc.stdout)
 
     return [f["Path"] for f in files if f['MimeType'] == 'video/mp4']
@@ -52,7 +57,12 @@ def watch_and_copy(rname):
     existing_videos = set(list_videos(rname))
     while True:
         time.sleep(120)
-        videos = list_videos(rname)
+
+        try:
+            videos = list_videos(rname)
+        except subprocess.CalledProcessError:
+            continue
+
         new_videos = [f for f in videos if f not in existing_videos]
 
         if not new_videos:
