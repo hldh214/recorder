@@ -3,4 +3,4 @@
 
 # ... except for dependencies and source
 !recorder
-!requirements.txt
+!Pipfile.lock
