@@ -25,7 +25,7 @@ telethon = "==1.27.*"
 hachoir = "==3.2.*"
 fire = "==0.5.*"
 opennsfw2 = "==0.11.*"
-protobuf = "==3.20.*"
+protobuf = "==4.24.*"
 
 [dev-packages]
 pytest = "==7.*"
