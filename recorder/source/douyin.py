@@ -35,7 +35,7 @@ def get_room_info(room_id):
 
     try:
         return res['data']['data'][0]
-    except KeyError:
+    except (KeyError, IndexError):
         logger.warning(f'Failed to get data, res: {res}')
         return {}
 
