@@ -217,6 +217,8 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
                 continue
 
             logger.info(f'uploaded: {video_path} -> {video_id}')
+            if os.path.exists(metadata_path):
+                os.unlink(metadata_path)
 
             if os.path.exists(vtt_caption_path):
                 if youtube.add_caption(video_id, vtt_caption_path, 'via_recorder_vtt'):
