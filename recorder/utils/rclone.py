@@ -51,9 +51,7 @@ def list_videos(rname):
     return [f["Path"] for f in files if f['MimeType'] == 'video/mp4']
 
 
-def watch_and_copy(rname):
-    od_folder_path = os.path.join(base_path, config['app']['video_path'], 'od/')
-
+def watch_and_copy(rname, folder):
     existing_videos = set(list_videos(rname))
     while True:
         time.sleep(120)
@@ -73,7 +71,7 @@ def watch_and_copy(rname):
             logging.info(f'Processing {each_video}')
             command = [
                 'rclone', 'copyto', '--progress',
-                f'{rname}:upload/{each_video}', f'{od_folder_path}/{each_video}'
+                f'{rname}:upload/{each_video}', f'{folder}/{each_video}'
             ]
             logging.info(' '.join(command))
             subprocess.run(command, check=True)
