@@ -177,6 +177,10 @@ def get_video_thumb(input_file, output_file=None, time=6, size=320):
 
 def generate_candidate_thumbnails(input_file, output_dir, size=320, sampling_interval=60):
     probe = ffprobe(input_file)
+
+    if not probe:
+        return []
+
     width = int(probe['streams'][0]['width'])
     height = int(probe['streams'][0]['height'])
     # https://trac.ffmpeg.org/wiki/Scaling#KeepingtheAspectRatio
