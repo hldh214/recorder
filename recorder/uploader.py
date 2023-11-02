@@ -5,8 +5,10 @@ import pathlib
 import shutil
 import time
 
+import PIL.Image
 import click
 import opennsfw2 as n2
+import numpy as np
 
 import recorder.exceptions
 from recorder.ffmpeg import generate_candidate_thumbnails
@@ -22,6 +24,7 @@ logger.addHandler(handler)
 
 def init_telegram(videos):
     from recorder.destination.telegram import Telegram
+    model = n2.make_open_nsfw_model()
 
     upload_files = []
     for video in videos:
@@ -36,7 +39,12 @@ def init_telegram(videos):
             continue
 
         logger.info(f'Predicting {video[0]}')
-        nsfw_score_list = n2.predict_images(thumbs)
+        thumb_array = np.array([
+            n2.preprocess_image(PIL.Image.open(image_path), n2.Preprocessing.YAHOO)
+            for image_path in thumbs
+        ])
+        predictions = model.predict(thumb_array, batch_size=8, verbose=0)
+        nsfw_score_list = predictions[:, 1].tolist()
         avg_score = sum(nsfw_score_list) / len(nsfw_score_list)
         max_score = max(nsfw_score_list)
         thumb = thumbs[nsfw_score_list.index(max_score)]

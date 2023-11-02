@@ -26,6 +26,8 @@ hachoir = "==3.2.*"
 fire = "==0.5.*"
 opennsfw2 = "==0.11.*"
 protobuf = "==4.24.*"
+pillow = "==10.*"
+numpy = "==1.*"
 
 [dev-packages]
 pytest = "==7.*"
