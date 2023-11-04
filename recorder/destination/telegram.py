@@ -3,6 +3,7 @@ import os.path
 
 import tenacity
 import tqdm
+import telethon.errors
 from telethon.sync import TelegramClient
 from telethon.sessions import StringSession
 from telethon.tl.types import InputMessagesFilterVideo
@@ -28,7 +29,10 @@ class Telegram:
         wait=tenacity.wait_exponential(min=4),
         stop=tenacity.stop_after_attempt(4),
         reraise=True,
-        retry=tenacity.retry_if_exception_type(RuntimeError)
+        retry=tenacity.retry_if_exception_type((
+            RuntimeError,
+            telethon.errors.rpcerrorlist.TimeoutError,
+        ))
     )
     def upload(self, path, title):
         with self.client.action(self.chat_id, 'video') as action:
