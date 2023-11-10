@@ -42,6 +42,16 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 
     video_folder_path = os.path.join(base_path, kwargs['app']['video_path'])
 
+    max_duration = kwargs['app'].get('max_duration', 0)
+    max_size = kwargs['app'].get('max_size', 0)
+
+    # overwrite max_duration and max_size by source_type's config
+    if source_type in kwargs:
+        if kwargs[source_type].get('max_duration'):
+            max_duration = kwargs[source_type]['max_duration']
+        if kwargs[source_type].get('max_size'):
+            max_size = kwargs[source_type]['max_size']
+
     while True:
         stream = source.get_stream(room_id, **kwargs)
 
@@ -61,9 +71,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 
         logger.info(f'recording: {url} -> {output_file}')
 
-        exit_code = ffmpeg.record(
-            url, output_file, kwargs['app'].get('max_duration', 0), kwargs['app'].get('max_size', 0)
-        )
+        exit_code = ffmpeg.record(url, output_file, max_duration, max_size)
         logger.info(f'({kwargs["source_name"]})recorded with exit_code {exit_code}: {url}')
 
         if not ffmpeg.valid(output_file):
