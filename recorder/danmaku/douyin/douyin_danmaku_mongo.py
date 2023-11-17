@@ -67,11 +67,11 @@ def add_caption_and_highlights_for_video(caption_path, highlights, video_id, sou
 
 
 def watch(room_ids=None):
-    while True:
-        where_clause = {
-            'event_time': {'$gt': arrow.now().int_timestamp}
-        }
+    where_clause = {
+        'event_time': {'$gt': arrow.now().int_timestamp}
+    }
 
+    while True:
         if room_ids:
             where_clause.update({'room_id': {'$in': room_ids}})
 
@@ -84,6 +84,7 @@ def watch(room_ids=None):
                 sender_nick = doc.get('nickname')
                 content = doc.get('content')
                 print(f'{generation_time}: {room_id}: {sender_nick}: {content}')
+                where_clause = {'_id': {'$gt': doc['_id']}}
 
         time.sleep(1)
 
