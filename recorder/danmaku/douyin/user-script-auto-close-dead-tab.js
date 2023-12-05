@@ -12,10 +12,6 @@
 (function () {
   'use strict';
 
-  if (!('is_danmaku_dead' in unsafeWindow)) {
-    return;
-  }
-
   console.log('Auto close dead douyin danmaku tab running...');
 
   let path = window.location.pathname;
