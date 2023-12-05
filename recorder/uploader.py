@@ -40,14 +40,18 @@ def init_telegram(videos):
         avg_score = sum(nsfw_score_list) / len(nsfw_score_list)
         max_score = max(nsfw_score_list)
         thumb = thumbs[nsfw_score_list.index(max_score)]
+        thumb_filename = thumb.split(os.sep)[-1]  # 32_1888.jpg (32: index, 1888: seconds)
+        thumb_second = int(thumb_filename.split('_')[1].split('.')[0])  # 1888
+        thumb_time_str = time.strftime('%H:%M:%S', time.gmtime(thumb_second))  # 00:31:28
 
-        logger.info(f'Result: (avg: {avg_score:.4f}, max: {max_score:.4f}({thumb.split(os.sep)[-1]}))')
+        logger.info(f'Result: (avg: {avg_score:.4f}, max: {max_score:.4f}({thumb_filename}))')
 
         if avg_score < 0.1 and max_score < 0.8:
             logger.info(f'Skipping {video[0]}')
             os.rename(video[0], f'{video[0]}.skipped')
             continue
 
+        video[1] += f' (Cover: {thumb_time_str})'
         upload_files.append(video)
         os.rename(thumb, f'{video[0]}.thumbnail.jpg')
         shutil.rmtree(f'{video[0]}.frames')
