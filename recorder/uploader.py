@@ -108,7 +108,7 @@ def get_upload_videos(
         path = pathlib.Path(file)
         source_name = path.parent.name
         title = f'#{source_type} #{source_name} `{path.stem}`'
-        upload_files.append((file, title))
+        upload_files.append([file, title])
 
     print('=' * 64)
     print(f'{len(upload_files)} files found: (64MiB < size < 2000MiB)')
