@@ -9,6 +9,7 @@ mongo_dsn = ""
 timezone = "Asia/Hong_Kong"
 ffprobe_path = "ffprobe"
 ffmpeg_path = "ffmpeg"
+sentry_dsn = ""
 
 [youtube]
 client_secrets_file = ""

@@ -42,3 +42,18 @@ if config['app'].get('mongo_dsn'):
     mongo_client = pymongo.MongoClient(config['app'].get('mongo_dsn'))
     mongo_collection_douyin_danmaku = mongo_client['recorder']['douyin_danmaku']
     mongo_collection_huya_danmaku = mongo_client['recorder']['huya_danmaku']
+
+if config['app'].get('sentry_dsn'):
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=config['app'].get('sentry_dsn'),
+        enable_tracing=True,
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for performance monitoring.
+        traces_sample_rate=1.0,
+        # Set profiles_sample_rate to 1.0 to profile 100%
+        # of sampled transactions.
+        # We recommend adjusting this value in production.
+        profiles_sample_rate=1.0,
+    )
