@@ -37,10 +37,10 @@ def moveto(rname, bwlimit='off'):
         time.sleep(30)
 
 
-def list_videos(rname):
+def list_videos(rname, *args):
     try:
         proc = subprocess.run([
-            'rclone', 'lsjson', '--recursive', f'{rname}:upload'
+            'rclone', 'lsjson', '--recursive', f'{rname}:upload', *args
         ], check=True, capture_output=True)
     except subprocess.CalledProcessError as e:
         logging.error(f'Error when listing videos: {e}\n{e.stdout}\n{e.stderr}')
@@ -52,12 +52,14 @@ def list_videos(rname):
 
 
 def watch_and_copy(rname, folder):
-    existing_videos = set(list_videos(rname))
+    args = ['--min-size', '10M']
+
+    existing_videos = set(list_videos(rname, *args))
     while True:
         time.sleep(120)
 
         try:
-            videos = list_videos(rname)
+            videos = list_videos(rname, *args)
         except subprocess.CalledProcessError:
             continue
 
