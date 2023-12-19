@@ -27,7 +27,7 @@ def moveto(rname, bwlimit='off'):
 
             logging.info(f'Processing {file}: {sizeof_fmt(os.path.getsize(file))}')
             command = [
-                'rclone', 'moveto', '--progress', '--bwlimit', bwlimit,
+                'rclone', 'moveto', '--stats-one-line-date', '--progress', '--bwlimit', bwlimit,
                 file, f'{rname}:upload/{file.replace(record_folder_path, "")}'
             ]
             logging.info(' '.join(command))
