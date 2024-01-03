@@ -23,7 +23,8 @@
 
   setInterval(() => {
     if (unsafeWindow.is_danmaku_dead) {
-      window.close();
+      // window.close();
+      console.log('Danmaku dead.');
     }
 
     let pageList = [];
