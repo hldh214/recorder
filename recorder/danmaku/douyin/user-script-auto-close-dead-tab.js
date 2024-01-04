@@ -22,10 +22,10 @@
   localStorage.setItem(storageKey, 'alive');
 
   setInterval(() => {
-    if (unsafeWindow.is_danmaku_dead) {
-      // window.close();
-      console.log('Danmaku dead.');
-    }
+    // if (unsafeWindow.is_danmaku_dead) {
+    //   console.log('Danmaku dead.');
+    //   window.close();
+    // }
 
     let pageList = [];
     for (let i = 0; i < localStorage.length; i++) {
