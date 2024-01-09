@@ -80,7 +80,6 @@ async def subscribe(room_id):
 
     ws_url = get_danmu_ws_url(room_data['id_str'])
     logging.info(f'ws_url: {ws_url}')
-    logging.info(f'Started danmaku subscriber: {room_id}')
 
     # `ping_timeout=None` for not sending ping package and don't wait for pong response
     async for websocket in websockets.connect(
@@ -101,6 +100,8 @@ async def subscribe(room_id):
 
 
 async def _main(room_id, interval):
+    logging.info(f'Started danmaku subscriber: {room_id}')
+
     while True:
         logging.debug(f'Checking live status: {room_id}')
         if not get_stream(room_id):
