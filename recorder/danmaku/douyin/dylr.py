@@ -100,6 +100,24 @@ async def subscribe(room_id):
             raise
 
 
+async def _main(room_id, interval):
+    while True:
+        logging.debug(f'Checking live status: {room_id}')
+        if not get_room_info(room_id):
+            # not live yet
+            await asyncio.sleep(interval)
+            continue
+
+        logging.info(f'Live started: {room_id}')
+        task = asyncio.create_task(subscribe(room_id))
+        while True:
+            await asyncio.sleep(3600)
+            if not get_room_info(room_id):
+                # not live anymore
+                task.cancel()
+                break
+
+
 async def main():
     sources = [each for each in config.get('source').values() if
                each.get('danmaku_enabled') is True and each['source_type'] == 'douyin']
@@ -107,7 +125,7 @@ async def main():
     tasks = []
 
     for source in sources:
-        tasks.append(asyncio.create_task(subscribe(source['room_id'])))
+        tasks.append(asyncio.create_task(_main(source['room_id'], source.get('interval', 10))))
 
     await asyncio.gather(*tasks)
 
