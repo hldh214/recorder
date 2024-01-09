@@ -11,7 +11,7 @@ from google.protobuf import json_format
 
 from recorder import config, mongo_collection_douyin_danmaku as mongo_collection
 from recorder.danmaku.douyin.dy_pb2 import PushFrame, Response, ChatMessage
-from recorder.source.douyin import get_room_info
+from recorder.source.douyin import get_room_info, get_stream
 
 log_level = logging.INFO
 if config['app'].get('debug'):
@@ -103,7 +103,7 @@ async def subscribe(room_id):
 async def _main(room_id, interval):
     while True:
         logging.debug(f'Checking live status: {room_id}')
-        if not get_room_info(room_id):
+        if not get_stream(room_id):
             # not live yet
             await asyncio.sleep(interval)
             continue
@@ -112,7 +112,7 @@ async def _main(room_id, interval):
         task = asyncio.create_task(subscribe(room_id))
         while True:
             await asyncio.sleep(3600)
-            if not get_room_info(room_id):
+            if not get_stream(room_id):
                 # not live anymore
                 task.cancel()
                 break
