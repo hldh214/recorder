@@ -39,8 +39,11 @@ async def consumer_handler(websocket, room_id):
     while True:
         try:
             ws_msg = await asyncio.wait_for(websocket.recv(), timeout=60)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logging.warning(f'No message received in 60 seconds, reconnecting: {room_id}')
+            break
+        except websockets.WebSocketException:
+            logging.warning('WebSocketException excepted')
             break
 
         wss_package = PushFrame()
@@ -86,10 +89,8 @@ async def subscribe(room_id):
     ws_url = get_danmu_ws_url(room_data['id_str'])
     logging.debug(f'ws_url: {ws_url}')
 
-    # `ping_timeout=None` for not sending ping package and don't wait for pong response
     async for websocket in websockets.connect(
         ws_url,
-        ping_timeout=None,
         user_agent_header='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)',
         extra_headers={
             # todo: make this cookie configurable
@@ -98,11 +99,7 @@ async def subscribe(room_id):
         }
     ):
         logging.info(f'Connected to websocket: {room_id}')
-
-        try:
-            await consumer_handler(websocket, room_id)
-        except websockets.WebSocketException as e:
-            logging.warning('WebSocketException excepted: ' + str(e))
+        await consumer_handler(websocket, room_id)
 
 
 async def _main(room_id, interval):
