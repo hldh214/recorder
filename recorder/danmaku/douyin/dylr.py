@@ -3,7 +3,6 @@ import asyncio
 import gzip
 import logging
 import time
-import traceback
 
 import pymongo.errors
 import websockets
@@ -94,9 +93,8 @@ async def subscribe(room_id):
     ):
         try:
             await consumer_handler(websocket, room_id)
-        except websockets.WebSocketException:
-            logging.warning('WebSocketException excepted: ' + traceback.format_exc())
-            raise
+        except websockets.WebSocketException as e:
+            logging.warning('WebSocketException excepted: ' + str(e))
 
 
 async def _main(room_id, interval):
