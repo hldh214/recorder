@@ -81,28 +81,7 @@ async def consumer_handler(websocket, room_id):
                 logging.info(f'{room_id}: {sender_nick}: {content}')
 
 
-async def subscribe(room_id):
-    room_data = get_room_info(room_id)
-
-    assert 'id_str' in room_data, f'Failed to get id_str, room_data: {room_data}'
-
-    ws_url = get_danmu_ws_url(room_data['id_str'])
-    logging.debug(f'ws_url: {ws_url}')
-
-    async for websocket in websockets.connect(
-        ws_url,
-        user_agent_header='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)',
-        extra_headers={
-            # todo: make this cookie configurable
-            'cookie': 'ttwid=1%7CB1qls3GdnZhUov9o2NxOMxxYS2ff6OSvEWbv0ytbES4'
-                      '%7C1680522049%7C280d802d6d478e3e78d0c807f7c487e7ffec0ae4e5fdd6a0fe74c3c6af149511',
-        }
-    ):
-        logging.info(f'Connected to websocket: {room_id}')
-        await consumer_handler(websocket, room_id)
-
-
-async def _main(room_id, interval):
+async def subscribe(room_id, interval):
     logging.info(f'Started danmaku subscriber: {room_id}')
 
     while True:
@@ -113,7 +92,24 @@ async def _main(room_id, interval):
             continue
 
         logging.info(f'Live started: {room_id}')
-        await subscribe(room_id)
+
+        room_data = get_room_info(room_id)
+        assert 'id_str' in room_data, f'Failed to get id_str, room_data: {room_data}'
+
+        ws_url = get_danmu_ws_url(room_data['id_str'])
+        logging.debug(f'ws_url: {ws_url}')
+
+        async with websockets.connect(
+            ws_url,
+            user_agent_header='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)',
+            extra_headers={
+                # todo: make this cookie configurable
+                'cookie': 'ttwid=1%7CB1qls3GdnZhUov9o2NxOMxxYS2ff6OSvEWbv0ytbES4'
+                          '%7C1680522049%7C280d802d6d478e3e78d0c807f7c487e7ffec0ae4e5fdd6a0fe74c3c6af149511',
+            }
+        ) as websocket:
+            logging.info(f'Connected to websocket: {room_id}')
+            await consumer_handler(websocket, room_id)
 
 
 async def main():
@@ -123,7 +119,7 @@ async def main():
     tasks = []
 
     for source in sources:
-        tasks.append(asyncio.create_task(_main(source['room_id'], source.get('interval', 10))))
+        tasks.append(asyncio.create_task(subscribe(source['room_id'], source.get('interval', 10))))
 
     await asyncio.gather(*tasks)
 
