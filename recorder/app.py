@@ -44,13 +44,16 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 
     max_duration = kwargs['app'].get('max_duration', 0)
     max_size = kwargs['app'].get('max_size', 0)
+    save_metadata = kwargs['app'].get('save_metadata', False)
 
-    # overwrite max_duration and max_size by source_type's config
+    # overwrite app's config by source_type's config
     if source_type in kwargs:
         if kwargs[source_type].get('max_duration'):
             max_duration = kwargs[source_type]['max_duration']
         if kwargs[source_type].get('max_size'):
             max_size = kwargs[source_type]['max_size']
+        if kwargs[source_type].get('save_metadata'):
+            save_metadata = kwargs[source_type]['save_metadata']
 
     while True:
         stream = source.get_stream(room_id, **kwargs)
@@ -68,7 +71,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
         output_file = os.path.join(folder_path, filename)
 
-        if kwargs['app'].get('save_metadata'):
+        if save_metadata:
             open(os.path.join(folder_path, metadata_filename), 'w').write(json.dumps(stream))
 
         logger.info(f'recording: {url} -> {output_file}')
