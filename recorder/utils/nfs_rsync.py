@@ -27,7 +27,7 @@ def moveto(rpath):
             logging.info(f'Processing {file}: {sizeof_fmt(os.path.getsize(file))}')
             command = [
                 # The -a will keep permissions, and -h will be humanly readable.
-                'rsync', '-ah', '--progress', file, f'{rpath}/{file.replace(record_folder_path, "")}'
+                'rsync', '-ah', '--mkpath', '--progress', file, f'{rpath}/{file.replace(record_folder_path, "")}'
             ]
             logging.info(' '.join(command))
             subprocess.run(command, check=True)
