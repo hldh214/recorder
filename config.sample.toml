@@ -10,6 +10,7 @@ timezone = "Asia/Hong_Kong"
 ffprobe_path = "ffprobe"
 ffmpeg_path = "ffmpeg"
 sentry_dsn = ""
+save_metadata = false
 
 [youtube]
 client_secrets_file = ""

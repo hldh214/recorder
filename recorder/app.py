@@ -67,7 +67,9 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         metadata_filename = f'{start}.metadata'
         pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
         output_file = os.path.join(folder_path, filename)
-        open(os.path.join(folder_path, metadata_filename), 'w').write(json.dumps(stream))
+
+        if kwargs['app'].get('save_metadata'):
+            open(os.path.join(folder_path, metadata_filename), 'w').write(json.dumps(stream))
 
         logger.info(f'recording: {url} -> {output_file}')
 
