@@ -46,7 +46,7 @@ def init_telegram(videos):
 
         logger.info(f'Result: (avg: {avg_score:.4f}, max: {max_score:.4f}({thumb_filename}))')
 
-        if avg_score < 0.1 and max_score < 0.8:
+        if avg_score < 0.1 and max_score < 0.2:
             logger.info(f'Skipping {video[0]}')
             os.rename(video[0], f'{video[0]}.skipped')
             continue
