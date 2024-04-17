@@ -31,7 +31,7 @@ class Telegram:
         reraise=True,
         retry=tenacity.retry_if_exception_type((
             RuntimeError,
-            telethon.errors.rpcerrorlist.TimeoutError,
+            telethon.errors.rpcbaseerrors.RPCError,
         ))
     )
     def upload(self, path, title):
