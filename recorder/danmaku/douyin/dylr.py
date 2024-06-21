@@ -32,8 +32,8 @@ def get_danmu_ws_url(id_str):
             f"&browser_version=5.0%20(Windows%20NT%2010.0;%20Win64;%20x64)"
             f"%20AppleWebKit/537.36%20(KHTML,%20like%20Gecko)%20Chrome/126.0.0.0%20Safari/537.36"
             f"&browser_online=true&tz_name=Asia/Shanghai"
-            f"&identity=audience&room_id={id_str}&heartbeatDuration=0&signature=6dL3Y5Qk0hp77FXh"
-            f"&user_unique_id=7382749321496675881")
+            f"&identity=audience&room_id={id_str}&heartbeatDuration=0&signature=f/4N4c1wR5F2z7xv"
+            f"&user_unique_id=7165060111151826436")
 
 
 async def consumer_handler(websocket, room_id):
