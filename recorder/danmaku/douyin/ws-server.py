@@ -181,8 +181,6 @@ async def consumer_handler(websocket):
 
 
 async def _main(room_id, interval):
-    global last_danmaku_time
-    last_danmaku_time[room_id] = datetime.datetime.now()
     logging.info(f'Started danmaku subscriber: {room_id}')
 
     while True:
@@ -193,6 +191,8 @@ async def _main(room_id, interval):
             continue
 
         logging.info(f'Live started: {room_id}')
+        global last_danmaku_time
+        last_danmaku_time[room_id] = datetime.datetime.now()
         hook_result = asyncio.Future()
         task = asyncio.create_task(get_raw_js(hook_result))
         try:
