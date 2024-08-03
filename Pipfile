@@ -29,6 +29,7 @@ protobuf = "==4.24.*"
 tensorflow = "==2.14.*"
 sentry-sdk = "==2.*"
 jsengine = "==1.0.*"
+quickjs = "==1.*"
 
 [dev-packages]
 pytest = "==7.*"
