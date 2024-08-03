@@ -3,6 +3,7 @@ import asyncio
 import gzip
 import hashlib
 import logging
+import os.path
 import random
 
 from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
@@ -96,7 +97,7 @@ def get_danmu_ws_url(id_str):
     # 代码来源：https://github.com/biliup/biliup/blob/master/biliup/Danmaku/douyin_util/__init__.py
     user_unique_id = random.randint(7300000000000000000, 7999999999999999999)
 
-    with open(r'webmssdk.js', 'r', encoding='utf-8') as f:
+    with open(os.path.join(os.path.dirname(__file__), 'webmssdk.js'), 'r', encoding='utf-8') as f:
         js_enc = f.read()
 
     ctx = jsengine.jsengine()
