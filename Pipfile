@@ -28,6 +28,7 @@ opennsfw2 = "==0.12.*"
 protobuf = "==4.24.*"
 tensorflow = "==2.14.*"
 sentry-sdk = "==1.38.*"
+jsengine = "*"
 
 [dev-packages]
 pytest = "==7.*"

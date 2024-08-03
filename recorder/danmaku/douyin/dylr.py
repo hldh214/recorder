@@ -1,10 +1,15 @@
 # Credit: https://github.com/LyzenX/DouyinLiveRecorder
 import asyncio
 import gzip
+import hashlib
 import logging
-import time
+import random
 
+from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
+
+import jsengine
 import pymongo.errors
+import requests
 import websockets
 from google.protobuf import json_format
 
@@ -17,23 +22,112 @@ if config['app'].get('debug'):
     log_level = logging.DEBUG
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=log_level)
 
+UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+
+
+def build_request_url(url: str, user_agent: str) -> str:
+    parsed_url = urlparse(url)
+    existing_params = parse_qs(parsed_url.query)
+    existing_params['aid'] = ['6383']
+    existing_params['device_platform'] = ['web']
+    existing_params['browser_language'] = ['zh-CN']
+    existing_params['browser_platform'] = ['Win32']
+    existing_params['browser_name'] = [user_agent.split('/')[0]]
+    existing_params['browser_version'] = [
+        user_agent.split(existing_params['browser_name'][0])[-1][1:]]
+    new_query_string = urlencode(existing_params, doseq=True)
+    new_url = urlunparse((
+        parsed_url.scheme,
+        parsed_url.netloc,
+        parsed_url.path,
+        parsed_url.params,
+        new_query_string,
+        parsed_url.fragment
+    ))
+
+    return new_url
+
+
+def get_ms_stub(live_room_real_id, user_unique_id):
+    params = {
+        "live_id": "1",
+        "aid": "6383",
+        "version_code": 180800,
+        "webcast_sdk_version": '1.0.14-beta.0',
+        "room_id": live_room_real_id,
+        "sub_room_id": "",
+        "sub_channel_id": "",
+        "did_rule": "3",
+        "user_unique_id": user_unique_id,
+        "device_platform": "web",
+        "device_type": "",
+        "ac": "",
+        "identity": "audience"
+    }
+    sig_params = ','.join([f'{k}={v}' for k, v in params.items()])
+    return hashlib.md5(sig_params.encode()).hexdigest()
+
+
+def auto_get_cookie():
+    url = 'https://live.douyin.com'
+    cookie = '__ac_nonce=0638733a400869171be51'
+    header = {
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,"
+                  "application/signed-exchange;v=b3;q=0.9",
+        "User-Agent": UA,
+        "cookie": cookie
+    }
+    resp = requests.get(url, headers=header)
+    ttwid = None
+    for c in resp.cookies:
+        if c.name == 'ttwid':
+            ttwid = c.value
+            break
+
+    if ttwid is not None:
+        cookie += '; ttwid=' + ttwid
+        return cookie
+
+    return None
+
 
 def get_danmu_ws_url(id_str):
-    return (f"wss://webcast5-ws-web-lf.douyin.com/webcast/im/push/v2/?app_name=douyin_web&version_code=180800"
-            f"&webcast_sdk_version=1.0.14-beta.0&update_version_code=1.0.14-beta.0"
-            f"&compress=gzip&internal_ext=internal_src:dim"
-            f"|wss_push_room_id:{id_str}|wss_push_did:7382749321496675881|dim_log_id"
-            f":2023011316221327ACACF0E44A2C0E8200|fetch_time:$"
-            f"{int(time.time())}123|seq:1|wss_info:0-1673598133900-0-0|wrds_kvs:WebcastRoomRankMessage"
-            f"-1673597852921055645_WebcastRoomStatsMessage-1673598128993068211&cursor=t-1718930306521_r-1_d-1_u-1_fh-1"
-            f"&host=https://live.douyin.com&aid=6383&live_id=1&did_rule=3&debug=false&endpoint=live_pc&support_wrds=1"
-            f"&im_path=/webcast/im/fetch/&device_platform=web&cookie_enabled=true&screen_width=1228&screen_height=691"
-            f"&browser_language=zh-CN&browser_platform=Mozilla&browser_name=Mozilla"
-            f"&browser_version=5.0%20(Windows%20NT%2010.0;%20Win64;%20x64)"
-            f"%20AppleWebKit/537.36%20(KHTML,%20like%20Gecko)%20Chrome/126.0.0.0%20Safari/537.36"
-            f"&browser_online=true&tz_name=Asia/Shanghai"
-            f"&identity=audience&room_id={id_str}&heartbeatDuration=0&signature=f/4N4c1wR5F2z7xv"
-            f"&user_unique_id=7165060111151826436")
+    # 2024.6.20 接口更新，需要signature参数
+    # 代码来源：https://github.com/biliup/biliup/blob/master/biliup/Danmaku/douyin_util/__init__.py
+    user_unique_id = random.randint(7300000000000000000, 7999999999999999999)
+
+    with open(r'webmssdk.js', 'r', encoding='utf-8') as f:
+        js_enc = f.read()
+
+    ctx = jsengine.jsengine()
+    js_dom = f"""
+document = {{}}
+window = {{}}
+navigator = {{
+  'userAgent': '{UA}'
+}}
+""".strip()
+    final_js = js_dom + js_enc
+    ctx.eval(final_js)
+    function_caller = f"get_sign('{get_ms_stub(id_str, user_unique_id)}')"
+    signature = ctx.eval(function_caller)
+
+    webcast5_params = {
+        "room_id": id_str,
+        "compress": 'gzip',
+        "version_code": 180800,
+        "webcast_sdk_version": '1.0.14-beta.0',
+        "live_id": "1",
+        "did_rule": "3",
+        "user_unique_id": user_unique_id,
+        "identity": "audience",
+        "signature": signature,
+    }
+
+    return build_request_url(
+        f"wss://webcast5-ws-web-lf.douyin.com/webcast/im/push/v2/?{'&'.join([f'{k}={v}' for k, v in webcast5_params.items()])}",
+        UA
+    )
 
 
 async def consumer_handler(websocket, room_id):
@@ -104,12 +198,9 @@ async def subscribe(room_id, interval):
 
         async with websockets.connect(
             ws_url,
-            user_agent_header='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                              'Chrome/126.0.0.0 Safari/537.36',
+            user_agent_header=UA,
             extra_headers={
-                # todo: make this cookie configurable
-                'cookie': 'ttwid=1%7CB1qls3GdnZhUov9o2NxOMxxYS2ff6OSvEWbv0ytbES4'
-                          '%7C1680522049%7C280d802d6d478e3e78d0c807f7c487e7ffec0ae4e5fdd6a0fe74c3c6af149511',
+                'cookie': auto_get_cookie()
             }
         ) as websocket:
             logging.info(f'Connected to websocket: {room_id}')
