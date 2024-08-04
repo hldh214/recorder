@@ -50,5 +50,5 @@ if __name__ == '__main__':
     import time
 
     while True:
-        print(get_stream('10535725', sess_key='018c6d30a09720dd7aba6a9113fa5227bc9c78e033eb1a2be5fec88af599e3c6'))
+        print(get_stream('10535725', sess_key='', panda=''))
         time.sleep(5)
