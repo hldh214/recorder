@@ -76,7 +76,7 @@ def init_spankbang():
 def get_upload_videos(
     source_type,
     filesize_min=1024 * 1024 * 64,
-    filesize_max=1024 * 1024 * 2000,
+    filesize_max=1024 * 1024 * 1024 * 4,
     should_delete_small_files=True
 ):
     video_path = pathlib.Path(
@@ -102,7 +102,7 @@ def get_upload_videos(
             delete_files.append(file)
             continue
         if filesize > filesize_max:
-            logger.warning(f'{file}: {sizeof_fmt(filesize)} > 2000MiB, skip')
+            logger.warning(f'{file}: {sizeof_fmt(filesize)} > 4GiB, skip')
             continue
 
         path = pathlib.Path(file)
