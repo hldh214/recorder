@@ -1,6 +1,6 @@
 import random
 
-import requests
+import httpx
 
 from recorder.ffmpeg import USER_AGENTS
 from recorder import logger
@@ -19,7 +19,7 @@ def get_stream(room_id, **kwargs):
         }
 
     try:
-        res = requests.post('https://api.pandalive.co.kr/v1/live/play', data={
+        res = httpx.post('https://api.pandalive.co.kr/v1/live/play', data={
             'action': 'watch',
             'userId': room_id,
         }, headers={
@@ -29,7 +29,7 @@ def get_stream(room_id, **kwargs):
             'user-agent': random.choice(USER_AGENTS),
             'x-device-info': '{"t":"webPc","v":"1.0","ui":17784756}'
         }, proxies=proxies).json()
-    except requests.exceptions.RequestException:
+    except (httpx.HTTPError, ValueError):
         return False
 
     logger.debug(f'panda.get_stream: {res}')

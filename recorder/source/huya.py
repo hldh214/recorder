@@ -8,7 +8,7 @@ import random
 import re
 import subprocess
 
-import requests
+import httpx
 import websockets
 import websockets.exceptions
 
@@ -28,7 +28,7 @@ global_init_pattern = re.compile(r"HNF_GLOBAL_INIT\s*=\s*({.*?})\s*</script>")
 
 def parse_by_mini_program(sub_sid, preferred_cdn_type, preferred_format, ratio, min_start_time):
     try:
-        res = requests.get('https://mp.huya.com/cache.php', params={
+        res = httpx.get('https://mp.huya.com/cache.php', params={
             'm': 'Live',
             'do': 'profileRoom',
             'pid': sub_sid,
@@ -40,7 +40,7 @@ def parse_by_mini_program(sub_sid, preferred_cdn_type, preferred_format, ratio, 
             'Referer': 'https://servicewechat.com/wx74767bf0b684f7d3/244/page-frame.html',  # 244?
             'content-type': 'application/json'
         }, timeout=REQUEST_TIMEOUT)
-    except requests.exceptions.RequestException:
+    except httpx.HTTPError:
         return False
 
     logger.debug(f'parse_by_mini_program({sub_sid}): {res.text}')
@@ -101,11 +101,11 @@ def get_living_info_response(binary_array):
 
 def get_stream(room_id, **kwargs):
     try:
-        res = requests.get('https://m.huya.com/{0}'.format(room_id), headers={
+        res = httpx.get('https://m.huya.com/{0}'.format(room_id), headers={
             'User-Agent': 'Mozilla/5.0 (Linux; Android 8.0; Pixel 2 Build/OPD3.170816.012) '
                           'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Mobile Safari/537.36'
         }, timeout=REQUEST_TIMEOUT)
-    except requests.exceptions.RequestException:
+    except httpx.HTTPError:
         return False
 
     sub_sid_result = sub_sid_pattern.findall(res.text)
@@ -173,7 +173,7 @@ def parse_stream_info(stream_info, preferred_cdn_type, preferred_format, ratio, 
 
 
 def get_replay(video_id):
-    res = requests.get('https://liveapi.huya.com/moment/getMomentContent', params={'videoId': video_id}).json()
+    res = httpx.get('https://liveapi.huya.com/moment/getMomentContent', params={'videoId': video_id}).json()
 
     definitions = res['data']['moment']['videoInfo']['definitions']
 

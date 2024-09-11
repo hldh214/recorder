@@ -4,7 +4,6 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-requests = "==2.*"
 google-api-python-client = "==2.*"
 google-auth-oauthlib = "==0.*"
 toml = "==0.10.*"
@@ -30,6 +29,7 @@ tensorflow = "==2.14.*"
 sentry-sdk = "==2.*"
 jsengine = "==1.0.*"
 quickjs = "==1.*"
+httpx = "==0.*"
 
 [dev-packages]
 pytest = "==7.*"

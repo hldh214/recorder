@@ -10,7 +10,7 @@ from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
 
 import jsengine
 import pymongo.errors
-import requests
+import httpx
 import websockets
 from google.protobuf import json_format
 
@@ -78,7 +78,7 @@ def auto_get_cookie():
         "User-Agent": UA,
         "cookie": cookie
     }
-    resp = requests.get(url, headers=header)
+    resp = httpx.get(url, headers=header)
     ttwid = None
     for c in resp.cookies:
         if c.name == 'ttwid':

@@ -1,6 +1,6 @@
 import json
 
-import requests
+import httpx
 
 from recorder import logger
 
@@ -9,7 +9,7 @@ REQUEST_TIMEOUT = 5
 
 def get_room_info(room_id):
     try:
-        res = requests.get(
+        res = httpx.get(
             # Credit: https://github.com/LyzenX/DouyinLiveRecorder/commit/c83a00c8c2d4f4aad25347f3163cd9ced212c99d
             f'https://live.douyin.com/webcast/room/web/enter/?aid=6383&device_platform=web&browser_language=zh-CN'
             f'&browser_platform=Win32&browser_name=Chrome&browser_version=109.0.0.0&web_rid={room_id}',
@@ -24,12 +24,12 @@ def get_room_info(room_id):
             },
             timeout=REQUEST_TIMEOUT
         )
-    except requests.exceptions.RequestException:
+    except httpx.HTTPError:
         return {}
 
     try:
         res = res.json()
-    except requests.exceptions.JSONDecodeError:
+    except ValueError:
         logger.warning(f'Failed to get room info({room_id}), res: {res.text}')
         return {}
 
