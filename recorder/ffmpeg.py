@@ -7,7 +7,6 @@ import subprocess
 import tempfile
 
 import tqdm
-from tensorflow.tools.docs.doc_controls import header
 
 import recorder
 
