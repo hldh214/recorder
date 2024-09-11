@@ -26,16 +26,20 @@ ERROR_CHECK_LIST = (
 )
 
 
-def record(input_url, output_file, max_duration, max_size, args=None):
+def record(input_url, output_file, max_duration, max_size, headers=None, args=None):
     popen_args = [
         FFMPEG_BINARY, '-y', '-user_agent', random.choice(USER_AGENTS), '-hide_banner',
         # If set, then even streamed/non seekable streams will be reconnected on errors.
         '-reconnect_streamed', '1',
         # Sets the maximum delay in seconds after which to give up reconnecting.
         '-reconnect_delay_max', '16',
-        '-rw_timeout', TIMEOUT_US, '-timeout', TIMEOUT_US,
-        '-i', input_url, '-c', 'copy'
+        '-rw_timeout', TIMEOUT_US, '-timeout', TIMEOUT_US
     ]
+
+    if headers is not None:
+        popen_args.extend(['-headers', headers.join('\n')])
+
+    popen_args.extend(['-i', input_url, '-c', 'copy'])
 
     if max_size:
         popen_args.extend(['-fs', str(max_size)])

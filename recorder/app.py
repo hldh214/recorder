@@ -45,6 +45,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
     max_duration = kwargs['app'].get('max_duration', 0)
     max_size = kwargs['app'].get('max_size', 0)
     save_metadata = kwargs['app'].get('save_metadata', False)
+    headers = None
 
     # overwrite app's config by source_type's config
     if source_type in kwargs:
@@ -54,6 +55,8 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             max_size = kwargs[source_type]['max_size']
         if kwargs[source_type].get('save_metadata'):
             save_metadata = kwargs[source_type]['save_metadata']
+        if kwargs[source_type].get('headers'):
+            headers = kwargs[source_type]['headers']
 
     while True:
         stream = source.get_stream(room_id, **kwargs)
@@ -76,7 +79,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
 
         logger.info(f'recording: {url} -> {output_file}')
 
-        exit_code = ffmpeg.record(url, output_file, max_duration, max_size)
+        exit_code = ffmpeg.record(url, output_file, max_duration, max_size, headers=headers)
         logger.info(f'({kwargs["source_name"]})recorded with exit_code {exit_code}: {url}')
 
         if not ffmpeg.valid(output_file):
