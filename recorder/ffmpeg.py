@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 
 import tqdm
+from tensorflow.tools.docs.doc_controls import header
 
 import recorder
 
@@ -37,7 +38,7 @@ def record(input_url, output_file, max_duration, max_size, headers=None, args=No
     ]
 
     if headers is not None:
-        popen_args.extend(['-headers', headers.join('\n')])
+        popen_args.extend(['-headers', '\n'.join(headers)])
 
     popen_args.extend(['-i', input_url, '-c', 'copy'])
 
