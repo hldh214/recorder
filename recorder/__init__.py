@@ -24,6 +24,9 @@ def get_config():
 
 config = get_config()
 
+httpx_logger = logging.getLogger('httpx')
+httpx_logger.setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 handler = logging.FileHandler(filename=os.path.join(base_path, 'recorder.log'))
 logger.setLevel(logging.INFO)
