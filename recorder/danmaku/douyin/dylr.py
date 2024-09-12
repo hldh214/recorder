@@ -80,9 +80,9 @@ def auto_get_cookie():
     }
     resp = httpx.get(url, headers=header)
     ttwid = None
-    for c in resp.cookies:
-        if c.name == 'ttwid':
-            ttwid = c.value
+    for key, value in resp.cookies.items():
+        if key == 'ttwid':
+            ttwid = value
             break
 
     if ttwid is not None:
