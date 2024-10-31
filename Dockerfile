@@ -16,7 +16,7 @@ RUN apt-get -y update && \
     apt-get autoremove -y && \
     apt-get clean -y && \
     rm -rf /var/lib/apt/lists/* && \
-    pip install -i ${PYPI_MIRROR} pipenv --break-system-packages && \
+    pip install -i ${PYPI_MIRROR} pipenv && \
     PIPENV_VENV_IN_PROJECT=1 pipenv sync --pypi-mirror ${PYPI_MIRROR} && \
     pipenv --clear && \
     rm -rf /tmp/* && \
