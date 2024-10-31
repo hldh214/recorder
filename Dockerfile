@@ -1,4 +1,4 @@
-FROM jrottenberg/ffmpeg:6.1-vaapi2404
+FROM jrottenberg/ffmpeg:6.1-vaapi2204
 
 ARG PYPI_MIRROR=https://pypi.org/simple
 ARG TZ=Asia/Hong_Kong
