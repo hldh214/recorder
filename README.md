@@ -58,8 +58,12 @@ python >= 3.7
 ``` shell
 git clone https://github.com/hldh214/recorder.git
 cd ./recorder
-pip install -r requirements.txt
+pipenv sync
 python -m recorder
+
+# AI-related, see: uploader.py
+pipenv install opennsfw2==0.12.*
+pipenv install tensorflow==2.14.*
 ```
 
 ## Built With
