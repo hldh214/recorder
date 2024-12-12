@@ -26,6 +26,7 @@ sentry-sdk = "==2.*"
 jsengine = "==1.0.*"
 quickjs = "==1.*"
 httpx = "==0.*"
+pytz = "==2024.2"
 
 [dev-packages]
 pytest = "==7.*"
