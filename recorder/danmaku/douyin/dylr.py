@@ -5,12 +5,11 @@ import hashlib
 import logging
 import os.path
 import random
-
 from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
 
+import httpx
 import jsengine
 import pymongo.errors
-import httpx
 import websockets
 from google.protobuf import json_format
 
@@ -197,15 +196,18 @@ async def subscribe(room_id, interval):
         ws_url = get_danmu_ws_url(room_data['id_str'])
         logging.debug(f'ws_url: {ws_url}')
 
-        async with websockets.connect(
-            ws_url,
-            user_agent_header=UA,
-            extra_headers={
-                'cookie': auto_get_cookie()
-            }
-        ) as websocket:
-            logging.info(f'Connected to websocket: {room_id}')
+        try:
+            async with websockets.connect(
+                ws_url,
+                user_agent_header=UA,
+                extra_headers={
+                    'cookie': auto_get_cookie()
+                }
+            ) as websocket:
+                logging.info(f'Connected to websocket: {room_id}')
             await consumer_handler(websocket, room_id)
+        except websockets.WebSocketException as e:
+            logging.error(f'WebSocketException[{e}]: {room_id}')
 
 
 async def main():
