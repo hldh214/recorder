@@ -136,11 +136,8 @@ async def consumer_handler(websocket, room_id):
     while True:
         try:
             ws_msg = await asyncio.wait_for(websocket.recv(), timeout=60)
-        except TimeoutError:
-            logging.warning(f'No message received in 60 seconds, reconnecting: {room_id}')
-            break
-        except websockets.WebSocketException:
-            logging.warning('WebSocketException excepted')
+        except (TimeoutError, websockets.WebSocketException, asyncio.CancelledError) as e:
+            logging.error(f'WebSocketException[{e}]: {room_id}')
             break
 
         wss_package = PushFrame()
