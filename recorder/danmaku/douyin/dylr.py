@@ -20,7 +20,12 @@ from recorder.source.douyin import get_room_info, get_stream
 log_level = logging.INFO
 if config['app'].get('debug'):
     log_level = logging.DEBUG
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=log_level)
+logger = logging.getLogger(__name__)
+logger.setLevel(log_level)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 
@@ -136,8 +141,9 @@ async def consumer_handler(websocket, room_id):
     while True:
         try:
             ws_msg = await asyncio.wait_for(websocket.recv(), timeout=60)
-        except (TimeoutError, websockets.WebSocketException, asyncio.CancelledError) as e:
-            logging.error(f'WebSocketException[{e}]: {room_id}')
+            print(ws_msg)
+        except (TimeoutError) as e:
+            logger.error(f'WebSocketException[{e}]: {room_id}')
             break
 
         wss_package = PushFrame()
@@ -172,39 +178,36 @@ async def consumer_handler(websocket, room_id):
             except pymongo.errors.DuplicateKeyError:
                 pass
             else:
-                logging.info(f'{room_id}: {sender_nick}: {content}')
+                logger.info(f'{room_id}: {sender_nick}: {content}')
 
 
 async def subscribe(room_id, interval):
-    logging.info(f'Started danmaku subscriber: {room_id}')
+    logger.info(f'Started danmaku subscriber: {room_id}')
 
     while True:
-        logging.debug(f'Checking live status: {room_id}')
+        logger.debug(f'Checking live status: {room_id}')
         if not get_stream(room_id):
             # not live yet
             await asyncio.sleep(interval)
             continue
 
-        logging.info(f'Live started: {room_id}')
+        logger.info(f'Live started: {room_id}')
 
         room_data = get_room_info(room_id)
         assert 'id_str' in room_data, f'Failed to get id_str, room_data: {room_data}'
 
         ws_url = get_danmu_ws_url(room_data['id_str'])
-        logging.debug(f'ws_url: {ws_url}')
+        logger.debug(f'ws_url: {ws_url}')
 
-        try:
-            async with websockets.connect(
-                ws_url,
-                user_agent_header=UA,
-                extra_headers={
-                    'cookie': auto_get_cookie()
-                }
-            ) as websocket:
-                logging.info(f'Connected to websocket: {room_id}')
-            await consumer_handler(websocket, room_id)
-        except websockets.WebSocketException as e:
-            logging.error(f'WebSocketException[{e}]: {room_id}')
+        async with websockets.connect(
+            ws_url,
+            user_agent_header=UA,
+            extra_headers={
+                'cookie': auto_get_cookie()
+            }
+        ) as websocket:
+            logger.info(f'Connected to websocket: {room_id}')
+        await consumer_handler(websocket, room_id)
 
 
 async def main():
