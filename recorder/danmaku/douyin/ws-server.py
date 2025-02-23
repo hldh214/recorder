@@ -4,6 +4,7 @@ import json
 import logging
 import pathlib
 import re
+import time
 import urllib.parse
 import webbrowser
 
@@ -208,6 +209,8 @@ async def _main(room_id, interval):
             continue
 
         webbrowser.open(f'https://live.douyin.com/{room_id}')
+        time.sleep(7)  # wait for page to load
+        webbrowser.open(f'https://live.douyin.com/{room_id}')  # I don't know why, but it works
 
         while True:
             logging.debug(f'Still live at [{last_danmaku_time[room_id]}]: {room_id}')
