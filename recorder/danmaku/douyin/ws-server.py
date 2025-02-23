@@ -209,15 +209,12 @@ async def _main(room_id, interval):
             continue
 
         webbrowser.open(f'https://live.douyin.com/{room_id}')
-        time.sleep(7)  # wait for page to load
-        webbrowser.open(f'https://live.douyin.com/{room_id}')  # I don't know why, but it works
 
         while True:
             logging.debug(f'Still live at [{last_danmaku_time[room_id]}]: {room_id}')
             await asyncio.sleep(interval)
-            if last_danmaku_time[room_id] < datetime.datetime.now() - datetime.timedelta(seconds=120):
-                # no danmaku for 120 seconds
-                logging.info(f'No danmaku for 120 seconds: {room_id}')
+            if last_danmaku_time[room_id] < datetime.datetime.now() - datetime.timedelta(seconds=30):
+                logging.info(f'No danmaku for 30 seconds: {room_id}')
                 break
 
 
