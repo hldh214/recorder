@@ -165,7 +165,6 @@ async def consumer_handler(websocket):
     async for message in websocket:
         msg_decoded = json.loads(message)
         room_id = msg_decoded.get('room_id')
-        last_danmaku_time[room_id] = datetime.datetime.now()
         sender_nick = msg_decoded.get('nickname')
         content = msg_decoded.get('content')
 
@@ -173,6 +172,7 @@ async def consumer_handler(websocket):
             # not danmaku, skip for keepalive
             continue
 
+        last_danmaku_time[room_id] = datetime.datetime.now()
         try:
             mongo_collection.insert_one(msg_decoded)
         except pymongo.errors.DuplicateKeyError:
