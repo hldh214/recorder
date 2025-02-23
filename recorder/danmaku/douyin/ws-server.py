@@ -212,9 +212,9 @@ async def _main(room_id, interval):
         while True:
             logging.debug(f'Still live at [{last_danmaku_time[room_id]}]: {room_id}')
             await asyncio.sleep(interval)
-            if last_danmaku_time[room_id] < datetime.datetime.now() - datetime.timedelta(seconds=300):
-                # no danmaku for 300 seconds
-                logging.info(f'No danmaku for 300 seconds: {room_id}')
+            if last_danmaku_time[room_id] < datetime.datetime.now() - datetime.timedelta(seconds=120):
+                # no danmaku for 120 seconds
+                logging.info(f'No danmaku for 120 seconds: {room_id}')
                 break
 
 
