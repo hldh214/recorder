@@ -141,8 +141,7 @@ async def consumer_handler(websocket, room_id):
     while True:
         try:
             ws_msg = await asyncio.wait_for(websocket.recv(), timeout=60)
-            print(ws_msg)
-        except (TimeoutError) as e:
+        except (TimeoutError, websockets.WebSocketException, asyncio.CancelledError) as e:
             logger.error(f'WebSocketException[{e}]: {room_id}')
             break
 
@@ -199,15 +198,18 @@ async def subscribe(room_id, interval):
         ws_url = get_danmu_ws_url(room_data['id_str'])
         logger.debug(f'ws_url: {ws_url}')
 
+        cookie = auto_get_cookie()
+        logger.debug(f'cookie: {cookie}')
+
         async with websockets.connect(
             ws_url,
             user_agent_header=UA,
             extra_headers={
-                'cookie': auto_get_cookie()
+                'cookie': cookie
             }
         ) as websocket:
             logger.info(f'Connected to websocket: {room_id}')
-        await consumer_handler(websocket, room_id)
+            await consumer_handler(websocket, room_id)
 
 
 async def main():
