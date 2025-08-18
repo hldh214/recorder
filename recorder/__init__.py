@@ -39,12 +39,14 @@ logger.addHandler(handler)
 mongo_client = None
 mongo_collection_douyin_danmaku = None
 mongo_collection_huya_danmaku = None
+mongo_collection_bilibili_danmaku = None
 if config['app'].get('mongo_dsn'):
     import pymongo
 
     mongo_client = pymongo.MongoClient(config['app'].get('mongo_dsn'))
     mongo_collection_douyin_danmaku = mongo_client['recorder']['douyin_danmaku']
     mongo_collection_huya_danmaku = mongo_client['recorder']['huya_danmaku']
+    mongo_collection_bilibili_danmaku = mongo_client['recorder']['bilibili_danmaku']
 
 if config['app'].get('sentry_dsn'):
     import sentry_sdk

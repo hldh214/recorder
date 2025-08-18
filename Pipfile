@@ -27,6 +27,8 @@ jsengine = "==1.0.*"
 quickjs = "==1.*"
 httpx = "==0.*"
 pytz = "==2024.2"
+brotli = "==1.1.*"
+aiohttp = "==3.12.*"
 
 [dev-packages]
 pytest = "==7.*"

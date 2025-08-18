@@ -1,0 +1,3 @@
+[submodule "recorder/danmaku/bilibili/blivedm"]
+	path = recorder/danmaku/bilibili/blivedm
+	url = https://github.com/xfgryujk/blivedm
