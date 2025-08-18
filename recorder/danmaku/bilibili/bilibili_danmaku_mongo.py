@@ -111,10 +111,6 @@ class MyHandler(blivedm.BaseHandler):
             'uid': message.uid,
             'nickname': message.uname,
             'content': message.msg,
-            'user_level': message.user_level,
-            'medal_level': message.medal_level,
-            'medal_name': message.medal_name,
-            'medal_room_id': message.medal_room_id,
         }
         try:
             mongo_collection.insert_one(doc)
