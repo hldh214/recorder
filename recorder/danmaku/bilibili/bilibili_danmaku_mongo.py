@@ -9,8 +9,8 @@ from typing import *
 import aiohttp
 import arrow
 
-import blivedm.blivedm as blivedm
-import blivedm.blivedm.models.web as web_models
+import recorder.danmaku.bilibili.blivedm.blivedm as blivedm
+from recorder.danmaku.bilibili.blivedm.blivedm.models import web as web_models
 
 # Integrate with project config and Mongo
 import recorder
