@@ -22,6 +22,10 @@ logger = logging.getLogger(__name__)
 
 session: Optional[aiohttp.ClientSession] = None
 
+UID_FILTER_LIST = (
+    '4559060',  # Parnix
+)
+
 
 def _get_bilibili_room_ids_from_config() -> List[int]:
     room_ids: List[int] = []
@@ -126,7 +130,8 @@ def find_danmaku(room_id, start=None, end=None):
     room_id_int = int(room_id)
     where_clause = {
         'room_id': room_id_int,
-        'event_time': {}
+        'event_time': {},
+        'uid': {'$nin': UID_FILTER_LIST}
     }
 
     if start:
