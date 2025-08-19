@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 session: Optional[aiohttp.ClientSession] = None
 
 UID_FILTER_LIST = (
-    '4559060',  # Parnix
+    4559060,  # Parnix
 )
 
 
