@@ -108,6 +108,12 @@ class MyHandler(blivedm.BaseHandler):
         if mongo_collection is None:
             logger.warning('Mongo collection for bilibili danmaku is not configured. Skipping insert.')
             return
+
+        if message.dm_type != 0:
+            # 弹幕类型，0文本，1表情，2语音
+            # Only persist normal danmaku
+            return
+
         doc = {
             'room_id': client.room_id,
             # message.timestamp is in milliseconds; store as seconds for consistency with other modules
