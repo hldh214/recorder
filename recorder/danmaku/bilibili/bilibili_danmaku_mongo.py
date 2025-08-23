@@ -114,6 +114,11 @@ class MyHandler(blivedm.BaseHandler):
             # Only persist normal danmaku
             return
 
+        if message.msg_type != 0:
+            # 0: normal danmaku, 2: 点点关注，参与天选时刻啦！
+            # Only persist normal danmaku
+            return
+
         doc = {
             'room_id': client.room_id,
             # message.timestamp is in milliseconds; store as seconds for consistency with other modules
