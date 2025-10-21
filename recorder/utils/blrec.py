@@ -4,6 +4,14 @@ import shutil
 from pathlib import Path
 from datetime import datetime, timedelta
 import os
+import json
+import xml.etree.ElementTree as ET
+
+# Optional progress bar for large file copies
+try:
+    from tqdm import tqdm  # type: ignore
+except Exception:  # pragma: no cover - tqdm optional
+    tqdm = None
 
 
 PATTERN = re.compile(r"^blive_(\d+)_(\d{4}-\d{2}-\d{2})-(\d{6})\.(\w+)$")
@@ -68,11 +76,54 @@ def build_target_path(roomid: str, beijing_dt: datetime) -> Path:
 
 def copy_with_mtime(src: Path, dst: Path):
     dst.parent.mkdir(parents=True, exist_ok=True)
-    # Use copy2 to preserve metadata including mtime
-    shutil.copy2(src, dst)
-    # Ensure mtime equals source exactly (double-ensure)
+
     src_stat = src.stat()
+    total = src_stat.st_size
+    bufsize = 16 * 1024 * 1024  # 16MB buffers for high throughput
+
+    if tqdm is not None:
+        desc = f"Copying {src.name}"
+        with open(src, 'rb') as fsrc, open(dst, 'wb') as fdst, tqdm(total=total, unit='B', unit_scale=True, unit_divisor=1024, desc=desc) as pbar:
+            while True:
+                chunk = fsrc.read(bufsize)
+                if not chunk:
+                    break
+                fdst.write(chunk)
+                pbar.update(len(chunk))
+    else:
+        # Fallback to a simple high-performance copy
+        with open(src, 'rb') as fsrc, open(dst, 'wb') as fdst:
+            shutil.copyfileobj(fsrc, fdst, length=bufsize)
+
+    # Preserve mtime exactly (as per requirement)
     os.utime(dst, (src_stat.st_atime, src_stat.st_mtime))
+
+
+def read_room_title(xml_path: Path) -> str | None:
+    """Read room_title from a blrec XML file. Returns None if not available.
+    Expected structure:
+    <i>
+      <metadata>
+        <room_title>...</room_title>
+      </metadata>
+    </i>
+    """
+    try:
+        if not xml_path.exists():
+            return None
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+        meta = root.find('metadata')
+        if meta is None:
+            return None
+        rt = meta.findtext('room_title')
+        if rt is None:
+            return None
+        # Strip whitespace
+        return rt.strip()
+    except Exception:
+        # Be permissive: on any parsing error, just skip metadata
+        return None
 
 
 def main(argv=None):
@@ -95,6 +146,10 @@ def main(argv=None):
         print(f"Error: {e}")
         return 2
 
+    # Read room_title from the sibling XML if available
+    xml_path = input_path.with_suffix('.xml')
+    room_title = read_room_title(xml_path)
+
     beijing_dt = adjust_dt_for_local_tz(naive_dt)
     target_path = build_target_path(roomid, beijing_dt)
 
@@ -103,6 +158,16 @@ def main(argv=None):
     except Exception as e:
         print(f"Copy failed: {e}")
         return 1
+
+    # After copy, write metadata file with only the title (if available)
+    if room_title:
+        try:
+            metadata_path = target_path.with_suffix('.metadata')
+            with open(metadata_path, 'w', encoding='utf-8') as f:
+                json.dump({"title": room_title}, f, ensure_ascii=False)
+        except Exception as e:
+            # Do not fail the whole operation; just inform
+            print(f"Warning: failed to write metadata: {e}")
 
     print(str(target_path))
     return 0
