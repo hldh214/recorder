@@ -67,32 +67,37 @@ def adjust_dt_for_local_tz(dt: datetime) -> datetime:
     return dt + timedelta(seconds=delta_seconds)
 
 
-def build_target_path(roomid: str, beijing_dt: datetime) -> Path:
+def build_target_path(roomid: str, beijing_dt: datetime, tgt=TARGET_ROOT) -> Path:
     # Always use .mp4 extension as required
     filename = f"{beijing_dt.strftime('%Y-%m-%d %H:%M:%S')}.mp4"
-    return TARGET_ROOT / roomid / filename
+    return tgt / roomid / filename
 
 
-def copy_with_mtime(src: Path, dst: Path):
+def copy_or_move(src: Path, dst: Path, upload=False):
     dst.parent.mkdir(parents=True, exist_ok=True)
-
     src_stat = src.stat()
-    total = src_stat.st_size
-    buf_size = 16 * 1024 * 1024  # 16MB buffers for high throughput
 
-    desc = f"Copying {src.name}"
-    with (open(src, 'rb') as f_src,
-          open(dst, 'wb') as f_dst,
-          tqdm(total=total, unit='B', unit_scale=True, unit_divisor=1024, desc=desc) as pbar):
-        while True:
-            chunk = f_src.read(buf_size)
-            if not chunk:
-                break
-            f_dst.write(chunk)
-            pbar.update(len(chunk))
+    if upload:
+        # move
+        shutil.move(str(src), str(dst))
+    else:
+        # copy with mtime
+        total = src_stat.st_size
+        buf_size = 16 * 1024 * 1024  # 16MB buffers for high throughput
 
-    # Preserve mtime exactly (as per requirement)
-    os.utime(dst, (src_stat.st_atime, src_stat.st_mtime))
+        desc = f"Copying {src.name}"
+        with (open(src, 'rb') as f_src,
+              open(dst, 'wb') as f_dst,
+              tqdm(total=total, unit='B', unit_scale=True, unit_divisor=1024, desc=desc) as pbar):
+            while True:
+                chunk = f_src.read(buf_size)
+                if not chunk:
+                    break
+                f_dst.write(chunk)
+                pbar.update(len(chunk))
+
+        # Preserve mtime exactly (as per requirement)
+        os.utime(dst, (src_stat.st_atime, src_stat.st_mtime))
 
 
 def read_room_title(xml_path: Path) -> str | None:
@@ -122,9 +127,9 @@ def read_room_title(xml_path: Path) -> str | None:
         return None
 
 
-def copy(input_path: str) -> str:
+def copy(input_path: str, upload=False) -> str:
     """
-    Copy a blrec output file into the project's record/bilibili folder.
+    Copy or move (if upload=True) a blrec output file into the project's record/bilibili folder.
     Returns the destination absolute path as a string.
     """
     input_path_p = Path(input_path)
@@ -141,14 +146,17 @@ def copy(input_path: str) -> str:
     room_title = read_room_title(xml_path)
 
     beijing_dt = adjust_dt_for_local_tz(naive_dt)
-    target_path = build_target_path(roomid, beijing_dt)
+    target_path_record = build_target_path(roomid, beijing_dt)
+    target_path = target_path_record
+    if upload:
+        target_path = build_target_path(roomid, beijing_dt, UPLOAD_ROOT)
 
-    copy_with_mtime(input_path_p, target_path)
+    copy_or_move(input_path_p, target_path, upload)
 
     # After copy, write a metadata file with only the title (if available)
     if room_title:
         try:
-            metadata_path = target_path.with_suffix('.metadata')
+            metadata_path = target_path_record.with_suffix('.metadata')
             with open(metadata_path, 'w', encoding='utf-8') as f:
                 json.dump({"title": room_title}, f, ensure_ascii=False)
         except Exception:
