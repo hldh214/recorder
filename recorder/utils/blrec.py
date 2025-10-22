@@ -241,9 +241,9 @@ def serve(port: int = 10064):
 
 def main():
     class CLI:
-        def copy(self, path: str) -> str:
+        def copy(self, path: str, upload=False) -> str:
             """Copy a blrec file to the record folder. Returns destination path."""
-            return copy(path)
+            return copy(path, upload)
 
         def serve(self, port: int = 10064):
             """Run webhook HTTP server on given port (default 10064)."""
