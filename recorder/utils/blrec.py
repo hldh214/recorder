@@ -1,3 +1,4 @@
+import logging
 import re
 import sys
 import shutil
@@ -6,26 +7,24 @@ from datetime import datetime, timedelta
 import os
 import json
 import xml.etree.ElementTree as ET
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
-# Optional progress bar for large file copies
-try:
-    from tqdm import tqdm  # type: ignore
-except Exception:  # pragma: no cover - tqdm optional
-    tqdm = None
+from tqdm import tqdm
+import fire
+from recorder import ffmpeg
 
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 PATTERN = re.compile(r"^blive_(\d+)_(\d{4}-\d{2}-\d{2})-(\d{6})\.(\w+)$")
 
 # Resolve destination root from config.toml: app.video_path + /record/bilibili
-try:
-    from recorder import config as _app_config
-    _video_root = _app_config.get('app', {}).get('video_path')
-    if not _video_root:
-        raise KeyError('app.video_path not set in config')
-    TARGET_ROOT = Path(_video_root) / "record" / "bilibili"
-except Exception:
-    # Fallback to previous default for robustness
-    TARGET_ROOT = Path("/mnt/ssd-4t/data/videos") / "record" / "bilibili"
+from recorder import config as _app_config
+
+_video_root = _app_config.get('app', {}).get('video_path')
+if not _video_root:
+    raise KeyError('app.video_path not set in config')
+TARGET_ROOT = Path(_video_root) / "record" / "bilibili"
+UPLOAD_ROOT = Path(_video_root) / "upload" / "bilibili"
 
 
 def parse_filename(name: str):
@@ -49,7 +48,7 @@ def parse_filename(name: str):
 
 
 def adjust_dt_for_local_tz(dt: datetime) -> datetime:
-    """Adjust the timestamp in filename from the machine's local timezone to Beijing time (UTC+8).
+    """Adjust the timestamp in the filename from the machine's local timezone to Beijing time (UTC+8).
 
     General rule:
     - Detect current machine local UTC offset (including half-hour zones).
@@ -79,21 +78,18 @@ def copy_with_mtime(src: Path, dst: Path):
 
     src_stat = src.stat()
     total = src_stat.st_size
-    bufsize = 16 * 1024 * 1024  # 16MB buffers for high throughput
+    buf_size = 16 * 1024 * 1024  # 16MB buffers for high throughput
 
-    if tqdm is not None:
-        desc = f"Copying {src.name}"
-        with open(src, 'rb') as fsrc, open(dst, 'wb') as fdst, tqdm(total=total, unit='B', unit_scale=True, unit_divisor=1024, desc=desc) as pbar:
-            while True:
-                chunk = fsrc.read(bufsize)
-                if not chunk:
-                    break
-                fdst.write(chunk)
-                pbar.update(len(chunk))
-    else:
-        # Fallback to a simple high-performance copy
-        with open(src, 'rb') as fsrc, open(dst, 'wb') as fdst:
-            shutil.copyfileobj(fsrc, fdst, length=bufsize)
+    desc = f"Copying {src.name}"
+    with (open(src, 'rb') as f_src,
+          open(dst, 'wb') as f_dst,
+          tqdm(total=total, unit='B', unit_scale=True, unit_divisor=1024, desc=desc) as pbar):
+        while True:
+            chunk = f_src.read(buf_size)
+            if not chunk:
+                break
+            f_dst.write(chunk)
+            pbar.update(len(chunk))
 
     # Preserve mtime exactly (as per requirement)
     os.utime(dst, (src_stat.st_atime, src_stat.st_mtime))
@@ -126,50 +122,127 @@ def read_room_title(xml_path: Path) -> str | None:
         return None
 
 
-def main(argv=None):
-    argv = argv or sys.argv[1:]
-    if len(argv) != 1:
-        print("Usage: python -m recorder.utils.blrec <absolute_path_to_file>")
-        return 2
+def copy(input_path: str) -> str:
+    """
+    Copy a blrec output file into the project's record/bilibili folder.
+    Returns the destination absolute path as a string.
+    """
+    input_path_p = Path(input_path)
+    if not input_path_p.is_absolute():
+        raise ValueError(f"path must be absolute: {input_path}")
+    if not input_path_p.exists():
+        raise FileNotFoundError(f"file not found: {input_path}")
 
-    input_path = Path(argv[0])
-    if not input_path.is_absolute():
-        print(f"Error: path must be absolute: {input_path}")
-        return 2
-    if not input_path.exists():
-        print(f"Error: file not found: {input_path}")
-        return 2
-
-    try:
-        roomid, naive_dt, _ext = parse_filename(input_path.name)
-    except Exception as e:
-        print(f"Error: {e}")
-        return 2
+    # ext not used for now, but may be useful later
+    roomid, naive_dt, _ext = parse_filename(input_path_p.name)
 
     # Read room_title from the sibling XML if available
-    xml_path = input_path.with_suffix('.xml')
+    xml_path = input_path_p.with_suffix('.xml')
     room_title = read_room_title(xml_path)
 
     beijing_dt = adjust_dt_for_local_tz(naive_dt)
     target_path = build_target_path(roomid, beijing_dt)
 
-    try:
-        copy_with_mtime(input_path, target_path)
-    except Exception as e:
-        print(f"Copy failed: {e}")
-        return 1
+    copy_with_mtime(input_path_p, target_path)
 
-    # After copy, write metadata file with only the title (if available)
+    # After copy, write a metadata file with only the title (if available)
     if room_title:
         try:
             metadata_path = target_path.with_suffix('.metadata')
             with open(metadata_path, 'w', encoding='utf-8') as f:
                 json.dump({"title": room_title}, f, ensure_ascii=False)
-        except Exception as e:
-            # Do not fail the whole operation; just inform
-            print(f"Warning: failed to write metadata: {e}")
+        except Exception:
+            # Best-effort only
+            pass
 
-    print(str(target_path))
+    return str(target_path)
+
+
+def _move_to_upload(copied_path: Path):
+    roomid = copied_path.parent.name
+    dst_dir = UPLOAD_ROOT / roomid
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    dst_file = dst_dir / copied_path.name
+
+    # Move video
+    shutil.move(str(copied_path), str(dst_file))
+
+    return dst_file
+
+
+class _WebhookHandler(BaseHTTPRequestHandler):
+    # Reference to the outer module's functions
+    def _send(self, code=200, body: dict | str = "ok"):
+        body_bytes = (json.dumps(body, ensure_ascii=False) if isinstance(body, dict) else str(body)).encode('utf-8')
+        self.send_response(code)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Content-Length', str(len(body_bytes)))
+        self.end_headers()
+        self.wfile.write(body_bytes)
+
+    def do_POST(self):  # noqa: N802 (http.server naming)
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            raw = self.rfile.read(length) if length > 0 else b''
+            data = json.loads(raw.decode('utf-8') or '{}')
+        except Exception as e:
+            return self._send(400, {"error": f"invalid json: {e}"})
+
+        logging.info(f"blrec webhook: {data}")
+        if data.get('type') != 'VideoPostprocessingCompletedEvent':
+            return self._send(200, "ok")
+
+        video_path = (data.get('data') or {}).get('path')
+        if not video_path:
+            return self._send(400, {"error": "missing data.path"})
+
+        try:
+            copied = Path(copy(str(video_path)))
+        except Exception as e:
+            return self._send(500, {"error": f"copy failed: {e}"})
+
+        logging.info(f"blrec webhook: copied {video_path} -> {copied}")
+
+        # Check validity via ffprobe
+        try:
+            if ffmpeg.valid(str(copied)):
+                moved_to = _move_to_upload(copied)
+                logging.info(f"blrec webhook: uploaded {copied} -> {moved_to}")
+                return self._send(200, {"status": "uploaded", "path": str(moved_to)})
+            else:
+                return self._send(202, {"status": "invalid", "path": str(copied)})
+        except Exception as e:
+            return self._send(500, {"error": f"ffprobe/move error: {e}"})
+
+    def log_message(self, _format: str, *args) -> None:  # silence default logging
+        try:
+            sys.stderr.write("blrec serve: " + (_format % args) + "\n")
+        except Exception:
+            pass
+
+
+def serve(port: int = 10064):
+    """Start a simple HTTP server to receive blrec webhooks (POST /)."""
+    server = HTTPServer(("0.0.0.0", int(port)), _WebhookHandler)
+    print(f"[blrec] webhook listening on http://0.0.0.0:{port}")
+    try:
+        server.serve_forever()
+    finally:
+        server.server_close()
+
+
+def main():
+    class CLI:
+        def copy(self, path: str) -> str:
+            """Copy a blrec file to the record folder. Returns destination path."""
+            return copy(path)
+
+        def serve(self, port: int = 10064):
+            """Run webhook HTTP server on given port (default 10064)."""
+            serve(port)
+
+    # Assume Fire is installed; no backward compatibility needed
+    fire.Fire(CLI)
     return 0
 
 
