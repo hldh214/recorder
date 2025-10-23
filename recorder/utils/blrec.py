@@ -11,7 +11,6 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from tqdm import tqdm
 import fire
-from recorder import ffmpeg
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -166,18 +165,6 @@ def copy(input_path: str, upload=False) -> str:
     return str(target_path)
 
 
-def _move_to_upload(copied_path: Path):
-    roomid = copied_path.parent.name
-    dst_dir = UPLOAD_ROOT / roomid
-    dst_dir.mkdir(parents=True, exist_ok=True)
-    dst_file = dst_dir / copied_path.name
-
-    # Move video
-    shutil.move(str(copied_path), str(dst_file))
-
-    return dst_file
-
-
 class _WebhookHandler(BaseHTTPRequestHandler):
     # Reference to the outer module's functions
     def _send(self, code=200, body: dict | str = "ok"):
@@ -205,22 +192,12 @@ class _WebhookHandler(BaseHTTPRequestHandler):
             return self._send(400, {"error": "missing data.path"})
 
         try:
-            copied = Path(copy(str(video_path)))
+            copied = Path(copy(str(video_path), upload=True))
         except Exception as e:
             return self._send(500, {"error": f"copy failed: {e}"})
 
         logging.info(f"blrec webhook: copied {video_path} -> {copied}")
-
-        # Check validity via ffprobe
-        try:
-            if ffmpeg.valid(str(copied)):
-                moved_to = _move_to_upload(copied)
-                logging.info(f"blrec webhook: uploaded {copied} -> {moved_to}")
-                return self._send(200, {"status": "uploaded", "path": str(moved_to)})
-            else:
-                return self._send(202, {"status": "invalid", "path": str(copied)})
-        except Exception as e:
-            return self._send(500, {"error": f"ffprobe/move error: {e}"})
+        return self._send(200, {"copied": str(copied)})
 
     def log_message(self, _format: str, *args) -> None:  # silence default logging
         try:
