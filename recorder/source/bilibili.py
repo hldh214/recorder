@@ -259,7 +259,8 @@ def get_stream(room_id, cookie: Optional[str] = None, **kwargs):
 
 if __name__ == '__main__':
     import time
+    from recorder import get_config
 
     while True:
-        print(get_stream('5269'))  # replace with a real room id to test
+        print(get_stream('1829181560', get_config()['bilibili']['cookie']))  # replace with a real room id to test
         time.sleep(5)
