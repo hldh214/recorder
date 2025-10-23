@@ -37,6 +37,10 @@ save_metadata = false
 proxy = "http://"
 headers = ["Origin: https://m.pandalive.co.kr", "Referer: https://m.pandalive.co.kr/"]
 
+[bilibili]
+save_metadata = true
+cookie = ""
+
 [source]
 [source."668668"]
 enabled = true

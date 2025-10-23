@@ -61,7 +61,7 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
             headers = kwargs[source_type]['headers']
 
     if source_type == 'bilibili':
-        kwargs['sessdata'] = kwargs[source_type].get('sessdata')
+        kwargs['cookie'] = kwargs[source_type].get('cookie')
 
     while True:
         stream = source.get_stream(room_id, **kwargs)

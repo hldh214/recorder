@@ -41,24 +41,44 @@ def _get_bilibili_room_ids_from_config() -> List[int]:
 
 
 def _get_sessdata_for_room(room_id: int) -> str:
-    # Prefer per-source override if present
+    # Prefer per-source override if present; supports either 'cookie' (full string) or legacy 'sessdata'
     for each in config.get('source', {}).values():
         if str(each.get('room_id')) == str(room_id) and each.get('source_type') == 'bilibili':
+            # New: full cookie string
+            if each.get('cookie'):
+                return str(each.get('cookie'))
+            # Legacy: only SESSDATA value
             if each.get('sessdata'):
                 return str(each.get('sessdata'))
     # Fallback to global [bilibili] section
-    return str(config.get('bilibili', {}).get('sessdata', ''))
+    bilibili_conf = config.get('bilibili', {})
+    return str(bilibili_conf.get('cookie') or bilibili_conf.get('sessdata') or '')
 
 
-def _build_session(sessdata: str) -> aiohttp.ClientSession:
-    cookies = http.cookies.SimpleCookie()
-    if sessdata:
-        cookies['SESSDATA'] = sessdata
-        cookies['SESSDATA']['domain'] = 'bilibili.com'
-
+def _build_session(cookie_or_sessdata: str) -> aiohttp.ClientSession:
     s = aiohttp.ClientSession()
-    if sessdata:
-        s.cookie_jar.update_cookies(cookies)
+    if not cookie_or_sessdata:
+        return s
+
+    cookies = http.cookies.SimpleCookie()
+    cookie_text = str(cookie_or_sessdata).strip()
+    try:
+        # If it looks like a cookie string (k=v; ...), parse it; otherwise treat as bare SESSDATA value
+        if '=' in cookie_text:
+            cookies.load(cookie_text)
+        else:
+            cookies['SESSDATA'] = cookie_text
+    except Exception:
+        # Fallback: treat as bare SESSDATA value
+        cookies = http.cookies.SimpleCookie()
+        cookies['SESSDATA'] = cookie_text
+
+    # Ensure domain/path for Bilibili
+    for m in cookies.values():
+        m['domain'] = 'bilibili.com'
+        m['path'] = '/'
+
+    s.cookie_jar.update_cookies(cookies)
     return s
 
 
@@ -85,10 +105,11 @@ async def run_all_clients():
         logger.warning('No Bilibili room_ids with danmaku_enabled found in config. Exiting.')
         return
 
-    # Use a single shared session with global sessdata (if provided)
+    # Use a single shared session with global cookie (preferred) or legacy sessdata
     global session
-    global_sessdata = str(config.get('bilibili', {}).get('sessdata', ''))
-    session = _build_session(global_sessdata)
+    bilibili_conf = config.get('bilibili', {})
+    global_cookie = str(bilibili_conf.get('cookie') or bilibili_conf.get('sessdata') or '')
+    session = _build_session(global_cookie)
 
     tasks = [asyncio.create_task(_run_client(rid)) for rid in room_ids]
 

@@ -146,16 +146,17 @@ def _fallback_playurl_api(room_id: int) -> Dict[str, Optional[str]]:
     return {'flv_url': url, 'hls_url': None}
 
 
-def get_stream(room_id, sessdata: Optional[str] = None, **kwargs):
+def get_stream(room_id, cookie: Optional[str] = None, **kwargs):
     """
     Return a dict containing flv_url or hls_url if the room is live, otherwise False.
 
     Parameters:
         room_id (str or int): The Bilibili room identifier (numeric id, short id, or slug).
-        sessdata (Optional[str]): Optional. The value of the SESSDATA cookie from a logged-in Bilibili session.
-            If provided, allows requesting higher stream qualities when authenticated.
-            Format: a string, e.g. "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".
-        **kwargs: Optional keyword arguments. For backward compatibility, 'sessdata' may also be passed here.
+        cookie (Optional[str]): Optional. A full Cookie header string from a logged-in Bilibili session.
+            Example: "DedeUserID=...; SESSDATA=...; bili_jct=...". If a bare value without '=' is provided,
+            it will be treated as SESSDATA.
+        **kwargs: Optional keyword arguments. For backward compatibility, 'cookie' or legacy 'sessdata' may
+            also be passed here.
 
     Returns:
         dict: Contains 'flv_url' or 'hls_url' if the room is live.
@@ -165,16 +166,23 @@ def get_stream(room_id, sessdata: Optional[str] = None, **kwargs):
     if not rid:
         return False
 
-    # Backward compatibility: also accept sessdata via kwargs
-    if not sessdata:
-        sessdata = kwargs.get('sessdata')
+    # Backward compatibility: accept cookie or sessdata via kwargs
+    if cookie is None:
+        cookie = kwargs.get('cookie')
+    if cookie is None:
+        legacy_sess = kwargs.get('sessdata')
+        if legacy_sess:
+            cookie = legacy_sess
 
     headers = {
         'user-agent': random.choice(USER_AGENTS),
         'referer': f'https://live.bilibili.com/{rid}',
     }
-    if sessdata:
-        headers['cookie'] = f'SESSDATA={sessdata}'
+    if cookie:
+        if '=' in str(cookie):
+            headers['cookie'] = str(cookie)
+        else:
+            headers['cookie'] = f'SESSDATA={cookie}'
 
     # v2 play info
     res = _http_get(
