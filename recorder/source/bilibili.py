@@ -146,18 +146,35 @@ def _fallback_playurl_api(room_id: int) -> Dict[str, Optional[str]]:
     return {'flv_url': url, 'hls_url': None}
 
 
-def get_stream(room_id, **_):
+def get_stream(room_id, sessdata: Optional[str] = None, **kwargs):
     """
     Return a dict containing flv_url or hls_url if the room is live, otherwise False.
+
+    Parameters:
+        room_id (str or int): The Bilibili room identifier (numeric id, short id, or slug).
+        sessdata (Optional[str]): Optional. The value of the SESSDATA cookie from a logged-in Bilibili session.
+            If provided, allows requesting higher stream qualities when authenticated.
+            Format: a string, e.g. "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".
+        **kwargs: Optional keyword arguments. For backward compatibility, 'sessdata' may also be passed here.
+
+    Returns:
+        dict: Contains 'flv_url' or 'hls_url' if the room is live.
+        False: If the room is not live or cannot be resolved.
     """
     rid = resolve_room_id(str(room_id))
     if not rid:
         return False
 
+    # Backward compatibility: also accept sessdata via kwargs
+    if not sessdata:
+        sessdata = kwargs.get('sessdata')
+
     headers = {
         'user-agent': random.choice(USER_AGENTS),
         'referer': f'https://live.bilibili.com/{rid}',
     }
+    if sessdata:
+        headers['cookie'] = f'SESSDATA={sessdata}'
 
     # v2 play info
     res = _http_get(

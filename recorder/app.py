@@ -60,6 +60,9 @@ def record_thread(source_type, room_id, interval=5, **kwargs):
         if kwargs[source_type].get('headers'):
             headers = kwargs[source_type]['headers']
 
+    if source_type == 'bilibili':
+        kwargs['sessdata'] = kwargs[source_type].get('sessdata')
+
     while True:
         stream = source.get_stream(room_id, **kwargs)
 
