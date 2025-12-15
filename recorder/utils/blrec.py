@@ -192,6 +192,14 @@ class _WebhookHandler(BaseHTTPRequestHandler):
             return self._send(400, {"error": "missing data.path"})
 
         try:
+            vp = Path(video_path)
+            if vp.exists() and vp.stat().st_size < 64 * 1024 * 1024:
+                logging.info(f"blrec webhook: skipped small file {video_path} ({vp.stat().st_size} bytes)")
+                return self._send(200, {"skipped": "file too small"})
+        except Exception as e:
+            logging.warning(f"blrec webhook: failed to check file size for {video_path}: {e}")
+
+        try:
             copied = Path(copy(str(video_path), upload=True))
         except Exception as e:
             return self._send(500, {"error": f"copy failed: {e}"})
