@@ -15,6 +15,7 @@ import fire
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 PATTERN = re.compile(r"^blive_(\d+)_(\d{4}-\d{2}-\d{2})-(\d{6})\.(\w+)$")
+MIN_FILE_SIZE = 64 * 1024 * 1024  # 64 MB
 
 # Resolve destination root from config.toml: app.video_path + /record/bilibili
 from recorder import config as _app_config
@@ -193,7 +194,7 @@ class _WebhookHandler(BaseHTTPRequestHandler):
 
         try:
             vp = Path(video_path)
-            if vp.exists() and vp.stat().st_size < 64 * 1024 * 1024:
+            if vp.exists() and vp.stat().st_size < MIN_FILE_SIZE:
                 logging.info(f"blrec webhook: skipped small file {video_path} ({vp.stat().st_size} bytes)")
                 return self._send(200, {"skipped": "file too small"})
         except Exception as e:
@@ -214,6 +215,63 @@ class _WebhookHandler(BaseHTTPRequestHandler):
             pass
 
 
+def batch_copy(folder: str, start: str = None, end: str = None, upload=True, execute=False):
+    """
+    Batch copy/move mp4 files from a folder.
+
+    Scans for mp4 files matching the blrec naming pattern and larger than 64MB.
+    Default mode is dry-run; pass --execute to actually perform operations.
+    Default operation is upload (move); pass --noupload to copy instead.
+
+    Args:
+        folder: Directory to scan for mp4 files.
+        start: Start date (inclusive), format YYYY-MM-DD. No limit if omitted.
+        end: End date (inclusive), format YYYY-MM-DD. Defaults to yesterday.
+        upload: If True (default), move files; if False, copy files.
+        execute: If False (default), dry-run only; if True, actually perform operations.
+    """
+    folder_p = Path(folder)
+    if not folder_p.is_dir():
+        raise ValueError(f"not a directory: {folder}")
+
+    start_date = datetime.strptime(start, "%Y-%m-%d").date() if start else None
+    end_date = datetime.strptime(end, "%Y-%m-%d").date() if end else (datetime.now().date() - timedelta(days=1))
+
+    mp4_files = sorted(folder_p.glob("*.mp4"))
+    candidates = []
+    for f in mp4_files:
+        if f.stat().st_size < MIN_FILE_SIZE:
+            continue
+        try:
+            roomid, naive_dt, _ext = parse_filename(f.name)
+        except ValueError:
+            logging.warning(f"skipped (bad name): {f.name}")
+            continue
+        file_date = naive_dt.date()
+        if start_date and file_date < start_date:
+            continue
+        if file_date > end_date:
+            continue
+        beijing_dt = adjust_dt_for_local_tz(naive_dt)
+        candidates.append((f, roomid, beijing_dt))
+
+    action = "MOVE" if upload else "COPY"
+    mode = "EXECUTE" if execute else "DRY-RUN"
+    print(f"[batch_copy] mode={mode}, action={action}, folder={folder}")
+    print(f"[batch_copy] date range: {start_date or 'unlimited'} ~ {end_date}")
+    print(f"[batch_copy] found {len(candidates)} file(s)")
+
+    for src, roomid, beijing_dt in candidates:
+        tgt = build_target_path(roomid, beijing_dt, UPLOAD_ROOT if upload else TARGET_ROOT)
+        print(f"  {src} -> {tgt}")
+        if execute:
+            copy(str(src), upload=upload)
+            logging.info(f"batch_copy: {action.lower()}d {src.name}")
+
+    if not execute:
+        print("[batch_copy] dry-run complete. Pass --execute to perform operations.")
+
+
 def serve(port: int = 10064):
     """Start a simple HTTP server to receive blrec webhooks (POST /)."""
     server = HTTPServer(("0.0.0.0", int(port)), _WebhookHandler)
@@ -229,6 +287,10 @@ def main():
         def copy(self, path: str, upload=False) -> str:
             """Copy a blrec file to the record folder. Returns destination path."""
             return copy(path, upload)
+
+        def batch_copy(self, folder: str, start: str = None, end: str = None, upload=True, execute=False):
+            """Batch copy/move mp4 files. Dry-run by default; pass --execute to run."""
+            batch_copy(folder, start=start, end=end, upload=upload, execute=execute)
 
         def serve(self, port: int = 10064):
             """Run webhook HTTP server on given port (default 10064)."""
