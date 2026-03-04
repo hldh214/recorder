@@ -226,7 +226,7 @@ def batch_copy(folder: str, start: str = None, end: str = None, upload=True, exe
     Args:
         folder: Directory to scan for mp4 files.
         start: Start date (inclusive), format YYYY-MM-DD. No limit if omitted.
-        end: End date (inclusive), format YYYY-MM-DD. Defaults to yesterday.
+        end: End date (inclusive), format YYYY-MM-DD. Defaults to 1 hour ago.
         upload: If True (default), move files; if False, copy files.
         execute: If False (default), dry-run only; if True, actually perform operations.
     """
@@ -235,7 +235,7 @@ def batch_copy(folder: str, start: str = None, end: str = None, upload=True, exe
         raise ValueError(f"not a directory: {folder}")
 
     start_date = datetime.strptime(start, "%Y-%m-%d").date() if start else None
-    end_date = datetime.strptime(end, "%Y-%m-%d").date() if end else (datetime.now().date() - timedelta(days=1))
+    end_dt = datetime.strptime(end, "%Y-%m-%d").replace(hour=23, minute=59, second=59) if end else (datetime.now() - timedelta(hours=1))
 
     mp4_files = sorted(folder_p.glob("*.mp4"))
     candidates = []
@@ -247,10 +247,9 @@ def batch_copy(folder: str, start: str = None, end: str = None, upload=True, exe
         except ValueError:
             logging.warning(f"skipped (bad name): {f.name}")
             continue
-        file_date = naive_dt.date()
-        if start_date and file_date < start_date:
+        if start_date and naive_dt.date() < start_date:
             continue
-        if file_date > end_date:
+        if naive_dt > end_dt:
             continue
         beijing_dt = adjust_dt_for_local_tz(naive_dt)
         candidates.append((f, roomid, beijing_dt))
@@ -258,7 +257,7 @@ def batch_copy(folder: str, start: str = None, end: str = None, upload=True, exe
     action = "MOVE" if upload else "COPY"
     mode = "EXECUTE" if execute else "DRY-RUN"
     print(f"[batch_copy] mode={mode}, action={action}, folder={folder}")
-    print(f"[batch_copy] date range: {start_date or 'unlimited'} ~ {end_date}")
+    print(f"[batch_copy] date range: {start_date or 'unlimited'} ~ {end_dt}")
     print(f"[batch_copy] found {len(candidates)} file(s)")
 
     for src, roomid, beijing_dt in candidates:
