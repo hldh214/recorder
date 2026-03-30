@@ -98,6 +98,20 @@ def ffprobe(input_file):
     return res
 
 
+def get_bilibili_title(input_file):
+    res = ffprobe(input_file)
+
+    if not res or 'format' not in res:
+        return None
+
+    format_info = res.get('format') or {}
+    tags = format_info.get('tags') or {}
+
+    blrec_title = tags.get('title')  # title from blrec
+    br_title = tags.get('Title') or tags.get('StreamTitle')  # title from BililiveRecorder
+    return blrec_title or br_title
+
+
 def duration(input_file):
     """
     :param input_file: video's path
