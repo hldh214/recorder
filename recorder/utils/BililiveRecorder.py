@@ -13,7 +13,11 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-MIN_FILE_SIZE = 64 * 1024 * 1024  # 64 MB
+# Minimum file size (in bytes) for a recording to be considered valid for processing.
+# NOTE: This threshold was intentionally lowered from 64 MB to 32 MB to allow
+# shorter, but still complete, recordings to be picked up while still filtering
+# out tiny/partial files that BililiveRecorder can create during interruptions.
+MIN_FILE_SIZE = 32 * 1024 * 1024  # 32 MB
 
 # Resolve destination root from config.toml: app.video_path + /upload/bilibili
 from recorder import config as _app_config
@@ -40,7 +44,6 @@ def parse_rel_path(rel_path: str):
     if not room_id:
         raise ValueError(f"Cannot extract room_id from RelativePath: {rel_path}")
 
-    # Strip extension to get the datetime string
     stem = p.stem  # e.g. "2021-05-14 17:52:50"
     try:
         start_dt = datetime.strptime(stem, "%Y-%m-%d %H:%M:%S")
@@ -57,14 +60,6 @@ def build_upload_path(room_id: str, start_dt: datetime) -> Path:
     """Build the upload destination path. Always uses .mp4 extension."""
     filename = f"{start_dt.strftime('%Y-%m-%d %H:%M:%S')}.mp4"
     return UPLOAD_ROOT / room_id / filename
-
-
-def move_to_upload(src: Path, room_id: str, start_dt: datetime) -> Path:
-    """Move a recording file to the upload directory, renaming to .mp4."""
-    dst = build_upload_path(room_id, start_dt)
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(src), str(dst))
-    return dst
 
 
 def _wait_file_stable(path: Path, interval: float = 2.0, checks: int = 3) -> bool:
@@ -92,10 +87,70 @@ def _wait_file_stable(path: Path, interval: float = 2.0, checks: int = 3) -> boo
     return False
 
 
+def process_file(
+    abs_path: Path, rec_dir: Path, execute: bool = True
+) -> tuple[str, Path | None]:
+    """
+    Validate, parse, and (optionally) move a single recording file to the upload directory.
+
+    Args:
+        abs_path: Absolute path to the recording file.
+        rec_dir: BililiveRecorder working directory (used to compute RelativePath).
+        execute: If True, actually move the file. If False, dry-run only.
+
+    Returns:
+        (status: str, dst: Path | None)
+        status is one of: "moved", "dry-run", "skipped:...", "error:..."
+    """
+    if not abs_path.exists():
+        return f"error: file not found: {abs_path}", None
+
+    # Check file size
+    try:
+        file_size = abs_path.stat().st_size
+        if file_size < MIN_FILE_SIZE:
+            return f"skipped: file too small ({file_size} bytes)", None
+    except OSError as e:
+        return f"error: stat failed: {e}", None
+
+    # File stability check
+    if not _wait_file_stable(abs_path):
+        return f"error: file not stable: {abs_path}", None
+
+    # Parse room_id and datetime from relative path
+    try:
+        rel_path = str(abs_path.relative_to(rec_dir))
+    except ValueError:
+        return f"error: {abs_path} is not under {rec_dir}", None
+
+    try:
+        room_id, start_dt = parse_rel_path(rel_path)
+    except ValueError as e:
+        return f"error: {e}", None
+
+    dst = build_upload_path(room_id, start_dt)
+
+    if not execute:
+        return "dry-run", dst
+
+    # Move
+    try:
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(abs_path), str(dst))
+    except Exception as e:
+        return f"error: move failed: {e}", None
+
+    return "moved", dst
+
+
+# ---------------------------------------------------------------------------
+# Webhook server
+# ---------------------------------------------------------------------------
+
+
 class _WebhookHandler(BaseHTTPRequestHandler):
     """HTTP handler for BililiveRecorder Webhook v2."""
 
-    # rec_dir is set on the class before the server starts
     rec_dir: Path = Path(".")
     processed_events: set = set()
 
@@ -146,45 +201,20 @@ class _WebhookHandler(BaseHTTPRequestHandler):
         if not rel_path:
             return self._send(400, {"error": "missing EventData.RelativePath"})
 
-        # Resolve absolute path
         abs_path = self.__class__.rec_dir / rel_path
         logging.info(f"BililiveRecorder webhook: FileClosed -> {abs_path}")
 
-        if not abs_path.exists():
-            logging.warning(f"BililiveRecorder webhook: file not found: {abs_path}")
-            return self._send(404, {"error": f"file not found: {abs_path}"})
+        status, dst = process_file(abs_path, self.__class__.rec_dir, execute=True)
 
-        # Check file size (skip tiny files)
-        try:
-            file_size = abs_path.stat().st_size
-            if file_size < MIN_FILE_SIZE:
-                logging.info(
-                    f"BililiveRecorder webhook: skipped small file {abs_path} ({file_size} bytes)"
-                )
-                return self._send(200, {"skipped": "file too small"})
-        except OSError as e:
-            logging.warning(f"BililiveRecorder webhook: stat failed: {e}")
+        if status.startswith("error:"):
+            logging.warning(f"BililiveRecorder webhook: {status}")
+            return self._send(500, {"error": status})
 
-        # Wait briefly to make sure file is truly done being written
-        if not _wait_file_stable(abs_path):
-            logging.warning(
-                f"BililiveRecorder webhook: file not stable, skipping: {abs_path}"
-            )
-            return self._send(500, {"error": f"file not stable: {abs_path}"})
+        if status.startswith("skipped:"):
+            logging.info(f"BililiveRecorder webhook: {status}")
+            return self._send(200, {"skipped": status})
 
-        # Parse RelativePath to get room_id and datetime
-        try:
-            room_id, start_dt = parse_rel_path(rel_path)
-        except ValueError as e:
-            return self._send(400, {"error": str(e)})
-
-        # Move file to upload directory
-        try:
-            dst = move_to_upload(abs_path, room_id, start_dt)
-        except Exception as e:
-            return self._send(500, {"error": f"move failed: {e}"})
-
-        # Mark event as processed
+        # Mark event as processed only on success
         if event_id:
             self.__class__.processed_events.add(event_id)
 
@@ -196,6 +226,11 @@ class _WebhookHandler(BaseHTTPRequestHandler):
             sys.stderr.write("BililiveRecorder serve: " + (_format % args) + "\n")
         except Exception:
             pass
+
+
+# ---------------------------------------------------------------------------
+# CLI commands
+# ---------------------------------------------------------------------------
 
 
 def serve(rec_dir: str, port: int = 10065):
@@ -224,6 +259,47 @@ def serve(rec_dir: str, port: int = 10065):
         server.server_close()
 
 
+def batch_move(rec_dir: str, execute: bool = False):
+    """
+    Scan rec_dir for recording files and move them to the upload directory.
+
+    Scans all {roomId}/{datetime}.flv files under rec_dir that are >= MIN_FILE_SIZE.
+    Default mode is dry-run; pass --execute to actually move files.
+
+    Args:
+        rec_dir: BililiveRecorder working directory.
+        execute: If True, actually move files. Default is dry-run.
+    """
+    rec_path = Path(rec_dir)
+    if not rec_path.is_dir():
+        raise ValueError(f"rec_dir is not a directory: {rec_dir}")
+
+    # Scan: rec_dir/{roomId}/{datetime}.flv
+    candidates = sorted(rec_path.glob("*/*.flv"))
+
+    mode = "EXECUTE" if execute else "DRY-RUN"
+    print(f"[batch_move] mode={mode}, rec_dir={rec_path}")
+    print(f"[batch_move] upload_root={UPLOAD_ROOT}")
+    print(f"[batch_move] found {len(candidates)} .flv file(s)")
+
+    moved_count = 0
+    for src in candidates:
+        status, dst = process_file(src, rec_path, execute=execute)
+        label = "MOVE" if execute else "WOULD MOVE"
+
+        if status in ("moved", "dry-run"):
+            print(f"  [{label}] {src} -> {dst}")
+            moved_count += 1
+        else:
+            print(f"  [SKIP] {src} ({status})")
+
+    print(
+        f"[batch_move] {moved_count} file(s) {'moved' if execute else 'would be moved'}"
+    )
+    if not execute and moved_count > 0:
+        print("[batch_move] dry-run complete. Pass --execute to perform moves.")
+
+
 def main():
     class CLI:
         def serve(self, rec_dir: str, port: int = 10065):
@@ -234,6 +310,15 @@ def main():
                 port: HTTP port (default 10065).
             """
             serve(rec_dir, port)
+
+        def batch_move(self, rec_dir: str, execute: bool = False):
+            """Scan and move recording files to upload directory. Dry-run by default.
+
+            Args:
+                rec_dir: BililiveRecorder working directory.
+                execute: Pass --execute to actually move files.
+            """
+            batch_move(rec_dir, execute=execute)
 
     fire.Fire(CLI)
     return 0
