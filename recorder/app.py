@@ -181,15 +181,18 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
             description = current_config.get('description', '')
             title = current_config['title'].format(datetime=filename_datetime)
 
+            stream_title = None
             if os.path.exists(metadata_path):
                 metadata = json.load(open(metadata_path))
                 if metadata.get('title'):
-                    title += f': {metadata["title"]}'
-                elif source_type == 'bilibili':
-                    # Fallback to parsing title from tags, if title is not present in metadata
-                    parsed_from_tags = ffmpeg.get_bilibili_title(video_path)
-                    if parsed_from_tags:
-                        title += f': {parsed_from_tags}'
+                    stream_title = metadata['title']
+            if source_type == 'bilibili' and not stream_title:
+                # Fallback to parsing title from tags when stream_title is not available
+                parsed_from_tags = ffmpeg.get_bilibili_title(video_path)
+                if parsed_from_tags:
+                    stream_title = parsed_from_tags
+            if stream_title:
+                title += f': {stream_title}'
 
             caption_folder_path = os.path.join(
                 os.path.abspath(config['app']['danmaku_path']), source_type, source_name
