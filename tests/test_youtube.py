@@ -2,6 +2,7 @@ import runpy
 import sys
 
 from recorder.destination.youtube import (
+    CAPTION_UPLOAD_QUOTA_EXCEEDED,
     find_missing_caption_uploads,
     upload_missing_captions,
     upload_missing_captions_from_roots,
@@ -19,6 +20,8 @@ class FakeYoutube:
 
     def add_caption(self, video_id, caption_path, caption_name='via_recorder'):
         self.add_caption_calls.append((video_id, caption_path, caption_name))
+        if isinstance(self.upload_result, list):
+            return self.upload_result.pop(0)
         return self.upload_result
 
     def list_captions(self, video_id):
@@ -43,6 +46,25 @@ class ExplodingYoutubeApi:
         return ExplodingCaptionsApi()
 
 
+class QuotaExceededHttpError(Exception):
+    error_details = [{'reason': 'quotaExceeded'}]
+
+
+class QuotaExceededCaptionInsert:
+    def execute(self):
+        raise QuotaExceededHttpError()
+
+
+class QuotaExceededCaptionsApi:
+    def insert(self, part, body, media_body):
+        return QuotaExceededCaptionInsert()
+
+
+class QuotaExceededYoutubeApi:
+    def captions(self):
+        return QuotaExceededCaptionsApi()
+
+
 def create_caption_and_validate_video(tmp_path):
     caption = tmp_path / 'captions' / 'bilibili' / '1829181560' / '2026-07-04 20-48-09.mp4.vtt'
     caption.parent.mkdir(parents=True)
@@ -50,6 +72,18 @@ def create_caption_and_validate_video(tmp_path):
 
     validate_video = tmp_path / 'videos' / 'validate' / 'bilibili' / '1829181560' / 'yt123__2026-07-04 20-48-09.mp4'
     validate_video.parent.mkdir(parents=True)
+    validate_video.write_bytes(b'')
+
+    return caption, validate_video
+
+
+def create_caption_and_validate_video_for_start(tmp_path, start, video_id):
+    caption = tmp_path / 'captions' / 'bilibili' / '1829181560' / f'{start}.mp4.vtt'
+    caption.parent.mkdir(parents=True, exist_ok=True)
+    caption.write_text('WEBVTT\n\n', encoding='utf8')
+
+    validate_video = tmp_path / 'videos' / 'validate' / 'bilibili' / '1829181560' / f'{video_id}__{start}.mp4'
+    validate_video.parent.mkdir(parents=True, exist_ok=True)
     validate_video.write_bytes(b'')
 
     return caption, validate_video
@@ -156,6 +190,22 @@ def test_upload_missing_captions_keeps_caption_on_failure(tmp_path):
     assert caption.exists()
 
 
+def test_upload_missing_captions_stops_after_quota_exceeded(tmp_path):
+    first_caption, _ = create_caption_and_validate_video_for_start(tmp_path, '2026-07-04 20-48-09', 'yt123')
+    second_caption, _ = create_caption_and_validate_video_for_start(tmp_path, '2026-07-04 20-51-08', 'yt456')
+    youtube = FakeYoutube(upload_result=['quota_exceeded', True])
+
+    results = upload_missing_captions_from_roots(
+        youtube, tmp_path / 'captions', tmp_path / 'videos', dry_run=False
+    )
+
+    assert results[0]['status'] == 'quota_exceeded'
+    assert results[1]['status'] == 'skipped_quota_exceeded'
+    assert youtube.add_caption_calls == [('yt123', str(first_caption), 'via_recorder_vtt')]
+    assert first_caption.exists()
+    assert second_caption.exists()
+
+
 def test_upload_missing_captions_skips_existing_remote_caption(tmp_path):
     caption, _ = create_caption_and_validate_video(tmp_path)
     youtube = FakeYoutube(captions=[{
@@ -255,6 +305,36 @@ def test_youtube_list_captions_propagates_remote_errors():
         raise AssertionError('list_captions should propagate remote errors')
 
 
+def test_youtube_add_caption_result_returns_quota_exceeded_without_traceback(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr('recorder.destination.youtube.googleapiclient.errors.HttpError', QuotaExceededHttpError)
+    caption = tmp_path / 'caption.vtt'
+    caption.write_text('WEBVTT\n\n', encoding='utf8')
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = QuotaExceededYoutubeApi()
+
+    result = youtube.add_caption_result('yt123', str(caption), 'via_recorder_vtt')
+    captured = capsys.readouterr()
+
+    assert result == CAPTION_UPLOAD_QUOTA_EXCEEDED
+    assert 'Traceback' not in captured.err
+    assert 'quota_exceeded' in captured.err
+
+
+def test_youtube_add_caption_returns_false_on_quota_exceeded_for_legacy_callers(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr('recorder.destination.youtube.googleapiclient.errors.HttpError', QuotaExceededHttpError)
+    caption = tmp_path / 'caption.vtt'
+    caption.write_text('WEBVTT\n\n', encoding='utf8')
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = QuotaExceededYoutubeApi()
+
+    result = youtube.add_caption('yt123', str(caption), 'via_recorder_vtt')
+    captured = capsys.readouterr()
+
+    assert result is False
+    assert 'Traceback' not in captured.err
+    assert 'quota_exceeded' in captured.err
+
+
 def test_youtube_module_help_does_not_initialize_client(monkeypatch):
     def fail_youtube_init(self, config):
         raise AssertionError('Youtube should not initialize while rendering CLI help')
@@ -268,7 +348,7 @@ def test_youtube_module_help_does_not_initialize_client(monkeypatch):
         assert exception.code == 0
 
 
-def test_upload_missing_captions_dry_run_does_not_initialize_client(monkeypatch, tmp_path):
+def test_upload_missing_captions_dry_run_does_not_initialize_client(monkeypatch, tmp_path, capsys):
     create_caption_and_validate_video(tmp_path)
 
     def fail_youtube_init(config):
@@ -281,11 +361,15 @@ def test_upload_missing_captions_dry_run_does_not_initialize_client(monkeypatch,
         caption_root=str(tmp_path / 'captions'),
         video_root=str(tmp_path / 'videos'),
     )
+    captured = capsys.readouterr()
 
-    assert results[0]['status'] == 'dry_run'
+    assert results is None
+    assert 'dry_run:' in captured.out
+    assert '-> yt123' in captured.out
+    assert 'summary: total=1, dry_run=1' in captured.out
 
 
-def test_upload_missing_captions_uses_log_path_for_dry_run(monkeypatch, tmp_path):
+def test_upload_missing_captions_uses_log_path_for_dry_run(monkeypatch, tmp_path, capsys):
     caption = tmp_path / 'captions' / 'bilibili' / '1829181560' / '2026-07-04 20-48-09.mp4.vtt'
     caption.parent.mkdir(parents=True)
     caption.write_text('WEBVTT\n\n', encoding='utf8')
@@ -307,12 +391,14 @@ def test_upload_missing_captions_uses_log_path_for_dry_run(monkeypatch, tmp_path
         video_root=str(tmp_path / 'videos'),
         log_path=str(log_path),
     )
+    captured = capsys.readouterr()
 
-    assert results[0]['video_id'] == 'yt123'
-    assert results[0]['status'] == 'dry_run'
+    assert results is None
+    assert 'dry_run:' in captured.out
+    assert '-> yt123' in captured.out
 
 
-def test_upload_missing_captions_resolves_relative_roots_against_base_path(monkeypatch, tmp_path):
+def test_upload_missing_captions_resolves_relative_roots_against_base_path(monkeypatch, tmp_path, capsys):
     caption_root = tmp_path / 'videos' / 'captions'
     video_root = tmp_path / 'videos'
     caption = caption_root / 'bilibili' / '1829181560' / '2026-07-04 20-48-09.mp4.vtt'
@@ -335,7 +421,26 @@ def test_upload_missing_captions_resolves_relative_roots_against_base_path(monke
         video_root='videos',
         log_path='recorder.log',
     )
+    captured = capsys.readouterr()
 
-    assert results[0]['caption_path'] == str(caption)
-    assert results[0]['video_id'] == 'yt123'
-    assert results[0]['status'] == 'dry_run'
+    assert results is None
+    assert str(caption) in captured.out
+    assert '-> yt123' in captured.out
+    assert 'summary: total=1, dry_run=1' in captured.out
+
+
+def test_upload_missing_captions_command_returns_none(monkeypatch, tmp_path):
+    create_caption_and_validate_video(tmp_path)
+
+    def fail_youtube_init(config):
+        raise AssertionError('Youtube should not initialize during dry-run')
+
+    monkeypatch.setattr('recorder.destination.youtube.Youtube', fail_youtube_init)
+
+    result = upload_missing_captions(
+        dry_run=True,
+        caption_root=str(tmp_path / 'captions'),
+        video_root=str(tmp_path / 'videos'),
+    )
+
+    assert result is None

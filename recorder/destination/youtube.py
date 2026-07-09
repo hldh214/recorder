@@ -3,6 +3,7 @@ import pathlib
 import pickle
 import re
 import socket
+import sys
 import traceback
 
 import google_auth_oauthlib.flow
@@ -17,6 +18,9 @@ import recorder
 
 
 UPLOAD_LOG_PATTERN = re.compile(r'uploaded:\s+(?P<path>.+?)\s+->\s+(?P<video_id>\S+)')
+CAPTION_UPLOAD_SUCCESS = 'uploaded'
+CAPTION_UPLOAD_FAILED = 'failed'
+CAPTION_UPLOAD_QUOTA_EXCEEDED = 'quota_exceeded'
 
 
 def _split_validate_video_name(filename):
@@ -185,9 +189,14 @@ def upload_missing_captions_from_roots(
     print_results=False,
 ):
     results = find_missing_caption_uploads(caption_root, video_root, source_type, source_name, log_path)
+    quota_exceeded = False
 
     for result in results:
         if result['status'] != 'pending':
+            continue
+
+        if quota_exceeded:
+            result['status'] = 'skipped_quota_exceeded'
             continue
 
         caption_path = result['caption_path']
@@ -209,11 +218,17 @@ def upload_missing_captions_from_roots(
             result['status'] = 'dry_run'
             continue
 
-        if youtube.add_caption(result['video_id'], caption_path, caption_name):
+        add_caption = getattr(youtube, 'add_caption_result', youtube.add_caption)
+        upload_result = add_caption(result['video_id'], caption_path, caption_name)
+        if upload_result is True or upload_result == CAPTION_UPLOAD_SUCCESS:
             pathlib.Path(caption_path).unlink()
-            result['status'] = 'uploaded'
+            result['status'] = CAPTION_UPLOAD_SUCCESS
+        elif upload_result == CAPTION_UPLOAD_QUOTA_EXCEEDED:
+            result['status'] = CAPTION_UPLOAD_QUOTA_EXCEEDED
+            result['message'] = 'YouTube API quota exceeded'
+            quota_exceeded = True
         else:
-            result['status'] = 'failed'
+            result['status'] = CAPTION_UPLOAD_FAILED
 
     if print_results:
         _print_caption_upload_results(results)
@@ -239,7 +254,7 @@ def upload_missing_captions(
     if not dry_run or check_remote:
         youtube = Youtube(recorder.config.get('youtube'))
 
-    return upload_missing_captions_from_roots(
+    upload_missing_captions_from_roots(
         youtube,
         caption_root,
         video_root,
@@ -251,6 +266,8 @@ def upload_missing_captions(
         log_path=log_path,
         print_results=True,
     )
+
+    return None
 
 
 class Youtube:
@@ -416,7 +433,7 @@ class Youtube:
 
         return response.get('items', [])
 
-    def add_caption(self, video_id, caption_path, caption_name='via_recorder'):
+    def add_caption_result(self, video_id, caption_path, caption_name='via_recorder'):
         try:
             self.youtube.captions().insert(
                 part='snippet',
@@ -429,11 +446,29 @@ class Youtube:
                 },
                 media_body=googleapiclient.http.MediaFileUpload(caption_path)
             ).execute()
+        except googleapiclient.errors.HttpError as exception:
+            try:
+                reason = exception.error_details[0].get('reason')
+            except (AttributeError, IndexError, KeyError, TypeError):
+                reason = None
+
+            if reason == 'quotaExceeded':
+                print(
+                    f'quota_exceeded: {caption_path} -> {video_id} (YouTube API quota exceeded)',
+                    file=sys.stderr
+                )
+                return CAPTION_UPLOAD_QUOTA_EXCEEDED
+
+            traceback.print_exc()
+            return CAPTION_UPLOAD_FAILED
         except (OSError, googleapiclient.errors.Error):
             traceback.print_exc()
-            return False
+            return CAPTION_UPLOAD_FAILED
 
-        return True
+        return CAPTION_UPLOAD_SUCCESS
+
+    def add_caption(self, video_id, caption_path, caption_name='via_recorder'):
+        return self.add_caption_result(video_id, caption_path, caption_name) == CAPTION_UPLOAD_SUCCESS
 
 
 if __name__ == '__main__':
