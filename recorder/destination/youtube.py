@@ -1,5 +1,7 @@
 import os
+import pathlib
 import pickle
+import re
 import socket
 import traceback
 
@@ -12,6 +14,243 @@ import google.auth.transport.requests
 import tqdm
 
 import recorder
+
+
+UPLOAD_LOG_PATTERN = re.compile(r'uploaded:\s+(?P<path>.+?)\s+->\s+(?P<video_id>\S+)')
+
+
+def _split_validate_video_name(filename):
+    separators = []
+    for separator in (recorder.video_name_sep, '|', '__'):
+        if separator not in separators:
+            separators.append(separator)
+
+    for separator in separators:
+        if separator in filename:
+            video_id, video_filename = filename.split(separator, 1)
+            if video_id and video_filename:
+                return video_id, video_filename
+
+    return None, None
+
+
+def _video_index_key_from_path(video_path):
+    video_path = pathlib.PurePath(video_path)
+    parts = video_path.parts
+    if len(parts) < 4:
+        return None
+
+    return parts[-3], parts[-2], parts[-1]
+
+
+def _build_validate_video_index(validate_root):
+    validate_root = pathlib.Path(validate_root)
+    video_index = {}
+
+    if not validate_root.exists():
+        return video_index
+
+    for video_path in sorted(validate_root.glob('*/*/*.mp4')):
+        video_id, video_filename = _split_validate_video_name(video_path.name)
+        if not video_id:
+            continue
+
+        source_type = video_path.parent.parent.name
+        source_name = video_path.parent.name
+        video_index[(source_type, source_name, video_filename)] = video_id
+
+    return video_index
+
+
+def _build_uploaded_video_log_index(log_path):
+    if not log_path:
+        return {}
+
+    log_path = pathlib.Path(log_path)
+    if not log_path.exists():
+        return {}
+
+    video_index = {}
+    with log_path.open(encoding='utf8') as fp:
+        for line in fp:
+            match = UPLOAD_LOG_PATTERN.search(line)
+            if not match:
+                continue
+
+            key = _video_index_key_from_path(match.group('path'))
+            if not key:
+                continue
+
+            video_index[key] = match.group('video_id')
+
+    return video_index
+
+
+def find_missing_caption_uploads(caption_root, video_root, source_type=None, source_name=None, log_path=None):
+    caption_root = pathlib.Path(caption_root)
+    video_root = pathlib.Path(video_root)
+    validate_index = _build_validate_video_index(video_root / 'validate')
+    log_index = _build_uploaded_video_log_index(log_path)
+
+    search_root = caption_root
+    if source_type:
+        search_root = search_root / source_type
+    if source_type and source_name:
+        search_root = search_root / source_name
+
+    if not search_root.exists():
+        return []
+
+    results = []
+    for caption_path in sorted(search_root.glob('**/*.mp4.vtt')):
+        try:
+            relative_path = caption_path.relative_to(caption_root)
+            current_source_type = relative_path.parts[0]
+            current_source_name = relative_path.parts[1]
+        except (ValueError, IndexError):
+            results.append({
+                'caption_path': str(caption_path),
+                'video_id': None,
+                'status': 'unmatched',
+                'message': 'caption path is not under source_type/source_name',
+            })
+            continue
+
+        if source_type and current_source_type != source_type:
+            continue
+        if source_name and current_source_name != source_name:
+            continue
+
+        video_filename = caption_path.name[:-len('.vtt')]
+        index_key = (current_source_type, current_source_name, video_filename)
+        video_id = validate_index.get(index_key) or log_index.get(index_key)
+
+        results.append({
+            'caption_path': str(caption_path),
+            'video_id': video_id,
+            'source_type': current_source_type,
+            'source_name': current_source_name,
+            'video_filename': video_filename,
+            'status': 'pending' if video_id else 'unmatched',
+        })
+
+    return results
+
+
+def _print_caption_upload_results(results):
+    counts = {}
+    for result in results:
+        status = result.get('status', 'unknown')
+        counts[status] = counts.get(status, 0) + 1
+        video_id = result.get('video_id') or '-'
+        source_type = result.get('source_type') or '-'
+        source_name = result.get('source_name') or '-'
+        caption_path = result.get('caption_path') or '-'
+        message = result.get('message')
+        suffix = f' ({message})' if message else ''
+        print(f'{status}: {source_type}/{source_name}: {caption_path} -> {video_id}{suffix}')
+
+    summary = ', '.join(f'{status}={count}' for status, count in sorted(counts.items()))
+    print(f'summary: total={len(results)}' + (f', {summary}' if summary else ''))
+
+
+def _caption_exists(captions, language, caption_name):
+    for caption in captions:
+        snippet = caption.get('snippet', {})
+        if snippet.get('language') == language and snippet.get('name') == caption_name:
+            return True
+
+    return False
+
+
+def _resolve_path_from_base(path):
+    path = pathlib.Path(path)
+    if path.is_absolute():
+        return path
+
+    return pathlib.Path(recorder.base_path) / path
+
+
+def upload_missing_captions_from_roots(
+    youtube,
+    caption_root,
+    video_root,
+    dry_run=True,
+    source_type=None,
+    source_name=None,
+    caption_name='via_recorder_vtt',
+    check_remote=False,
+    delete_skipped=False,
+    log_path=None,
+    print_results=False,
+):
+    results = find_missing_caption_uploads(caption_root, video_root, source_type, source_name, log_path)
+
+    for result in results:
+        if result['status'] != 'pending':
+            continue
+
+        caption_path = result['caption_path']
+        if check_remote:
+            try:
+                remote_captions = youtube.list_captions(result['video_id'])
+            except Exception as exception:
+                result['status'] = 'failed_remote_check'
+                result['message'] = str(exception)
+                continue
+
+            if _caption_exists(remote_captions, Youtube.DEFAULT_CAPTION_LANGUAGE, caption_name):
+                result['status'] = 'skipped_remote_exists'
+                if delete_skipped and not dry_run:
+                    pathlib.Path(caption_path).unlink()
+                continue
+
+        if dry_run:
+            result['status'] = 'dry_run'
+            continue
+
+        if youtube.add_caption(result['video_id'], caption_path, caption_name):
+            pathlib.Path(caption_path).unlink()
+            result['status'] = 'uploaded'
+        else:
+            result['status'] = 'failed'
+
+    if print_results:
+        _print_caption_upload_results(results)
+
+    return results
+
+
+def upload_missing_captions(
+    dry_run=True,
+    caption_root=None,
+    video_root=None,
+    source_type=None,
+    source_name=None,
+    delete_skipped=False,
+    check_remote=False,
+    log_path=None,
+):
+    caption_root = _resolve_path_from_base(caption_root or recorder.config['app']['danmaku_path'])
+    video_root = _resolve_path_from_base(video_root or recorder.config['app']['video_path'])
+    log_path = _resolve_path_from_base(log_path or 'recorder.log')
+
+    youtube = None
+    if not dry_run or check_remote:
+        youtube = Youtube(recorder.config.get('youtube'))
+
+    return upload_missing_captions_from_roots(
+        youtube,
+        caption_root,
+        video_root,
+        dry_run=dry_run,
+        source_type=source_type,
+        source_name=source_name,
+        delete_skipped=delete_skipped,
+        check_remote=check_remote,
+        log_path=log_path,
+        print_results=True,
+    )
 
 
 class Youtube:
@@ -170,6 +409,13 @@ class Youtube:
 
         return True
 
+    def list_captions(self, video_id):
+        response = self.youtube.captions().list(
+            part='snippet', videoId=video_id
+        ).execute()
+
+        return response.get('items', [])
+
     def add_caption(self, video_id, caption_path, caption_name='via_recorder'):
         try:
             self.youtube.captions().insert(
@@ -193,13 +439,15 @@ class Youtube:
 if __name__ == '__main__':
     import fire
 
-    youtube = Youtube(recorder.config.get('youtube'))
-
 
     def add_caption_and_delete(video_id, caption_path):
+        youtube = Youtube(recorder.config.get('youtube'))
         if youtube.add_caption(video_id, caption_path):
             print('The caption has been added to YouTube and removed from the local file')
             os.unlink(caption_path)
 
 
-    fire.Fire()
+    fire.Fire({
+        'add_caption_and_delete': add_caption_and_delete,
+        'upload_missing_captions': upload_missing_captions,
+    })
