@@ -90,6 +90,7 @@ def test_delete_intent_replays_each_durable_phase_immutably(tmp_path):
     ('field', 'value'),
     [
         ('original_path', 'relative.flv'),
+        ('original_path', '/recording/sub/../video.flv'),
         ('quarantine_path', '/absolute/quarantine'),
         ('quarantine_path', '../escape'),
         ('dev', True),
@@ -117,6 +118,89 @@ def test_delete_intent_requires_exact_state_path_ownership(tmp_path):
 
     with pytest.raises(ValueError, match='owned'):
         append_delete_intent(journal, original_path='/other.flv')
+
+
+def test_delete_intent_rejects_normalized_alias_owner(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'baseline', fingerprint='baseline:1',
+        file='/recording/sub/../video.flv',
+    )
+    journal.append(
+        'baseline', fingerprint='baseline:2', file='/recording/video.flv'
+    )
+    before = journal.path.read_bytes()
+
+    with pytest.raises(ValueError, match='one fingerprint'):
+        append_delete_intent(
+            journal, original_path='/recording/video.flv'
+        )
+
+    assert journal.path.read_bytes() == before
+
+
+def test_later_alias_owner_cannot_claim_pending_intent_path(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'baseline', fingerprint='baseline:1',
+        file='/recording/sub/../video.flv',
+    )
+    append_delete_intent(
+        journal, original_path='/recording/video.flv'
+    )
+    before = journal.path.read_bytes()
+
+    with pytest.raises(ValueError, match='pending deletion'):
+        journal.append(
+            'baseline', fingerprint='baseline:2',
+            file='/recording/video.flv',
+        )
+
+    assert journal.path.read_bytes() == before
+
+
+def test_source_deleted_alias_replays_as_canonical_tombstone(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'baseline', fingerprint='baseline:1',
+        file='/recording/sub/../video.flv',
+    )
+    append_delete_intent(
+        journal, original_path='/recording/video.flv'
+    )
+
+    journal.append(
+        'source_deleted', fingerprint='baseline:1',
+        path='/recording/sub/../video.flv', reason='disk pressure',
+    )
+
+    replay = journal.replay()
+    assert replay.files['baseline:1'].file == '/recording/video.flv'
+    assert replay.files['baseline:1'].deleted_paths == (
+        '/recording/video.flv',
+    )
+    assert replay.pending_deletions[0].source_deleted is True
+    records = [json.loads(line) for line in journal.path.read_text().splitlines()]
+    assert records[0]['file'] == '/recording/video.flv'
+    assert records[-1]['path'] == '/recording/video.flv'
+
+
+def test_relative_source_path_is_persisted_as_canonical_absolute_path(
+    tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+
+    journal.append(
+        'baseline', fingerprint='baseline:1',
+        file='recording/sub/../video.flv',
+    )
+
+    expected = str(tmp_path / 'recording/video.flv')
+    replay = journal.replay()
+    record = json.loads(journal.path.read_text().splitlines()[0])
+    assert replay.files['baseline:1'].file == expected
+    assert record['file'] == expected
 
 
 def test_delete_intent_quarantine_name_is_unique(tmp_path):

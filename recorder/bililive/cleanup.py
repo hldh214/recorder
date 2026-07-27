@@ -17,11 +17,13 @@ from recorder.bililive.models import (
     JournalSessionState,
     SessionState,
 )
-from recorder.bililive.journal import baseline_fingerprint
+from recorder.bililive.journal import (
+    baseline_fingerprint,
+    canonical_source_path,
+)
 from recorder.bililive.cleanup_fs import (
     QUARANTINE_DIRECTORY,
     RootDirectory,
-    UnsafeCleanupPathError,
 )
 
 
@@ -98,13 +100,22 @@ class StateAwareCleanup:
         reconciled_deleted = []
         reconciled_intents = []
         reconciliation_protected = set()
+        reconciliation_failed = False
         control_graph_valid = self._control_graph_valid(replay)
         if replay.pending_deletions and not dry_run and control_graph_valid:
             with RootDirectory(self.root) as root_directory:
-                for intent in replay.pending_deletions:
-                    reconciled, protected = self._reconcile_intent(
-                        root_directory, intent
-                    )
+                for index, intent in enumerate(replay.pending_deletions):
+                    try:
+                        reconciled, protected = self._reconcile_intent(
+                            root_directory, intent
+                        )
+                    except Exception:
+                        reconciliation_failed = True
+                        reconciliation_protected.update(
+                            Path(item.original_path)
+                            for item in replay.pending_deletions[index:]
+                        )
+                        break
                     if reconciled:
                         reconciled_deleted.append(Path(intent.original_path))
                         reconciled_intents.append(intent)
@@ -129,6 +140,21 @@ class StateAwareCleanup:
         )
 
         usage = self.disk_usage(self.root)
+        if reconciliation_failed:
+            protected = (
+                reconciliation_protected
+                | protected_by_control
+                | self._all_replay_paths(replay)
+            )
+            exhausted = usage >= DISK_CLEANUP_THRESHOLD_PERCENT
+            if exhausted:
+                self._log_exhausted(usage)
+            return CleanupResult(
+                tuple(reconciled_deleted),
+                self._ordered(protected),
+                usage,
+                exhausted,
+            )
         if usage < DISK_CLEANUP_THRESHOLD_PERCENT:
             return CleanupResult(
                 tuple(reconciled_deleted),
@@ -185,8 +211,13 @@ class StateAwareCleanup:
             for path, eligible, is_xml in self._state_paths(
                 state, relationship_valid
             ):
-                if relationship_valid and str(path) in state.deleted_paths:
-                    continue
+                if relationship_valid:
+                    deleted_paths = {
+                        canonical_source_path(item)
+                        for item in state.deleted_paths
+                    }
+                    if str(path) in deleted_paths:
+                        continue
                 owners.setdefault(path, set()).add(state.fingerprint)
                 safe, file_stat = self._safe_regular_file(path)
                 frozen = self._matches_required_identity(
@@ -234,7 +265,7 @@ class StateAwareCleanup:
 
         deleted = list(reconciled_deleted)
         with RootDirectory(self.root) as root_directory:
-            for candidate in candidates:
+            for index, candidate in enumerate(candidates):
                 if usage < DISK_CLEANUP_THRESHOLD_PERCENT:
                     break
                 try:
@@ -248,9 +279,12 @@ class StateAwareCleanup:
                         protected.add(candidate.path)
                         continue
                     self._quarantine_candidate(root_directory, candidate)
-                except (OSError, UnsafeCleanupPathError):
-                    protected.add(candidate.path)
-                    continue
+                except Exception:
+                    protected.update(
+                        item.path for item in candidates[index:]
+                    )
+                    usage = self.disk_usage(self.root)
+                    break
                 deleted.append(candidate.path)
                 usage = self.disk_usage(self.root)
 
@@ -318,11 +352,14 @@ class StateAwareCleanup:
         files = dict(replay.files)
         for intent in reconciled_intents:
             state = files[intent.fingerprint]
-            if intent.original_path not in state.deleted_paths:
+            original_path = canonical_source_path(intent.original_path)
+            deleted_paths = tuple(
+                canonical_source_path(path) for path in state.deleted_paths
+            )
+            if original_path not in deleted_paths:
                 files[intent.fingerprint] = replace(
                     state,
-                    deleted_paths=state.deleted_paths
-                    + (intent.original_path,),
+                    deleted_paths=deleted_paths + (original_path,),
                 )
         return replace(
             replay,
@@ -339,13 +376,10 @@ class StateAwareCleanup:
 
     def _reconcile_intent(self, root_directory, intent):
         identity = self._intent_identity(intent)
-        try:
-            original_stat = root_directory.lstat(intent.original_path)
-            quarantine_stat = root_directory.quarantine_stat(
-                intent.quarantine_path
-            )
-        except (OSError, UnsafeCleanupPathError):
-            return False, True
+        original_stat = root_directory.lstat(intent.original_path)
+        quarantine_stat = root_directory.quarantine_stat(
+            intent.quarantine_path
+        )
         original_matches = (
             original_stat is not None
             and original_stat.st_nlink == 1
@@ -512,7 +546,7 @@ class StateAwareCleanup:
 
     @staticmethod
     def _lexical_absolute(value):
-        return Path(os.path.abspath(os.path.normpath(value)))
+        return Path(canonical_source_path(value))
 
     @classmethod
     def _video_eligible(cls, state, baseline_or_ignored, shape_valid):
@@ -1026,10 +1060,37 @@ class StateAwareCleanup:
             or replacement_settled < invalidated
         ):
             return False
-        for path in source.flv_paths:
+        changed_paths = {
+            canonical_source_path(path) for path in source.changed_paths
+        }
+        source_snapshot = {
+            canonical_source_path(path): tuple(identity)
+            for path, identity in source.snapshot.items()
+        }
+        replacement_snapshot = {
+            canonical_source_path(path): tuple(identity)
+            for path, identity in replacement.snapshot.items()
+        }
+        source_flvs = {
+            canonical_source_path(path) for path in source.flv_paths
+        }
+        replacement_flvs = {
+            canonical_source_path(path) for path in replacement.flv_paths
+        }
+        if (
+            source_snapshot.keys() != replacement_snapshot.keys()
+            or source_flvs != replacement_flvs
+            or any(path not in source_snapshot for path in changed_paths)
+        ):
+            return False
+        for path, source_identity in source_snapshot.items():
+            replacement_identity = replacement_snapshot.get(path)
             if (
-                path not in replacement.flv_paths
-                or source.snapshot.get(path) != replacement.snapshot.get(path)
+                replacement_identity is None
+                or (
+                    path not in changed_paths
+                    and source_identity != replacement_identity
+                )
             ):
                 return False
         return True
@@ -1060,13 +1121,24 @@ class StateAwareCleanup:
             state = replay.files.get(intent.fingerprint)
             owners = {
                 item.fingerprint for item in replay.files.values()
-                if intent.original_path in cls._state_control_owned_paths(item)
+                if canonical_source_path(intent.original_path)
+                in cls._state_control_owned_paths(item)
             }
+            deleted_paths = (
+                {
+                    canonical_source_path(path)
+                    for path in state.deleted_paths
+                }
+                if state is not None else set()
+            )
             if (
                 state is None
                 or owners != {intent.fingerprint}
                 or intent.source_deleted
-                != (intent.original_path in state.deleted_paths)
+                != (
+                    canonical_source_path(intent.original_path)
+                    in deleted_paths
+                )
             ):
                 return False
             sources.add(source_key)
@@ -1077,14 +1149,15 @@ class StateAwareCleanup:
     def _state_control_owned_paths(cls, state):
         owned = set()
         if cls._non_empty_string(state.file):
-            owned.add(state.file)
+            file_path = canonical_source_path(state.file)
+            owned.add(file_path)
             if (
-                Path(state.file).suffix.lower() == '.flv'
+                Path(file_path).suffix.lower() == '.flv'
                 and state.event != 'baseline'
             ):
-                owned.add(str(Path(state.file).with_suffix('.xml')))
+                owned.add(str(Path(file_path).with_suffix('.xml')))
         if cls._non_empty_string(state.xml_file):
-            owned.add(state.xml_file)
+            owned.add(canonical_source_path(state.xml_file))
         return owned
 
     @classmethod

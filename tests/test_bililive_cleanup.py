@@ -141,6 +141,19 @@ class FakeJournal:
         self.events.append((event, fields))
 
 
+class FailOnceEventJournal(FakeJournal):
+    def __init__(self, current_replay, fail_event):
+        super().__init__(current_replay)
+        self.fail_event = fail_event
+        self.failed = False
+
+    def append(self, event, **fields):
+        super().append(event, **fields)
+        if event == self.fail_event and not self.failed:
+            self.failed = True
+            raise OSError(f'{event} fsync failed')
+
+
 class Usage:
     def __init__(self, *values):
         self.values = list(values)
@@ -153,7 +166,7 @@ class Usage:
         return self.values[0]
 
 
-class SimulatedCleanupCrash(RuntimeError):
+class SimulatedCleanupCrash(BaseException):
     pass
 
 
@@ -583,6 +596,32 @@ def test_real_baseline_event_recomputes_each_source_identity(tmp_path):
     assert set(result.deleted) == {video, xml}
     assert result.protected == ()
     assert result.exhausted is False
+
+
+def test_real_baseline_flv_and_xml_each_keep_canonical_delete_owner(tmp_path):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    for path in (video, xml):
+        path_stat = path.stat()
+        journal.append(
+            'baseline',
+            fingerprint=baseline_fingerprint(
+                path, path_stat.st_size, path_stat.st_mtime_ns
+            ),
+            file=str(path.parent / 'nested' / '..' / path.name),
+        )
+    (tmp_path / 'nested').mkdir()
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=Usage(99, 99, 84)
+    ).run(journal.replay().files.values(), dry_run=False)
+
+    assert result.deleted == (video, xml)
+    assert not video.exists() and not xml.exists()
+    assert journal.replay().pending_deletions == ()
 
 
 @pytest.mark.parametrize(
@@ -1482,6 +1521,60 @@ def test_pending_reconciliation_requires_unique_replay_path_owner(tmp_path):
     assert journal.events == []
 
 
+def test_pending_reconciliation_rejects_lexical_alias_owner(tmp_path):
+    directory = tmp_path / 'nested'
+    directory.mkdir()
+    video = tmp_path / 'pending.flv'
+    video.write_bytes(b'pending')
+    owner = file_state(video, event='baseline')
+    conflicting = file_state(
+        directory / '..' / video.name,
+        fingerprint='other-generation',
+        event='ignored_tiny',
+    )
+    file_stat = video.stat()
+    intent = JournalDeleteIntent(
+        fingerprint=owner.fingerprint,
+        original_path=str(video),
+        quarantine_path='.bililive-cleanup-quarantine/pending',
+        dev=file_stat.st_dev,
+        ino=file_stat.st_ino,
+        size=file_stat.st_size,
+        mtime_ns=file_stat.st_mtime_ns,
+        reason='disk pressure',
+    )
+    current_replay = replace(
+        replay((owner, conflicting)), pending_deletions=(intent,)
+    )
+    journal = FakeJournal(current_replay)
+    cleanup = StateAwareCleanup(journal, tmp_path, disk_usage=Usage(1))
+
+    result = cleanup.run([owner], dry_run=False)
+
+    assert video.exists()
+    assert result.deleted == ()
+    assert video in result.protected
+    assert journal.events == []
+
+
+def test_deleted_path_alias_protects_canonical_recreated_path(tmp_path):
+    nested = tmp_path / 'nested'
+    nested.mkdir()
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'video')
+    state = replace(
+        file_state(video, event='baseline'),
+        deleted_paths=(str(nested / '..' / video.name),),
+    )
+    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99))
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert video.exists()
+    assert result.deleted == ()
+    assert journal.events == []
+
+
 def test_pending_phase_must_match_source_deleted_tombstone(tmp_path):
     video = tmp_path / 'pending.flv'
     video.write_bytes(b'pending')
@@ -1759,6 +1852,97 @@ def test_completed_replacement_releases_chain_for_normal_eligibility(tmp_path):
     assert result.exhausted is False
 
 
+def test_completed_replacement_allows_declared_flv_identity_change(tmp_path):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'old generation')
+    old = manifest(
+        'old', (video,), invalidated=True,
+        replacement_manifest_id='replacement',
+    )
+    video.write_bytes(b'new generation with different bytes')
+    replacement_manifest = manifest(
+        'replacement', (video,), completed=True
+    )
+    state = file_state(
+        video,
+        fingerprint='replacement-generation',
+        event='youtube_processed',
+        manifest_id='replacement',
+        youtube_processed=True,
+        video_id='yt-replacement',
+    )
+    journal, cleanup = cleanup_for(
+        tmp_path,
+        [state],
+        Usage(99, 84),
+        manifests=(old, replacement_manifest),
+    )
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert result.deleted == (video,)
+    assert not video.exists()
+    assert journal.events[1][0] == 'source_deleted'
+
+
+def test_completed_replacement_rejects_undeclared_flv_identity_change(
+    tmp_path,
+):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'old generation')
+    old = manifest(
+        'old', (video,), invalidated=True,
+        replacement_manifest_id='replacement',
+    )
+    old = replace(
+        old, changed_paths=(str(video.with_suffix('.xml')),)
+    )
+    video.write_bytes(b'new generation with different bytes')
+    replacement_manifest = manifest(
+        'replacement', (video,), completed=True
+    )
+    state = file_state(
+        video,
+        fingerprint='replacement-generation',
+        event='youtube_processed',
+        manifest_id='replacement',
+        youtube_processed=True,
+        video_id='yt-replacement',
+    )
+    journal, cleanup = cleanup_for(
+        tmp_path,
+        [state],
+        Usage(99),
+        manifests=(old, replacement_manifest),
+    )
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert video.exists()
+    assert result.deleted == ()
+    assert video in result.protected
+    assert journal.events == []
+
+
+def test_completed_replacement_rejects_undeclared_added_paths(tmp_path):
+    video = tmp_path / 'recording.flv'
+    added = tmp_path / 'added.flv'
+    video.write_bytes(b'old generation')
+    old = manifest(
+        'old', (video,), invalidated=True,
+        replacement_manifest_id='replacement',
+    )
+    video.write_bytes(b'new generation')
+    added.write_bytes(b'added generation')
+    replacement_manifest = manifest(
+        'replacement', (video, added), completed=True
+    )
+
+    assert not StateAwareCleanup._replacement_continuity_valid(
+        old, replacement_manifest
+    )
+
+
 def test_cleanup_stops_after_usage_falls_below_threshold(tmp_path):
     old = tmp_path / 'old.flv'
     newer = tmp_path / 'new.flv'
@@ -1777,6 +1961,171 @@ def test_cleanup_stops_after_usage_falls_below_threshold(tmp_path):
 
     assert result.deleted == (old,)
     assert newer.exists()
+    assert result.disk_usage_percent == 84
+
+
+@pytest.mark.parametrize(
+    ('fault', 'fail_event', 'fsync_call'),
+    [
+        ('intent-append', 'source_delete_intent', None),
+        ('rename-fsync', None, 2),
+        ('source-deleted-append', 'source_deleted', None),
+        ('unlink-fsync', None, 4),
+    ],
+)
+def test_transaction_error_stops_before_next_candidate_and_rechecks_usage(
+    tmp_path, monkeypatch, fault, fail_event, fsync_call
+):
+    older = tmp_path / 'older.flv'
+    newer = tmp_path / 'newer.flv'
+    older.write_bytes(b'older')
+    newer.write_bytes(b'newer')
+    import os
+    os.utime(older, ns=(1_700_000_000_000_000_000,) * 2)
+    os.utime(newer, ns=(1_700_000_010_000_000_000,) * 2)
+    states = (
+        file_state(older, event='baseline'),
+        file_state(newer, event='baseline'),
+    )
+    current_replay = replay(states)
+    journal = (
+        FailOnceEventJournal(current_replay, fail_event)
+        if fail_event is not None else FakeJournal(current_replay)
+    )
+    if fsync_call is not None:
+        real_fsync = cleanup_fs_module.os.fsync
+        calls = 0
+
+        def fail_selected_fsync(file_descriptor):
+            nonlocal calls
+            calls += 1
+            if calls == fsync_call:
+                raise OSError(f'{fault} failed')
+            return real_fsync(file_descriptor)
+
+        monkeypatch.setattr(
+            cleanup_fs_module.os, 'fsync', fail_selected_fsync
+        )
+    usage = Usage(99, 84)
+    cleanup = StateAwareCleanup(journal, tmp_path, disk_usage=usage)
+
+    result = cleanup.run(states, dry_run=False)
+
+    assert newer.exists()
+    assert len(usage.calls) == 2
+    assert result.disk_usage_percent == 84
+    if fault == 'intent-append':
+        assert older.exists()
+    else:
+        assert not older.exists()
+
+
+def test_pending_reconciliation_error_stops_and_rechecks_usage(
+    tmp_path, monkeypatch
+):
+    older = tmp_path / 'older.flv'
+    newer = tmp_path / 'newer.flv'
+    older.write_bytes(b'older')
+    newer.write_bytes(b'newer')
+    states = (
+        file_state(older, event='baseline'),
+        file_state(newer, event='baseline'),
+    )
+    intents = []
+    for index, (state, path) in enumerate(zip(states, (older, newer)), 1):
+        file_stat = path.stat()
+        intents.append(JournalDeleteIntent(
+            fingerprint=state.fingerprint,
+            original_path=str(path),
+            quarantine_path=(
+                f'.bililive-cleanup-quarantine/pending-{index}'
+            ),
+            dev=file_stat.st_dev,
+            ino=file_stat.st_ino,
+            size=file_stat.st_size,
+            mtime_ns=file_stat.st_mtime_ns,
+            reason='disk pressure',
+        ))
+    current_replay = replace(
+        replay(states), pending_deletions=tuple(intents)
+    )
+    journal = FakeJournal(current_replay)
+    real_fsync = cleanup_fs_module.os.fsync
+    calls = 0
+
+    def fail_first_rename_fsync(file_descriptor):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError('rename fsync failed')
+        return real_fsync(file_descriptor)
+
+    monkeypatch.setattr(
+        cleanup_fs_module.os, 'fsync', fail_first_rename_fsync
+    )
+    usage = Usage(84)
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=usage
+    ).run(states, dry_run=False)
+
+    assert not older.exists()
+    assert newer.exists()
+    assert len(usage.calls) == 1
+    assert result.disk_usage_percent == 84
+
+
+def test_pending_unsafe_filesystem_error_stops_before_next_intent(
+    tmp_path, monkeypatch
+):
+    older = tmp_path / 'older.flv'
+    newer = tmp_path / 'newer.flv'
+    older.write_bytes(b'older')
+    newer.write_bytes(b'newer')
+    states = (
+        file_state(older, event='baseline'),
+        file_state(newer, event='baseline'),
+    )
+    intents = []
+    for index, (state, path) in enumerate(zip(states, (older, newer)), 1):
+        file_stat = path.stat()
+        intents.append(JournalDeleteIntent(
+            fingerprint=state.fingerprint,
+            original_path=str(path),
+            quarantine_path=(
+                f'.bililive-cleanup-quarantine/pending-{index}'
+            ),
+            dev=file_stat.st_dev,
+            ino=file_stat.st_ino,
+            size=file_stat.st_size,
+            mtime_ns=file_stat.st_mtime_ns,
+            reason='disk pressure',
+        ))
+    current_replay = replace(
+        replay(states), pending_deletions=tuple(intents)
+    )
+    journal = FakeJournal(current_replay)
+    real_lstat = RootDirectory.lstat
+    calls = 0
+
+    def fail_first_lstat(root_directory, path):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise cleanup_fs_module.UnsafeCleanupPathError(
+                'wrapped filesystem error'
+            )
+        return real_lstat(root_directory, path)
+
+    monkeypatch.setattr(RootDirectory, 'lstat', fail_first_lstat)
+    usage = Usage(84)
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=usage
+    ).run(states, dry_run=False)
+
+    assert older.exists() and newer.exists()
+    assert len(usage.calls) == 1
     assert result.disk_usage_percent == 84
 
 

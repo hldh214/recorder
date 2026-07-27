@@ -121,6 +121,15 @@ def _shared_journal_lock(path):
         return _JOURNAL_LOCKS.setdefault(normalized_path, threading.RLock())
 
 
+def canonical_source_path(value):
+    if not isinstance(value, str) or not value or '\0' in value:
+        raise ValueError('source path must be a non-empty string without NUL')
+    normalized = os.path.abspath(os.path.normpath(value))
+    if normalized.startswith('//'):
+        normalized = '/' + normalized.lstrip('/')
+    return normalized
+
+
 def _validate_file_record(record, event, existing, enforce_history=True):
     fingerprint = record.get('fingerprint')
     if not isinstance(fingerprint, str) or not fingerprint:
@@ -154,6 +163,10 @@ def _validate_file_record(record, event, existing, enforce_history=True):
         value = record[name]
         if value is not None and (not isinstance(value, str) or not value):
             raise TypeError(f'{event} requires {name} to be null or a string')
+    for name in ('file', 'xml_file'):
+        if name not in _FILE_EVENT_UPDATES[event] or record.get(name) is None:
+            continue
+        record[name] = canonical_source_path(record[name])
     if 'error_message' in _FILE_EVENT_UPDATES[event] and 'error_message' in record:
         if record['error_message'] is not None and not isinstance(
             record['error_message'], str
@@ -252,7 +265,7 @@ def _validate_file_record(record, event, existing, enforce_history=True):
                 )
         if existing is not None:
             requested_identity = (
-                record['xml_file'],
+                canonical_source_path(record['xml_file']),
                 record['caption_source_xml_size'],
                 record['caption_source_xml_mtime_ns'],
             )
@@ -283,6 +296,9 @@ def _validate_file_record(record, event, existing, enforce_history=True):
     elif event == 'source_deleted':
         _require_non_empty_string(record, 'path', event)
         _require_non_empty_string(record, 'reason', event)
+        if not os.path.isabs(record['path']):
+            raise ValueError('source_deleted requires an absolute path')
+        record['path'] = canonical_source_path(record['path'])
 
 
 def _file_event_updates(record, event, existing=None):
@@ -292,6 +308,9 @@ def _file_event_updates(record, event, existing=None):
         for key in _FILE_EVENT_UPDATES[event]
         if key in record and key in _FILE_FIELD_NAMES
     }
+    for name in ('file', 'xml_file'):
+        if name in updates and updates[name] is not None:
+            updates[name] = canonical_source_path(updates[name])
     if 'stage' in record and event in {
         'stage_retry_scheduled', 'fatal', 'ambiguous', 'video_upload_rejected'
     }:
@@ -359,9 +378,10 @@ def _file_event_updates(record, event, existing=None):
     elif event == 'youtube_processed':
         updates['youtube_processed'] = True
     elif event == 'source_deleted':
+        deleted_path = canonical_source_path(record['path'])
         deleted_paths = existing.deleted_paths if existing is not None else ()
-        if record['path'] not in deleted_paths:
-            deleted_paths += (record['path'],)
+        if deleted_path not in deleted_paths:
+            deleted_paths += (deleted_path,)
         updates['deleted_paths'] = deleted_paths
     return updates
 
@@ -483,6 +503,15 @@ def _validate_file_binding(replay, state, existing=None, event=None):
         ):
             caption_changed = _controlled_manifest_migration(
                 replay, existing, state, event
+            )
+    owned_paths = _owned_source_paths(state)
+    for intent in replay.pending_deletions:
+        if (
+            intent.fingerprint != state.fingerprint
+            and intent.original_path in owned_paths
+        ):
+            raise ValueError(
+                'file state conflicts with a pending deletion owner'
             )
     if state.manifest_id is None or state.file is None:
         return caption_changed
@@ -961,7 +990,7 @@ def _validate_delete_intent_record(record):
     original_path = record['original_path']
     if (
         not os.path.isabs(original_path)
-        or os.path.normpath(original_path) != original_path
+        or canonical_source_path(original_path) != original_path
     ):
         raise ValueError(f'{event} original_path must be normalized absolute')
     quarantine_path = record['quarantine_path']
@@ -981,10 +1010,25 @@ def _validate_delete_intent_record(record):
 
 
 def _owned_source_paths(state):
-    owned = {state.file, state.xml_file}
-    if state.file is not None:
-        owned.add(os.path.splitext(state.file)[0] + '.xml')
+    owned = {
+        canonical_source_path(path)
+        for path in (state.file, state.xml_file)
+        if path is not None
+    }
+    if state.file is not None and state.event != 'baseline':
+        owned.add(canonical_source_path(
+            os.path.splitext(state.file)[0] + '.xml'
+        ))
     return owned
+
+
+def _source_path_owners(replay, path):
+    canonical = canonical_source_path(path)
+    return {
+        fingerprint
+        for fingerprint, state in replay.files.items()
+        if canonical in _owned_source_paths(state)
+    }
 
 
 def _reduce_delete_intent(replay, record):
@@ -994,8 +1038,10 @@ def _reduce_delete_intent(replay, record):
     if state is None:
         raise ValueError('source_delete_intent requires an existing file state')
     original_path = record['original_path']
-    if original_path not in _owned_source_paths(state):
-        raise ValueError('source_delete_intent path is not owned by fingerprint')
+    if _source_path_owners(replay, original_path) != {fingerprint}:
+        raise ValueError(
+            'source_delete_intent path must be owned by one fingerprint'
+        )
     if original_path in state.deleted_paths:
         raise ValueError('source_delete_intent path is already deleted')
 
@@ -1029,6 +1075,10 @@ def _validate_quarantine_removed_record(record):
     event = 'quarantine_removed'
     for name in ('fingerprint', 'original_path', 'quarantine_path'):
         _require_non_empty_string(record, name, event)
+    if canonical_source_path(record['original_path']) != record['original_path']:
+        raise ValueError(
+            'quarantine_removed original_path must be normalized absolute'
+        )
 
 
 def _reduce_quarantine_removed(replay, record):
@@ -1380,11 +1430,12 @@ class JsonlJournal:
                 )
         replay.files[fingerprint] = state
         if event == 'source_deleted':
+            deleted_path = canonical_source_path(record['path'])
             matching_intents = tuple(
                 intent for intent in replay.pending_deletions
                 if (
                     intent.fingerprint == fingerprint
-                    and intent.original_path == record['path']
+                    and intent.original_path == deleted_path
                 )
             )
             if len(matching_intents) > 1:
