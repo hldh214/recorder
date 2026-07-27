@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from xml.etree import ElementTree
@@ -19,13 +20,44 @@ def _increment(counters, name):
     counters[name] = counters.get(name, 0) + 1
 
 
+def _local_name(tag):
+    return tag.rsplit('}', 1)[-1]
+
+
+def _parse_duration(duration):
+    try:
+        duration_seconds = float(duration)
+    except (TypeError, ValueError):
+        raise ValueError('duration must be finite and non-negative') from None
+    if not math.isfinite(duration_seconds) or duration_seconds < 0:
+        raise ValueError('duration must be finite and non-negative')
+    return duration_seconds
+
+
+def _paths_alias(source_path, output_path):
+    try:
+        return source_path.samefile(output_path)
+    except FileNotFoundError:
+        return False
+
+
 def iter_bililive_danmaku(xml_path, start, duration, counters):
     start_epoch = parse_datetime(start).timestamp()
-    duration_seconds = float(duration)
+    duration_seconds = _parse_duration(duration)
 
-    for _, element in ElementTree.iterparse(xml_path, events=('end',)):
+    root = None
+    depth = 0
+    for event, element in ElementTree.iterparse(
+        xml_path, events=('start', 'end')
+    ):
+        if event == 'start':
+            if root is None:
+                root = element
+            depth += 1
+            continue
+
         try:
-            if element.tag != 'd':
+            if _local_name(element.tag) != 'd':
                 continue
 
             content = (element.text or '').strip()
@@ -44,6 +76,10 @@ def iter_bililive_danmaku(xml_path, start, duration, counters):
                 _increment(counters, 'malformed_parameters')
                 continue
 
+            if not math.isfinite(seconds):
+                _increment(counters, 'malformed_parameters')
+                continue
+
             if not 0 <= seconds <= duration_seconds:
                 _increment(counters, 'dropped_out_of_range')
                 continue
@@ -54,14 +90,23 @@ def iter_bililive_danmaku(xml_path, start, duration, counters):
             }
         finally:
             element.clear()
+            if depth == 2:
+                root.clear()
+            depth -= 1
 
 
 def _iter_caption_with_eof_flush(danmaku, start, duration):
+    """Flush Caption's buffered EOF cue with an invisible final record.
+
+    Caption compares integer timedelta seconds, so one second is the smallest
+    flush gap it recognizes and can extend a cue at the duration boundary by 1s.
+    """
     yield from danmaku
-    # Caption buffers its final state; its integer-seconds check needs a 1s flush gap.
     yield {
         'content': '',
-        'generation_time': parse_datetime(start).timestamp() + float(duration) + 1,
+        'generation_time': (
+            parse_datetime(start).timestamp() + _parse_duration(duration) + 1
+        ),
     }
 
 
@@ -78,9 +123,13 @@ def prepare_bililive_xml_caption(xml_path, output_path, start, duration):
         return BililiveCaptionArtifact(path=None, status='missing')
 
     caption_counters = {}
+    committed = False
     try:
+        if _paths_alias(xml_path, output_path):
+            raise ValueError('output path must not alias source XML')
         output_path.parent.mkdir(parents=True, exist_ok=True)
         partial_path.unlink(missing_ok=True)
+        duration = _parse_duration(duration)
 
         caption_danmaku = iter_bililive_danmaku(
             xml_path, start, duration, caption_counters
@@ -96,17 +145,20 @@ def prepare_bililive_xml_caption(xml_path, output_path, start, duration):
             start,
         )
         partial_path.replace(output_path)
+        committed = True
     except (ElementTree.ParseError, OSError, TypeError, ValueError) as exception:
-        try:
-            partial_path.unlink(missing_ok=True)
-        except OSError:
-            pass
         return BililiveCaptionArtifact(
             path=None,
             status='invalid',
             dropped_out_of_range=caption_counters.get('dropped_out_of_range', 0),
             error_message=str(exception),
         )
+    finally:
+        if not committed:
+            try:
+                partial_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     return BililiveCaptionArtifact(
         path=output_path,
