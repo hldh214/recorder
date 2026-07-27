@@ -348,27 +348,11 @@ def _controlled_manifest_migration(replay, existing, state, event):
         raise ValueError(
             'manifest migration target does not contain the same file'
         )
-    if any(
-        path not in target.flv_paths
-        or old.snapshot.get(path) != target.snapshot.get(path)
-        for path in old.flv_paths
-    ):
+    if old.snapshot.get(state.file) != target.snapshot.get(state.file):
         raise ValueError('manifest migration has conflicting frozen FLV identity')
 
-    xml_paths = {
-        os.path.splitext(path)[0] + '.xml' for path in old.flv_paths
-    }
-    if (
-        not old.changed_paths
-        or any(path not in xml_paths for path in old.changed_paths)
-    ):
-        raise ValueError('manifest migration requires an XML-only invalidation')
-    if not all(
-        old.snapshot.get(path) != target.snapshot.get(path)
-        for path in old.changed_paths
-    ):
-        raise ValueError('manifest migration target retains stale XML identity')
-    return os.path.splitext(state.file)[0] + '.xml' in old.changed_paths
+    xml_path = os.path.splitext(state.file)[0] + '.xml'
+    return old.snapshot.get(xml_path) != target.snapshot.get(xml_path)
 
 
 def _validate_file_binding(replay, state, existing=None, event=None):

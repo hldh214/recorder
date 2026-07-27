@@ -1468,6 +1468,142 @@ def test_xml_only_replacement_reuses_video_and_backfills_caption(tmp_path):
     assert replacement.completed is True
 
 
+def test_multi_segment_replacement_reuses_only_unchanged_video(tmp_path):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    a_old = ready_media(
+        tmp_path, 'a.flv', 'fp-a-old', NOW - timedelta(minutes=2)
+    )
+    b = ready_media(tmp_path, 'b.flv', 'fp-b', NOW - timedelta(minutes=1))
+    a_old.media.xml_path.write_text('<i/>')
+    b.media.xml_path.write_text('<i/>')
+
+    def identity(path):
+        stat_result = path.stat()
+        return stat_result.st_size, stat_result.st_mtime_ns
+
+    old_snapshot = {
+        str(a_old.media.path): identity(a_old.media.path),
+        str(a_old.media.xml_path): identity(a_old.media.xml_path),
+        str(b.media.path): identity(b.media.path),
+        str(b.media.xml_path): identity(b.media.xml_path),
+    }
+    journal.append('initialized')
+    journal.append(
+        'session_state',
+        room_id=ROOM_ID,
+        state='waiting',
+        session_id=None,
+        session_paths=(),
+        snapshot=old_snapshot,
+        quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_manifest_ready',
+        manifest_id='old-session',
+        room_id=ROOM_ID,
+        started_at=(NOW - timedelta(hours=1)).isoformat(),
+        settled_at=NOW.isoformat(),
+        flv_paths=(str(a_old.media.path), str(b.media.path)),
+        snapshot=old_snapshot,
+    )
+    for classified, video_id in ((a_old, 'yt-a-old'), (b, 'yt-b-old')):
+        append_ready(journal, classified, 'old-session')
+        fingerprint = classified.media.fingerprint
+        journal.append(
+            'video_uploaded', fingerprint=fingerprint, video_id=video_id
+        )
+        journal.append(
+            'description_updated',
+            fingerprint=fingerprint,
+            description_fingerprint=f'description-{fingerprint}',
+        )
+        journal.append(
+            'caption_status',
+            fingerprint=fingerprint,
+            caption_status='uploaded',
+        )
+        journal.append('caption_uploaded', fingerprint=fingerprint)
+        journal.append('playlist_inserted', fingerprint=fingerprint)
+        journal.append('youtube_processed', fingerprint=fingerprint)
+
+    a_old.media.path.write_bytes(b'A changed and requires a new upload')
+    a_new = ready_media(
+        tmp_path, 'a.flv', 'fp-a-new', a_old.media.start_time
+    )
+    invalidator = BililivePublishRunner(
+        journal=journal,
+        publisher=FailIfCalledPublisher(),
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW + timedelta(minutes=5),
+    )
+    assert invalidator.run_pending_once(
+        journal.replay()
+    ).status == 'resettle_pending'
+
+    current = {
+        str(a_new.media.path): identity(a_new.media.path),
+        str(a_new.media.xml_path): identity(a_new.media.xml_path),
+        str(b.media.path): identity(b.media.path),
+        str(b.media.xml_path): identity(b.media.xml_path),
+    }
+    monitor = BililiveSessionMonitor(
+        journal=journal,
+        room_id=ROOM_ID,
+        id_factory=lambda: 'replacement-session',
+    )
+    monitor.observe(
+        NOW + timedelta(minutes=10), RoomState(False, False), current
+    )
+    assert monitor.observe(
+        NOW + timedelta(minutes=40), RoomState(False, False), current
+    ).state is SessionState.READY
+
+    media_by_path = {
+        str(a_new.media.path): a_new.media,
+        str(b.media.path): b.media,
+    }
+    publisher = FakePublisher([
+        publish_result(video_id='yt-a-new', caption_status='not_requested')
+    ])
+    runner = BililivePublishRunner(
+        journal=journal,
+        publisher=publisher,
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW + timedelta(minutes=41),
+        probe=lambda path: media_by_path[str(path)],
+        classifier=lambda media: {
+            item.fingerprint: ClassifiedMedia(
+                media=item, status='ready', reason='ready'
+            )
+            for item in media
+        },
+        caption_provider=None,
+    )
+
+    result = runner.run_pending_once(journal.replay())
+
+    assert result.status == 'complete'
+    assert len(publisher.calls) == 1
+    assert publisher.calls[0]['video_path'] == a_new.media.path
+    assert publisher.calls[0]['checkpoint'].video_id is None
+    replay = journal.replay()
+    assert replay.files['fp-a-old'].manifest_id == 'old-session'
+    assert replay.files['fp-a-old'].video_id == 'yt-a-old'
+    assert replay.files['fp-a-new'].manifest_id == 'replacement-session'
+    assert replay.files['fp-a-new'].video_id == 'yt-a-new'
+    assert replay.files['fp-b'].manifest_id == 'replacement-session'
+    assert replay.files['fp-b'].video_id == 'yt-b-old'
+    assert replay.files['fp-b'].description_fingerprint == 'description-fp-b'
+    assert replay.files['fp-b'].caption_uploaded is True
+    assert replay.files['fp-b'].caption_refresh_required is False
+    assert replay.files['fp-b'].playlist_inserted is True
+    assert replay.files['fp-b'].youtube_processed is True
+    assert replay.manifests[-1].completed is True
+
+
 def test_missing_caption_keeps_manifest_open_without_blocking_video_stages(tmp_path):
     journal = RecordingJournal(tmp_path / 'state.jsonl')
     classified = ready_media(tmp_path)

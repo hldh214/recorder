@@ -331,6 +331,112 @@ def test_raw_replay_rejects_invalid_manifest_migration(
         journal.replay()
 
 
+def test_multi_file_migration_reuses_only_unchanged_flv_binding(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    a_flv = '/recording/a.flv'
+    a_xml = '/recording/a.xml'
+    b_flv = '/recording/b.flv'
+    b_xml = '/recording/b.xml'
+    old_snapshot = {
+        a_flv: (100, 1), a_xml: (10, 1),
+        b_flv: (200, 1), b_xml: (20, 1),
+    }
+    replacement_snapshot = {
+        a_flv: (150, 2), a_xml: (10, 1),
+        b_flv: (200, 1), b_xml: (20, 1),
+    }
+    journal.append('initialized')
+    journal.append(
+        'session_state',
+        room_id=123,
+        state='waiting',
+        session_id=None,
+        session_paths=(),
+        snapshot=old_snapshot,
+        quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_manifest_ready',
+        manifest_id='old-session',
+        room_id=123,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:00:00+00:00',
+        flv_paths=(a_flv, b_flv),
+        snapshot=old_snapshot,
+    )
+    for fingerprint, flv, xml, video_id in (
+        ('fp-a-old', a_flv, a_xml, 'yt-a-old'),
+        ('fp-b', b_flv, b_xml, 'yt-b-old'),
+    ):
+        journal.append(
+            'file_ready',
+            fingerprint=fingerprint,
+            manifest_id='old-session',
+            file=flv,
+            xml_file=xml,
+            caption_status='uploaded',
+        )
+        journal.append(
+            'video_uploaded', fingerprint=fingerprint, video_id=video_id
+        )
+        journal.append('caption_uploaded', fingerprint=fingerprint)
+        journal.append('playlist_inserted', fingerprint=fingerprint)
+        journal.append('youtube_processed', fingerprint=fingerprint)
+    journal.append(
+        'session_manifest_changed',
+        manifest_id='old-session',
+        detected_at='2026-07-27T12:05:00+00:00',
+        reason='A FLV changed',
+        changed_paths=(a_flv,),
+    )
+    journal.append(
+        'session_resettle_started',
+        source_manifest_id='old-session',
+        replacement_manifest_id='replacement-session',
+        room_id=123,
+        state='settling',
+        session_paths=(a_flv, a_xml, b_flv, b_xml),
+        snapshot=replacement_snapshot,
+        quiet_since='2026-07-27T12:10:00+00:00',
+        started_at='2026-07-27T08:00:00+00:00',
+    )
+    journal.append(
+        'session_manifest_ready',
+        manifest_id='replacement-session',
+        room_id=123,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:40:00+00:00',
+        flv_paths=(a_flv, b_flv),
+        snapshot=replacement_snapshot,
+    )
+
+    journal.append(
+        'file_ready',
+        fingerprint='fp-b',
+        manifest_id='replacement-session',
+        file=b_flv,
+        xml_file=b_xml,
+        caption_status='pending',
+    )
+
+    migrated_b = journal.replay().files['fp-b']
+    assert migrated_b.manifest_id == 'replacement-session'
+    assert migrated_b.video_id == 'yt-b-old'
+    assert migrated_b.caption_uploaded is True
+    before_rejected_a = journal.path.read_bytes()
+    with pytest.raises(ValueError, match='frozen FLV identity'):
+        journal.append(
+            'file_ready',
+            fingerprint='fp-a-old',
+            manifest_id='replacement-session',
+            file=a_flv,
+            xml_file=a_xml,
+        )
+    assert journal.path.read_bytes() == before_rejected_a
+    assert journal.replay().files['fp-a-old'].manifest_id == 'old-session'
+
+
 def test_manifest_and_resettle_collections_are_defensively_frozen():
     flv_paths = ['/video.flv']
     changed_paths = ['/video.flv']
