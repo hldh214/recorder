@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from types import MappingProxyType
 from typing import Callable, Mapping
 from uuid import uuid4
 
@@ -21,10 +22,20 @@ class MonitorDecision:
     baseline_paths: tuple[str, ...] = ()
     ready_paths: tuple[str, ...] = ()
     session_paths: tuple[str, ...] = ()
-    snapshot: dict[str, tuple[int, int]] = field(default_factory=dict)
+    snapshot: Mapping[str, tuple[int, int]] = field(default_factory=dict)
     quiet_since: datetime | None = None
     started_at: datetime | None = None
     reason: str = ''
+
+    def __post_init__(self):
+        object.__setattr__(
+            self,
+            'snapshot',
+            MappingProxyType({
+                path: tuple(identity)
+                for path, identity in self.snapshot.items()
+            }),
+        )
 
 
 def _default_id_factory():
@@ -80,35 +91,49 @@ class SessionMonitorState:
         self.quiet_since = None
         self.started_at = None
         self._restart_quiet_pending = False
+        self._last_observed_at = None
 
     @classmethod
     def restore(cls, replay: JournalReplay, id_factory=None):
         machine = cls(initialized=replay.initialized, id_factory=id_factory)
         session = replay.session
-
-        if not replay.initialized:
-            if session.state is not SessionState.SKIP_CURRENT_SESSION:
-                return machine
-        elif session.state not in {
-            SessionState.WAITING,
-            SessionState.RECORDING,
-            SessionState.SETTLING,
-            SessionState.READY,
-        }:
-            return machine
-
+        if not isinstance(session.state, SessionState):
+            raise ValueError('restored session state must be a SessionState')
         machine.state = session.state
-        if session.state is SessionState.READY:
-            machine.state = SessionState.SETTLING
         machine.session_id = session.session_id
         machine.session_paths = set(session.session_paths)
         machine.snapshot = dict(session.snapshot)
         machine.quiet_since = _parse_instant(session.quiet_since)
         machine.started_at = _parse_instant(session.started_at)
-        if any(
-            manifest.manifest_id == machine.session_id
-            for manifest in replay.manifests
+        machine._validate_restored_session(replay)
+        observed_times = [
+            instant
+            for instant in (machine.started_at, machine.quiet_since)
+            if instant is not None
+        ]
+        machine._last_observed_at = max(observed_times, default=None)
+
+        if (
+            not replay.initialized
+            and session.state is not SessionState.SKIP_CURRENT_SESSION
         ):
+            return cls(initialized=False, id_factory=machine.id_factory)
+        if replay.initialized and session.state is SessionState.BASELINING:
+            return cls(initialized=True, id_factory=machine.id_factory)
+        if session.state is SessionState.READY:
+            machine.state = SessionState.SETTLING
+        matching_manifest = next((
+            manifest
+            for manifest in replay.manifests
+            if manifest.manifest_id == machine.session_id
+        ), None)
+        if matching_manifest is not None:
+            settled_at = _parse_instant(matching_manifest.settled_at)
+            if (
+                machine._last_observed_at is None
+                or settled_at > machine._last_observed_at
+            ):
+                machine._last_observed_at = settled_at
             machine.state = SessionState.WAITING
             machine.session_id = None
             machine.session_paths.clear()
@@ -125,12 +150,23 @@ class SessionMonitorState:
     def observe(self, now: datetime, room: RoomState | None, snapshot: Snapshot):
         if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError('now must be timezone-aware')
+        if self._last_observed_at is not None and now < self._last_observed_at:
+            raise ValueError('observation time cannot be earlier than prior state')
         current = _normalize_snapshot(snapshot)
 
         if room is None:
+            self._last_observed_at = now
+            if self.state in {
+                SessionState.SKIP_CURRENT_SESSION,
+                SessionState.RECORDING,
+                SessionState.SETTLING,
+                SessionState.READY,
+            }:
+                self._restart_quiet_pending = True
             return self._decision(reason='room state unavailable')
         if not isinstance(room, RoomState):
             raise TypeError('room must be RoomState or None')
+        self._last_observed_at = now
 
         if self.state is SessionState.BASELINING:
             return self._observe_first(now, room, current)
@@ -165,6 +201,57 @@ class SessionMonitorState:
             self.quiet_since,
             self.started_at,
         )
+
+    def _validate_restored_session(self, replay):
+        state = self.state
+        active_states = {
+            SessionState.SKIP_CURRENT_SESSION,
+            SessionState.RECORDING,
+            SessionState.SETTLING,
+            SessionState.READY,
+        }
+        if state in active_states:
+            if not isinstance(self.session_id, str) or not self.session_id:
+                raise ValueError('active session state requires a session_id')
+            if self.started_at is None:
+                raise ValueError('active session state requires started_at')
+            if self.quiet_since is None:
+                raise ValueError('active session state requires quiet_since')
+            if self.quiet_since < self.started_at:
+                raise ValueError(
+                    'active session state quiet_since cannot precede started_at'
+                )
+            if (
+                state is SessionState.SKIP_CURRENT_SESSION
+                and replay.initialized
+            ):
+                raise ValueError(
+                    'skip-current-session state cannot already be initialized'
+                )
+            if (
+                state is not SessionState.SKIP_CURRENT_SESSION
+                and not replay.initialized
+            ):
+                raise ValueError(
+                    'active session state requires initialized journal'
+                )
+            return
+
+        if state in {SessionState.WAITING, SessionState.BASELINING}:
+            if any((
+                self.session_id is not None,
+                bool(self.session_paths),
+                self.quiet_since is not None,
+                self.started_at is not None,
+            )):
+                raise ValueError('idle session state contains stale session state')
+            if state is SessionState.BASELINING and self.snapshot:
+                raise ValueError(
+                    'baselining session state contains stale session state'
+                )
+            return
+
+        raise ValueError(f'unsupported restored session state: {state.value}')
 
     def _observe_first(self, now, room, current):
         self.snapshot = current
@@ -256,6 +343,14 @@ class SessionMonitorState:
         changed = current != self.snapshot
         self.session_paths.update(_changed_paths(self.snapshot, current))
         self.snapshot = current
+        if self._restart_quiet_pending:
+            self._restart_quiet_pending = False
+            self.quiet_since = now
+            self.state = (
+                SessionState.RECORDING
+                if room.active else SessionState.SETTLING
+            )
+            return self._decision()
         if room.active:
             self.state = SessionState.RECORDING
             if changed:
@@ -317,6 +412,10 @@ class BililiveSessionMonitor:
                 return decision
 
             if decision.state is SessionState.READY:
+                if not decision.ready_paths:
+                    self.machine.rearm()
+                    self._append_session_state()
+                    return decision
                 self.journal.append(
                     'session_manifest_ready',
                     manifest_id=decision.session_id,
@@ -324,6 +423,7 @@ class BililiveSessionMonitor:
                     started_at=decision.started_at.isoformat(),
                     settled_at=now.isoformat(),
                     flv_paths=decision.ready_paths,
+                    snapshot=dict(decision.snapshot),
                 )
                 self.machine.rearm()
                 self._append_session_state()

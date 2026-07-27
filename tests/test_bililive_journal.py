@@ -348,6 +348,7 @@ def test_manifests_are_replaced_retained_and_ordered_deterministically(tmp_path)
         started_at='2026-07-27T11:00:00+00:00',
         settled_at='2026-07-27T14:00:00+00:00',
         flv_paths=('/later.flv',),
+        snapshot={'/later.flv': (400, 4)},
     )
     journal.append(
         'session_manifest_ready',
@@ -356,6 +357,7 @@ def test_manifests_are_replaced_retained_and_ordered_deterministically(tmp_path)
         started_at='2026-07-27T08:00:00+00:00',
         settled_at='2026-07-27T12:00:00+00:00',
         flv_paths=['/first.flv'],
+        snapshot={'/first.flv': (100, 1)},
     )
     journal.append(
         'session_manifest_ready',
@@ -364,6 +366,7 @@ def test_manifests_are_replaced_retained_and_ordered_deterministically(tmp_path)
         started_at='2026-07-27T09:00:00+00:00',
         settled_at='2026-07-27T12:00:00+00:00',
         flv_paths=['/second.flv'],
+        snapshot={'/second.flv': (200, 2)},
     )
     journal.append(
         'session_manifest_ready',
@@ -372,6 +375,7 @@ def test_manifests_are_replaced_retained_and_ordered_deterministically(tmp_path)
         started_at='2026-07-27T11:00:00+00:00',
         settled_at='2026-07-27T14:00:00+00:00',
         flv_paths=['/later.flv'],
+        snapshot={'/later.flv': [400, 4]},
     )
     journal.append('session_manifest_completed', manifest_id='first')
 
@@ -741,6 +745,7 @@ def test_duplicate_ready_event_does_not_reopen_completed_manifest(tmp_path):
         'started_at': '2026-07-27T08:00:00+00:00',
         'settled_at': '2026-07-27T12:00:00+00:00',
         'flv_paths': ('/video.flv',),
+        'snapshot': {'/video.flv': (100, 200)},
     }
     journal.append('session_manifest_ready', **ready)
     journal.append('session_manifest_completed', manifest_id='session-1')
@@ -910,6 +915,7 @@ def test_uncompleted_manifest_conflict_is_rejected(tmp_path):
         'started_at': '2026-07-27T08:00:00+00:00',
         'settled_at': '2026-07-27T12:00:00+00:00',
         'flv_paths': ('/video.flv',),
+        'snapshot': {'/video.flv': (100, 200)},
     }
     journal.append('session_manifest_ready', **ready)
     before = journal.path.read_bytes()
@@ -917,7 +923,11 @@ def test_uncompleted_manifest_conflict_is_rejected(tmp_path):
     with pytest.raises(ValueError, match='different data'):
         journal.append(
             'session_manifest_ready',
-            **dict(ready, flv_paths=('/different.flv',)),
+            **dict(
+                ready,
+                flv_paths=('/different.flv',),
+                snapshot={'/different.flv': (100, 200)},
+            ),
         )
 
     assert journal.path.read_bytes() == before
@@ -1142,6 +1152,7 @@ def test_manifests_sort_by_instant_across_offsets_and_accept_z(tmp_path):
         started_at='2026-07-27T03:00:00Z',
         settled_at='2026-07-27T04:00:00+00:00',
         flv_paths=('/later.flv',),
+        snapshot={'/later.flv': (200, 2)},
     )
     journal.append(
         'session_manifest_ready',
@@ -1150,6 +1161,7 @@ def test_manifests_sort_by_instant_across_offsets_and_accept_z(tmp_path):
         started_at='2026-07-27T11:00:00+09:00',
         settled_at='2026-07-27T12:00:00+09:00',
         flv_paths=('/earlier.flv',),
+        snapshot={'/earlier.flv': (100, 1)},
     )
 
     assert [item.manifest_id for item in journal.replay().manifests] == [
@@ -1166,6 +1178,128 @@ def test_manifest_timestamps_reject_naive_values(tmp_path):
             started_at='2026-07-27T08:00:00',
             settled_at='2026-07-27T12:00:00+00:00',
             flv_paths=('/video.flv',),
+        )
+
+
+def test_manifest_requires_frozen_identity_for_every_flv(tmp_path):
+    with pytest.raises((TypeError, ValueError), match='snapshot'):
+        JsonlJournal(tmp_path / 'state.jsonl').append(
+            'session_manifest_ready',
+            manifest_id='session-1',
+            room_id=123,
+            started_at='2026-07-27T08:00:00+00:00',
+            settled_at='2026-07-27T12:00:00+00:00',
+            flv_paths=('/video.flv',),
+        )
+
+
+def test_manifest_snapshot_replays_as_copied_read_only_mapping(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    snapshot = {
+        '/video.flv': (100, 200),
+        '/video.xml': (10, 20),
+    }
+    journal.append(
+        'session_manifest_ready',
+        manifest_id='session-1',
+        room_id=123,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:00:00+00:00',
+        flv_paths=('/video.flv',),
+        snapshot=snapshot,
+    )
+    snapshot.clear()
+
+    frozen = journal.replay().manifests[0].snapshot
+
+    assert frozen == {
+        '/video.flv': (100, 200),
+        '/video.xml': (10, 20),
+    }
+    with pytest.raises(TypeError):
+        frozen['/other.flv'] = (1, 2)
+
+
+def test_duplicate_manifest_id_rejects_snapshot_conflict(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    ready = {
+        'manifest_id': 'session-1',
+        'room_id': 123,
+        'started_at': '2026-07-27T08:00:00+00:00',
+        'settled_at': '2026-07-27T12:00:00+00:00',
+        'flv_paths': ('/video.flv',),
+        'snapshot': {'/video.flv': (100, 200)},
+    }
+    journal.append('session_manifest_ready', **ready)
+
+    with pytest.raises(ValueError, match='different data'):
+        journal.append(
+            'session_manifest_ready',
+            **dict(ready, snapshot={'/video.flv': (101, 200)}),
+        )
+
+
+@pytest.mark.parametrize(
+    'snapshot',
+    [
+        {'/video.flv': [100]},
+        {'/video.flv': [True, 200]},
+        {'/video.flv': [-1, 200]},
+        {'/video.flv': '100,200'},
+    ],
+)
+def test_manifest_rejects_malformed_snapshot_identity(tmp_path, snapshot):
+    with pytest.raises((TypeError, ValueError), match='snapshot'):
+        JsonlJournal(tmp_path / 'state.jsonl').append(
+            'session_manifest_ready',
+            manifest_id='session-1',
+            room_id=123,
+            started_at='2026-07-27T08:00:00+00:00',
+            settled_at='2026-07-27T12:00:00+00:00',
+            flv_paths=('/video.flv',),
+            snapshot=snapshot,
+        )
+
+
+def test_manifest_rejects_duplicate_normalized_snapshot_paths(tmp_path):
+    with pytest.raises(ValueError, match='duplicate normalized'):
+        JsonlJournal(tmp_path / 'state.jsonl').append(
+            'session_manifest_ready',
+            manifest_id='session-1',
+            room_id=123,
+            started_at='2026-07-27T08:00:00+00:00',
+            settled_at='2026-07-27T12:00:00+00:00',
+            flv_paths=('/recording/video.flv',),
+            snapshot={
+                '/recording/video.flv': (100, 200),
+                '/recording/parts/../video.flv': (100, 200),
+            },
+        )
+
+
+def test_manifest_rejects_settlement_before_session_start(tmp_path):
+    with pytest.raises(ValueError, match='before started_at'):
+        JsonlJournal(tmp_path / 'state.jsonl').append(
+            'session_manifest_ready',
+            manifest_id='session-1',
+            room_id=123,
+            started_at='2026-07-27T12:00:00+00:00',
+            settled_at='2026-07-27T11:59:59+00:00',
+            flv_paths=('/video.flv',),
+            snapshot={'/video.flv': (100, 200)},
+        )
+
+
+def test_manifest_rejects_empty_flv_paths(tmp_path):
+    with pytest.raises(ValueError, match='at least one'):
+        JsonlJournal(tmp_path / 'state.jsonl').append(
+            'session_manifest_ready',
+            manifest_id='session-1',
+            room_id=123,
+            started_at='2026-07-27T08:00:00+00:00',
+            settled_at='2026-07-27T12:00:00+00:00',
+            flv_paths=(),
+            snapshot={'/video.xml': (10, 20)},
         )
 
 

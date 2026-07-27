@@ -85,7 +85,18 @@ class JournalManifest:
     started_at: str
     settled_at: str
     flv_paths: tuple[str, ...]
+    snapshot: Mapping[str, tuple[int, int]]
     completed: bool = False
+
+    def __post_init__(self):
+        object.__setattr__(
+            self,
+            'snapshot',
+            MappingProxyType({
+                path: tuple(identity)
+                for path, identity in self.snapshot.items()
+            }),
+        )
 
 
 @dataclass(frozen=True)

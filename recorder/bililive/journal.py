@@ -367,12 +367,19 @@ def _validate_manifest_id(record, event):
     _require_non_empty_string(record, 'manifest_id', event)
 
 
+def _normalized_manifest_path(path):
+    return os.path.abspath(os.path.normpath(path))
+
+
 def _reduce_manifest_ready(replay, record):
     event = 'session_manifest_ready'
     _validate_manifest_id(record, event)
+    instants = {}
     for name in ('started_at', 'settled_at'):
         _require_non_empty_string(record, name, event)
-        _parse_aware_instant(record[name], name, event)
+        instants[name] = _parse_aware_instant(record[name], name, event)
+    if instants['settled_at'] < instants['started_at']:
+        raise ValueError(f'{event} settled_at cannot be before started_at')
     room_id = record.get('room_id')
     if isinstance(room_id, bool) or not isinstance(room_id, int):
         raise TypeError(f'{event} requires an integer room_id')
@@ -381,8 +388,52 @@ def _reduce_manifest_ready(replay, record):
         not isinstance(path, str) or not path for path in flv_paths
     ):
         raise TypeError(f'{event} requires a list of non-empty flv_paths')
-    if len(set(flv_paths)) != len(flv_paths):
+    if not flv_paths:
+        raise ValueError(f'{event} requires at least one flv_path')
+    normalized_flv_paths = [
+        _normalized_manifest_path(path) for path in flv_paths
+    ]
+    if (
+        len(set(flv_paths)) != len(flv_paths)
+        or len(set(normalized_flv_paths)) != len(normalized_flv_paths)
+    ):
         raise ValueError(f'{event} contains duplicate flv_paths')
+
+    raw_snapshot = record.get('snapshot')
+    if not isinstance(raw_snapshot, Mapping):
+        raise TypeError(f'{event} requires a snapshot object')
+    raw_snapshot = dict(raw_snapshot)
+    record['snapshot'] = raw_snapshot
+    snapshot = {}
+    normalized_snapshot_paths = set()
+    for path, identity in raw_snapshot.items():
+        if not isinstance(path, str) or not path:
+            raise TypeError(f'{event} snapshot paths must be non-empty strings')
+        normalized_path = _normalized_manifest_path(path)
+        if normalized_path in normalized_snapshot_paths:
+            raise ValueError(
+                f'{event} snapshot contains duplicate normalized paths'
+            )
+        normalized_snapshot_paths.add(normalized_path)
+        if not isinstance(identity, (list, tuple)) or len(identity) != 2:
+            raise TypeError(
+                f'{event} snapshot identities must be [size, mtime_ns] lists'
+            )
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for value in identity
+        ):
+            raise TypeError(
+                f'{event} snapshot size and mtime_ns must be '
+                'non-negative integers'
+            )
+        snapshot[path] = tuple(identity)
+    missing_identities = [path for path in flv_paths if path not in snapshot]
+    if missing_identities:
+        raise ValueError(
+            f'{event} snapshot is missing flv_path identities: '
+            + ', '.join(missing_identities)
+        )
 
     manifest = JournalManifest(
         manifest_id=record['manifest_id'],
@@ -390,6 +441,7 @@ def _reduce_manifest_ready(replay, record):
         started_at=record['started_at'],
         settled_at=record['settled_at'],
         flv_paths=tuple(flv_paths),
+        snapshot=snapshot,
     )
     manifests = list(replay.manifests)
     for index, existing in enumerate(manifests):
