@@ -508,12 +508,16 @@ def test_restart_rejects_observation_before_durable_manifest_settlement(
 
 def _replay_with_active_session_and_manifest(
     *,
+    state=SessionState.SETTLING,
+    initialized=True,
     session_paths=('a.flv', 'a.xml'),
     session_snapshot=None,
     session_started=None,
+    quiet_since=None,
     manifest_paths=('a.flv',),
     manifest_snapshot=None,
     manifest_started=None,
+    manifest_settled=None,
 ):
     session_snapshot = session_snapshot or {
         'a.flv': (200, 2),
@@ -521,7 +525,9 @@ def _replay_with_active_session_and_manifest(
     }
     manifest_snapshot = manifest_snapshot or dict(session_snapshot)
     session_started = session_started or at(18).isoformat()
+    quiet_since = quiet_since or at(22).isoformat()
     manifest_started = manifest_started or session_started
+    manifest_settled = manifest_settled or at(22, 30).isoformat()
     return JournalReplay(
         files={},
         manifests=(
@@ -529,20 +535,20 @@ def _replay_with_active_session_and_manifest(
                 manifest_id='session-1',
                 room_id=123,
                 started_at=manifest_started,
-                settled_at=at(22, 30).isoformat(),
+                settled_at=manifest_settled,
                 flv_paths=manifest_paths,
                 snapshot=manifest_snapshot,
             ),
         ),
         session=JournalSessionState(
-            state=SessionState.SETTLING,
+            state=state,
             session_id='session-1',
             session_paths=session_paths,
             snapshot=session_snapshot,
-            quiet_since=at(22).isoformat(),
+            quiet_since=quiet_since,
             started_at=session_started,
         ),
-        initialized=True,
+        initialized=initialized,
     )
 
 
@@ -586,6 +592,47 @@ def test_restore_accepts_matching_manifest_start_time_with_equivalent_offset():
     replay = _replay_with_active_session_and_manifest(
         session_started='2026-07-27T18:00:00+09:00',
         manifest_started='2026-07-27T09:00:00+00:00',
+    )
+
+    restored = SessionMonitorState.restore(replay)
+
+    assert restored.state is SessionState.WAITING
+    assert restored.session_id is None
+
+
+@pytest.mark.parametrize(
+    ('state', 'initialized'),
+    [
+        (SessionState.SKIP_CURRENT_SESSION, False),
+        (SessionState.RECORDING, True),
+    ],
+)
+def test_restore_rejects_manifest_from_non_settled_active_state(
+    state, initialized
+):
+    replay = _replay_with_active_session_and_manifest(
+        state=state, initialized=initialized
+    )
+
+    with pytest.raises(ValueError, match='state'):
+        SessionMonitorState.restore(replay)
+
+
+def test_restore_rejects_manifest_settled_before_full_quiet_period():
+    replay = _replay_with_active_session_and_manifest(
+        manifest_settled=at(22, 29).isoformat()
+    )
+
+    with pytest.raises(ValueError, match='quiet period'):
+        SessionMonitorState.restore(replay)
+
+
+@pytest.mark.parametrize('state', [SessionState.SETTLING, SessionState.READY])
+def test_restore_accepts_manifest_at_exact_quiet_period_boundary(state):
+    replay = _replay_with_active_session_and_manifest(
+        state=state,
+        quiet_since=at(22).isoformat(),
+        manifest_settled=at(22, 30).isoformat(),
     )
 
     restored = SessionMonitorState.restore(replay)

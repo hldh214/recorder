@@ -128,6 +128,21 @@ class SessionMonitorState:
             if manifest.manifest_id == machine.session_id
         ), None)
         if matching_manifest is not None:
+            if session.state not in {
+                SessionState.SETTLING,
+                SessionState.READY,
+            }:
+                raise ValueError(
+                    'matching session manifest has an invalid recovery state'
+                )
+            settled_at = _parse_instant(matching_manifest.settled_at)
+            minimum_settled_at = machine.quiet_since + timedelta(
+                seconds=QUIET_PERIOD_SECONDS
+            )
+            if settled_at < minimum_settled_at:
+                raise ValueError(
+                    'matching session manifest precedes the full quiet period'
+                )
             expected_flv_paths = tuple(sorted(
                 path
                 for path in session.session_paths
@@ -148,7 +163,6 @@ class SessionMonitorState:
                 raise ValueError(
                     'matching session manifest has conflicting started_at'
                 )
-            settled_at = _parse_instant(matching_manifest.settled_at)
             if (
                 machine._last_observed_at is None
                 or settled_at > machine._last_observed_at
