@@ -363,6 +363,37 @@ def test_existing_remote_caption_and_playlist_skip_mutations(tmp_path):
     assert not caption_path.exists()
 
 
+def test_caption_refresh_uploads_even_when_old_remote_caption_exists(tmp_path):
+    video = make_video(tmp_path)
+    caption_path = tmp_path / 'recording.vtt'
+    caption_path.write_text('WEBVTT\n\n', encoding='utf8')
+    fingerprint = description_fingerprint('Base description')
+    youtube = FakeYoutube(caption_exists=True)
+
+    result = YoutubePublishService(
+        youtube, source_config(playlist=False)
+    ).publish_video(
+        video,
+        'bilibili',
+        '1829181560',
+        '2026-07-27 18:00:00',
+        caption=CaptionArtifact(caption_path, temporary=False),
+        checkpoint=PublishCheckpoint(
+            video_id='yt123',
+            video_uploaded=True,
+            description_updated=True,
+            description_fingerprint=fingerprint,
+            caption_refresh_required=True,
+        ),
+    )
+
+    assert result.status is PublishStatus.COMPLETE
+    assert result.caption_uploaded is True
+    assert youtube.caption_exists_calls == []
+    assert len(youtube.caption_calls) == 1
+    assert youtube.upload_calls == []
+
+
 @pytest.mark.parametrize(
     'config',
     [

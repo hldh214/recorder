@@ -289,7 +289,10 @@ def _file_event_updates(record, event, existing=None):
     elif event == 'fatal':
         updates.update(retry_at=None, attempt=0, stage=None, status=None)
     elif event == 'caption_uploaded':
-        updates['caption_uploaded'] = True
+        updates.update(
+            caption_uploaded=True,
+            caption_refresh_required=False,
+        )
     elif event == 'playlist_inserted':
         updates['playlist_inserted'] = True
     elif event == 'youtube_processed':
@@ -302,20 +305,90 @@ def _file_event_updates(record, event, existing=None):
     return updates
 
 
-def _validate_file_binding(files, state, existing=None):
+def _controlled_manifest_migration(replay, existing, state, event):
+    if event != 'file_ready':
+        raise ValueError('manifest migration requires file_ready classification')
+    old = next((
+        item for item in replay.manifests
+        if item.manifest_id == existing.manifest_id
+    ), None)
+    target = next((
+        item for item in replay.manifests
+        if item.manifest_id == state.manifest_id
+    ), None)
+    if old is None:
+        raise ValueError('manifest migration requires the old ready manifest')
+    if not old.invalidated:
+        raise ValueError(
+            'manifest migration requires an invalidated old manifest'
+        )
+    if old.replacement_manifest_id != state.manifest_id:
+        raise ValueError(
+            'manifest migration is outside the claimed replacement chain'
+        )
+    if target is None or target.invalidated or target.completed:
+        raise ValueError(
+            'manifest migration requires an active ready target manifest'
+        )
+    if old.room_id != target.room_id:
+        raise ValueError('manifest migration cannot cross rooms')
+    if _parse_aware_instant(
+        old.started_at, 'started_at', 'manifest migration'
+    ) != _parse_aware_instant(
+        target.started_at, 'started_at', 'manifest migration'
+    ):
+        raise ValueError('manifest migration has a conflicting session chain')
+    if _parse_aware_instant(
+        target.settled_at, 'settled_at', 'manifest migration'
+    ) < _parse_aware_instant(
+        old.invalidated_at, 'invalidated_at', 'manifest migration'
+    ):
+        raise ValueError('manifest migration target predates invalidation')
+    if state.file not in old.flv_paths or state.file not in target.flv_paths:
+        raise ValueError(
+            'manifest migration target does not contain the same file'
+        )
+    if any(
+        path not in target.flv_paths
+        or old.snapshot.get(path) != target.snapshot.get(path)
+        for path in old.flv_paths
+    ):
+        raise ValueError('manifest migration has conflicting frozen FLV identity')
+
+    xml_paths = {
+        os.path.splitext(path)[0] + '.xml' for path in old.flv_paths
+    }
+    if (
+        not old.changed_paths
+        or any(path not in xml_paths for path in old.changed_paths)
+    ):
+        raise ValueError('manifest migration requires an XML-only invalidation')
+    if not all(
+        old.snapshot.get(path) != target.snapshot.get(path)
+        for path in old.changed_paths
+    ):
+        raise ValueError('manifest migration target retains stale XML identity')
+    return os.path.splitext(state.file)[0] + '.xml' in old.changed_paths
+
+
+def _validate_file_binding(replay, state, existing=None, event=None):
+    caption_changed = False
     if existing is not None:
-        for field_name in ('manifest_id', 'file'):
-            old_value = getattr(existing, field_name)
-            new_value = getattr(state, field_name)
-            if old_value is not None and new_value != old_value:
-                raise ValueError(
-                    f'fingerprint {state.fingerprint!r} cannot change its '
-                    f'manifest/file binding'
-                )
+        if existing.file is not None and state.file != existing.file:
+            raise ValueError(
+                f'fingerprint {state.fingerprint!r} cannot change its file path'
+            )
+        if (
+            existing.manifest_id is not None
+            and state.manifest_id != existing.manifest_id
+        ):
+            caption_changed = _controlled_manifest_migration(
+                replay, existing, state, event
+            )
     if state.manifest_id is None or state.file is None:
-        return
+        return caption_changed
     binding = (state.manifest_id, state.file)
-    for other_fingerprint, other in files.items():
+    for other_fingerprint, other in replay.files.items():
         if other_fingerprint == state.fingerprint:
             continue
         if (other.manifest_id, other.file) == binding:
@@ -323,6 +396,7 @@ def _validate_file_binding(files, state, existing=None):
                 f'manifest/file binding {binding!r} belongs to both '
                 f'{other_fingerprint!r} and {state.fingerprint!r}'
             )
+    return caption_changed
 
 
 def _validate_optional_string(record, name):
@@ -1049,6 +1123,29 @@ class JsonlJournal:
             )
         else:
             state = replace(existing, event=state_event, **updates)
-        _validate_file_binding(replay.files, state, existing)
+        caption_changed = _validate_file_binding(
+            replay, state, existing, event
+        )
+        if (
+            existing is not None
+            and existing.manifest_id != state.manifest_id
+        ):
+            if caption_changed:
+                state = replace(
+                    state,
+                    caption_uploaded=False,
+                    caption_refresh_required=True,
+                    caption_status='pending',
+                    retry_at=None,
+                    attempt=0,
+                    stage=None,
+                    status=None,
+                    error_stage=None,
+                    error_message=None,
+                )
+            else:
+                state = replace(
+                    state, caption_status=existing.caption_status
+                )
         replay.files[fingerprint] = state
         return replay

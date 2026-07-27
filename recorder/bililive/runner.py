@@ -297,6 +297,7 @@ class BililivePublishRunner:
             video_upload_rejected=state.video_upload_rejected,
             video_uploaded=state.video_id is not None,
             caption_uploaded=state.caption_uploaded,
+            caption_refresh_required=state.caption_refresh_required,
             playlist_inserted=state.playlist_inserted,
             youtube_processed=state.youtube_processed,
             description_updated=state.description_updated,

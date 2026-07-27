@@ -49,6 +49,7 @@ class PublishCheckpoint:
     video_upload_rejected: bool = False
     video_uploaded: bool = False
     caption_uploaded: bool = False
+    caption_refresh_required: bool = False
     playlist_inserted: bool = False
     youtube_processed: bool = False
     description_updated: bool = False
@@ -152,6 +153,7 @@ class YoutubePublishService:
         video_id = checkpoint.video_id
         video_uploaded = checkpoint.video_uploaded or video_id is not None
         caption_uploaded = checkpoint.caption_uploaded
+        caption_refresh_required = checkpoint.caption_refresh_required
         playlist_inserted = checkpoint.playlist_inserted
         youtube_processed = checkpoint.youtube_processed
         fingerprint = checkpoint.description_fingerprint
@@ -353,13 +355,17 @@ class YoutubePublishService:
             description_updated = True
 
         if caption_required:
-            if caption_uploaded:
+            if caption_uploaded and not caption_refresh_required:
                 caption_status = CAPTION_UPLOAD_SUCCESS
             else:
-                try:
-                    exists = self.youtube.caption_exists(video_id, self.CAPTION_NAME)
-                except Exception as exception:
-                    return error_result(exception, 'caption')
+                exists = False
+                if not caption_refresh_required:
+                    try:
+                        exists = self.youtube.caption_exists(
+                            video_id, self.CAPTION_NAME
+                        )
+                    except Exception as exception:
+                        return error_result(exception, 'caption')
 
                 if exists:
                     caption_uploaded = True
@@ -390,6 +396,7 @@ class YoutubePublishService:
                         )
                     caption_uploaded = True
                     caption_status = CAPTION_UPLOAD_SUCCESS
+                    caption_refresh_required = False
 
                 checkpoint_error = checkpoint_stage('caption_uploaded')
                 if checkpoint_error is not None:

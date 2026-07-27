@@ -4,6 +4,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import FrozenInstanceError
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 
@@ -223,6 +224,111 @@ def test_exact_duplicate_classification_keeps_same_fingerprint_binding(
     assert state.manifest_id == 'session-1'
     assert state.file == '/recording/video.flv'
     assert state.video_id == 'yt123'
+
+
+@pytest.mark.parametrize(
+    'invalid_migration',
+    [
+        'direct',
+        'unclaimed',
+        'not-ready',
+        'wrong-path',
+        'cross-room',
+        'conflicting-identity',
+    ],
+)
+def test_raw_replay_rejects_invalid_manifest_migration(
+    tmp_path, invalid_migration
+):
+    path = tmp_path / 'state.jsonl'
+    journal = JsonlJournal(path)
+    video = '/recording/video.flv'
+    xml = '/recording/video.xml'
+    journal.append('initialized')
+    journal.append(
+        'session_state',
+        room_id=123,
+        state='waiting',
+        session_id=None,
+        session_paths=(),
+        snapshot={video: (100, 1), xml: (10, 1)},
+        quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_manifest_ready',
+        manifest_id='old-session',
+        room_id=123,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:00:00+00:00',
+        flv_paths=(video,),
+        snapshot={video: (100, 1), xml: (10, 1)},
+    )
+    journal.append(
+        'file_ready',
+        fingerprint='fp1',
+        manifest_id='old-session',
+        file=video,
+        xml_file=xml,
+    )
+
+    if invalid_migration != 'direct':
+        journal.append(
+            'session_manifest_changed',
+            manifest_id='old-session',
+            detected_at='2026-07-27T12:05:00+00:00',
+            reason='XML changed',
+            changed_paths=(xml,),
+        )
+    if invalid_migration not in {'direct', 'unclaimed'}:
+        journal.append(
+            'session_resettle_started',
+            source_manifest_id='old-session',
+            replacement_manifest_id='replacement-session',
+            room_id=123,
+            state='settling',
+            session_paths=(video, xml),
+            snapshot={video: (100, 1), xml: (20, 2)},
+            quiet_since='2026-07-27T12:10:00+00:00',
+            started_at='2026-07-27T08:00:00+00:00',
+        )
+
+    migration_file = video
+    target_snapshot = {video: (100, 1), xml: (20, 2)}
+    if invalid_migration == 'wrong-path':
+        migration_file = '/recording/other.flv'
+        target_snapshot = {migration_file: (100, 1)}
+    elif invalid_migration == 'conflicting-identity':
+        target_snapshot = {video: (101, 2), xml: (20, 2)}
+
+    target_record = {
+        'event': 'session_manifest_ready',
+        'manifest_id': 'replacement-session',
+        'room_id': 456 if invalid_migration == 'cross-room' else 123,
+        'started_at': '2026-07-27T08:00:00+00:00',
+        'settled_at': '2026-07-27T12:40:00+00:00',
+        'flv_paths': [migration_file],
+        'snapshot': target_snapshot,
+    }
+    migration_record = {
+        'event': 'file_ready',
+        'fingerprint': 'fp1',
+        'manifest_id': 'replacement-session',
+        'file': migration_file,
+        'xml_file': str(Path(migration_file).with_suffix('.xml')),
+    }
+    raw_records = []
+    if invalid_migration != 'not-ready':
+        raw_records.append(target_record)
+    raw_records.append(migration_record)
+    path.write_text(
+        path.read_text(encoding='utf8')
+        + ''.join(json.dumps(record) + '\n' for record in raw_records),
+        encoding='utf8',
+    )
+
+    with pytest.raises(JournalCorruptError):
+        journal.replay()
 
 
 def test_manifest_and_resettle_collections_are_defensively_frozen():

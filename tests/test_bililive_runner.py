@@ -12,8 +12,10 @@ from recorder.bililive.models import (
     JournalReplay,
     JournalSessionState,
     MediaInfo,
+    RoomState,
     SessionState,
 )
+from recorder.bililive.monitor import BililiveSessionMonitor
 from recorder.bililive.runner import BililivePublishRunner
 from recorder.danmaku.bilibili.bililive_xml import BililiveCaptionArtifact
 from recorder.publishing.youtube import PublishResult, PublishStatus
@@ -1344,6 +1346,126 @@ def test_post_remote_source_change_preserves_checkpoints_and_resettles(
 
     assert runner.run_pending_once(replay) is None
     assert publisher.calls == 1
+
+
+def test_xml_only_replacement_reuses_video_and_backfills_caption(tmp_path):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    classified = ready_media(tmp_path)
+    xml_path = classified.media.xml_path
+    xml_path.write_text('<i/>')
+    flv_identity = (
+        classified.media.path.stat().st_size,
+        classified.media.path.stat().st_mtime_ns,
+    )
+    old_xml_identity = (xml_path.stat().st_size, xml_path.stat().st_mtime_ns)
+    journal.append('initialized')
+    journal.append(
+        'session_state',
+        room_id=ROOM_ID,
+        state='waiting',
+        session_id=None,
+        session_paths=(),
+        snapshot={
+            str(classified.media.path): flv_identity,
+            str(xml_path): old_xml_identity,
+        },
+        quiet_since=None,
+        started_at=None,
+    )
+    append_manifest(journal, 'old-session', classified, NOW)
+    journal.append('video_uploaded', fingerprint='fp1', video_id='yt123')
+    journal.append(
+        'description_updated',
+        fingerprint='fp1',
+        description_fingerprint='old-description',
+    )
+    journal.append(
+        'caption_status', fingerprint='fp1', caption_status='uploaded'
+    )
+    journal.append('caption_uploaded', fingerprint='fp1')
+    journal.append('playlist_inserted', fingerprint='fp1')
+    journal.append('youtube_processed', fingerprint='fp1')
+
+    xml_path.write_text('<i><d p="1">new</d></i>')
+    changed_xml_identity = (
+        xml_path.stat().st_size,
+        xml_path.stat().st_mtime_ns,
+    )
+    invalidator = BililivePublishRunner(
+        journal=journal,
+        publisher=FailIfCalledPublisher(),
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW + timedelta(minutes=5),
+    )
+
+    invalidated = invalidator.run_pending_once(journal.replay())
+    assert invalidated.status == 'resettle_pending'
+
+    monitor = BililiveSessionMonitor(
+        journal=journal,
+        room_id=ROOM_ID,
+        id_factory=lambda: 'replacement-session',
+    )
+    current = {
+        str(classified.media.path): flv_identity,
+        str(xml_path): changed_xml_identity,
+    }
+    claimed = monitor.observe(
+        NOW + timedelta(minutes=10), RoomState(False, False), current
+    )
+    ready = monitor.observe(
+        NOW + timedelta(minutes=40), RoomState(False, False), current
+    )
+    assert claimed.state is SessionState.SETTLING
+    assert ready.state is SessionState.READY
+
+    caption_path = tmp_path / 'caption.vtt'
+    caption_path.write_text('WEBVTT\n\n')
+    publisher = FakePublisher([
+        publish_result(
+            caption_uploaded=True,
+            caption_status='uploaded',
+            description_fingerprint='new-description',
+        )
+    ])
+    runner = BililivePublishRunner(
+        journal=journal,
+        publisher=publisher,
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW + timedelta(minutes=41),
+        probe=lambda path: classified.media,
+        classifier=lambda media: {'fp1': ClassifiedMedia(
+            media=media[0], status='ready', reason='ready'
+        )},
+        caption_provider=lambda *args: BililiveCaptionArtifact(
+            path=caption_path, status='ready'
+        ),
+    )
+
+    result = runner.run_pending_once(journal.replay())
+
+    assert result.status == 'complete'
+    assert len(publisher.calls) == 1
+    checkpoint = publisher.calls[0]['checkpoint']
+    assert checkpoint.video_id == 'yt123'
+    assert checkpoint.caption_uploaded is False
+    assert checkpoint.caption_refresh_required is True
+    assert checkpoint.playlist_inserted is True
+    assert checkpoint.youtube_processed is True
+    assert checkpoint.description_fingerprint == 'old-description'
+    assert publisher.calls[0]['before_video_upload'] is None
+    replay = journal.replay()
+    state = replay.files['fp1']
+    assert state.manifest_id == 'replacement-session'
+    assert state.video_id == 'yt123'
+    assert state.caption_uploaded is True
+    assert state.caption_refresh_required is False
+    old, replacement = replay.manifests
+    assert old.invalidated is True
+    assert old.replacement_manifest_id == replacement.manifest_id
+    assert replacement.completed is True
 
 
 def test_missing_caption_keeps_manifest_open_without_blocking_video_stages(tmp_path):
