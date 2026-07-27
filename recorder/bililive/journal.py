@@ -34,6 +34,11 @@ _INITIAL_FILE_EVENTS = frozenset({
     'ignored_tiny',
     'ignored_invalid_tail',
 })
+_IGNORED_FILE_EVENTS = frozenset({
+    'ignored_invalid',
+    'ignored_tiny',
+    'ignored_invalid_tail',
+})
 _FILE_EVENT_UPDATES = {
     'baseline': frozenset({'manifest_id', 'file', 'xml_file'}),
     'file_ready': frozenset({
@@ -42,15 +47,15 @@ _FILE_EVENT_UPDATES = {
     }),
     'ignored_invalid': frozenset({
         'manifest_id', 'file', 'xml_file', 'title', 'start_time', 'duration',
-        'caption_status', 'error_stage', 'error_message',
+        'caption_status', 'reason', 'error_stage', 'error_message',
     }),
     'ignored_tiny': frozenset({
         'manifest_id', 'file', 'xml_file', 'title', 'start_time', 'duration',
-        'caption_status', 'error_stage', 'error_message',
+        'caption_status', 'reason', 'error_stage', 'error_message',
     }),
     'ignored_invalid_tail': frozenset({
         'manifest_id', 'file', 'xml_file', 'title', 'start_time', 'duration',
-        'caption_status', 'error_stage', 'error_message',
+        'caption_status', 'reason', 'error_stage', 'error_message',
     }),
     'upload_started': frozenset({
         'file', 'xml_file', 'title', 'duration', 'description_fingerprint',
@@ -99,11 +104,13 @@ def _validate_file_record(record, event, existing, enforce_history=True):
         and existing.video_id is None
     ):
         raise ValueError(f'{event} requires an existing video_id')
+    if event in _IGNORED_FILE_EVENTS:
+        _require_non_empty_string(record, 'reason', event)
 
     string_fields = {
         'manifest_id', 'file', 'xml_file', 'title', 'start_time', 'video_id',
         'caption_status', 'description_fingerprint', 'upload_started_at',
-        'retry_at', 'stage', 'status', 'error_stage',
+        'retry_at', 'stage', 'status', 'reason', 'error_stage',
     }
     for name in string_fields.intersection(_FILE_EVENT_UPDATES[event], record):
         value = record[name]

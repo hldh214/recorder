@@ -511,11 +511,48 @@ def test_known_ignored_file_events_create_replayable_state(tmp_path, event):
         fingerprint=f'fp-{event}',
         file=f'/{event}.flv',
         reason='measured classification reason',
+        measured_size=123456,
     )
 
     state = journal.replay().files[f'fp-{event}']
     assert state.event == event
+    assert state.reason == 'measured classification reason'
     assert state.error_message == 'measured classification reason'
+    assert json.loads(journal.path.read_text(encoding='utf8'))[
+        'measured_size'
+    ] == 123456
+
+
+@pytest.mark.parametrize('reason', [None, '', 123])
+def test_ignored_event_invalid_reason_is_rejected_before_append(tmp_path, reason):
+    path = tmp_path / 'state.jsonl'
+    fields = {
+        'fingerprint': 'fp1',
+        'file': '/video.flv',
+    }
+    if reason is not None:
+        fields['reason'] = reason
+
+    with pytest.raises(TypeError, match='reason'):
+        JsonlJournal(path).append('ignored_invalid', **fields)
+
+    assert not path.exists()
+
+
+@pytest.mark.parametrize('reason', [None, '', 123])
+def test_ignored_event_invalid_reason_is_corruption_on_replay(tmp_path, reason):
+    record = {
+        'event': 'ignored_tiny',
+        'fingerprint': 'fp1',
+        'file': '/video.flv',
+    }
+    if reason is not None:
+        record['reason'] = reason
+    path = tmp_path / 'state.jsonl'
+    path.write_text(json.dumps(record) + '\n', encoding='utf8')
+
+    with pytest.raises(JournalCorruptError, match='line 1'):
+        JsonlJournal(path).replay()
 
 
 @pytest.mark.parametrize(
