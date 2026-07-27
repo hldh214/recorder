@@ -1,5 +1,7 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
+from types import MappingProxyType
 
 
 class SessionState(str, Enum):
@@ -48,6 +50,7 @@ class JournalFileState:
     ambiguous: bool = False
     error_stage: str | None = None
     error_message: str | None = None
+    deleted_paths: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -65,14 +68,22 @@ class JournalSessionState:
     state: SessionState
     session_id: str | None
     session_paths: tuple[str, ...]
-    snapshot: dict[str, tuple[int, int]]
+    snapshot: Mapping[str, tuple[int, int]]
     quiet_since: str | None
     started_at: str | None
+
+    def __post_init__(self):
+        object.__setattr__(
+            self, 'snapshot', MappingProxyType(dict(self.snapshot))
+        )
 
 
 @dataclass(frozen=True)
 class JournalReplay:
-    files: dict[str, JournalFileState]
+    files: Mapping[str, JournalFileState]
     manifests: tuple[JournalManifest, ...]
     session: JournalSessionState
     initialized: bool
+
+    def __post_init__(self):
+        object.__setattr__(self, 'files', MappingProxyType(dict(self.files)))

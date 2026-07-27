@@ -1,3 +1,4 @@
+import errno
 import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -13,7 +14,13 @@ from recorder.bililive.journal import (
     ProcessLock,
     baseline_fingerprint,
 )
-from recorder.bililive.models import RoomState, SessionState
+from recorder.bililive.models import (
+    JournalFileState,
+    JournalReplay,
+    JournalSessionState,
+    RoomState,
+    SessionState,
+)
 
 
 def test_journal_replays_cumulative_latest_file_state(tmp_path):
@@ -292,11 +299,18 @@ def test_session_state_and_initialized_events_restore_json_tuple_shapes(tmp_path
     assert replay.session.started_at == '2026-07-27T08:00:00+00:00'
 
 
-def test_baseline_event_marks_journal_initialized(tmp_path):
+def test_partial_baseline_restart_remains_uninitialized_until_explicit_marker(
+    tmp_path,
+):
     journal = JsonlJournal(tmp_path / 'state.jsonl')
     journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
 
-    assert journal.replay().initialized is True
+    restarted = JsonlJournal(journal.path).replay()
+    assert restarted.initialized is False
+    assert set(restarted.files) == {'baseline:1'}
+
+    journal.append('initialized')
+    assert JsonlJournal(journal.path).replay().initialized is True
 
 
 def test_manifests_are_replaced_retained_and_ordered_deterministically(tmp_path):
@@ -329,9 +343,9 @@ def test_manifests_are_replaced_retained_and_ordered_deterministically(tmp_path)
         'session_manifest_ready',
         manifest_id='later',
         room_id=123,
-        started_at='2026-07-27T10:30:00+00:00',
-        settled_at='2026-07-27T13:00:00+00:00',
-        flv_paths=['/later-replaced.flv'],
+        started_at='2026-07-27T11:00:00+00:00',
+        settled_at='2026-07-27T14:00:00+00:00',
+        flv_paths=['/later.flv'],
     )
     journal.append('session_manifest_completed', manifest_id='first')
 
@@ -342,7 +356,7 @@ def test_manifests_are_replaced_retained_and_ordered_deterministically(tmp_path)
     ]
     assert manifests[0].completed is True
     assert manifests[1].completed is False
-    assert manifests[2].flv_paths == ('/later-replaced.flv',)
+    assert manifests[2].flv_paths == ('/later.flv',)
 
 
 def test_manifest_completion_without_ready_event_is_corruption(tmp_path):
@@ -678,8 +692,9 @@ def test_source_deleted_requires_path_and_reason_but_retains_file_identity(tmp_p
     )
 
     state = journal.replay().files['baseline:1']
-    assert state.event == 'source_deleted'
+    assert state.event == 'baseline'
     assert state.file == '/video.flv'
+    assert state.deleted_paths == ('/video.flv',)
 
 
 def test_source_deleted_without_path_is_rejected_before_append(tmp_path):
@@ -798,3 +813,331 @@ def test_extra_diagnostic_fields_are_accepted_without_changing_state_schema(
     assert record['measured_size'] == 123456
     assert record['diagnostics'] == {'probe': 'clean', 'streams': 2}
     assert journal.replay().files['fp1'].event == 'file_ready'
+
+
+def test_uncompleted_manifest_conflict_is_rejected(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    ready = {
+        'manifest_id': 'session-1',
+        'room_id': 123,
+        'started_at': '2026-07-27T08:00:00+00:00',
+        'settled_at': '2026-07-27T12:00:00+00:00',
+        'flv_paths': ('/video.flv',),
+    }
+    journal.append('session_manifest_ready', **ready)
+    before = journal.path.read_bytes()
+
+    with pytest.raises(ValueError, match='different data'):
+        journal.append(
+            'session_manifest_ready',
+            **dict(ready, flv_paths=('/different.flv',)),
+        )
+
+    assert journal.path.read_bytes() == before
+
+
+def test_manifest_rejects_duplicate_flv_paths(tmp_path):
+    path = tmp_path / 'state.jsonl'
+
+    with pytest.raises(ValueError, match='duplicate'):
+        JsonlJournal(path).append(
+            'session_manifest_ready',
+            manifest_id='session-1',
+            room_id=123,
+            started_at='2026-07-27T08:00:00+00:00',
+            settled_at='2026-07-27T12:00:00+00:00',
+            flv_paths=('/video.flv', '/video.flv'),
+        )
+
+    assert not path.exists()
+
+
+@pytest.mark.parametrize('lifecycle', ['baseline', 'ignored', 'processed'])
+def test_source_deletions_preserve_lifecycle_and_accumulate_paths(
+    tmp_path, lifecycle
+):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    fingerprint = f'fp-{lifecycle}'
+    common = {
+        'fingerprint': fingerprint,
+        'file': '/video.flv',
+        'xml_file': '/video.xml',
+    }
+    if lifecycle == 'baseline':
+        journal.append('baseline', **common)
+        expected_event = 'baseline'
+        expected_reason = None
+    elif lifecycle == 'ignored':
+        journal.append(
+            'ignored_tiny', **common, reason='below non-tail size threshold'
+        )
+        expected_event = 'ignored_tiny'
+        expected_reason = 'below non-tail size threshold'
+    else:
+        journal.append('file_ready', **common)
+        journal.append('video_uploaded', fingerprint=fingerprint, video_id='yt1')
+        journal.append('youtube_processed', fingerprint=fingerprint)
+        expected_event = 'youtube_processed'
+        expected_reason = None
+
+    journal.append(
+        'source_deleted',
+        fingerprint=fingerprint,
+        path='/video.flv',
+        reason='disk pressure',
+    )
+    after_video = journal.replay().files[fingerprint]
+    assert after_video.event == expected_event
+    assert after_video.reason == expected_reason
+    assert after_video.deleted_paths == ('/video.flv',)
+
+    journal.append(
+        'source_deleted',
+        fingerprint=fingerprint,
+        path='/video.xml',
+        reason='disk pressure',
+    )
+    journal.append(
+        'source_deleted',
+        fingerprint=fingerprint,
+        path='/video.flv',
+        reason='idempotent cleanup replay',
+    )
+    after_xml = journal.replay().files[fingerprint]
+    assert after_xml.event == expected_event
+    assert after_xml.deleted_paths == ('/video.flv', '/video.xml')
+
+
+def test_source_deleted_without_prior_state_fails_closed(tmp_path):
+    path = tmp_path / 'state.jsonl'
+
+    with pytest.raises(ValueError, match='existing file state'):
+        JsonlJournal(path).append(
+            'source_deleted',
+            fingerprint='missing',
+            path='/video.flv',
+            reason='disk pressure',
+        )
+
+    assert not path.exists()
+
+
+@pytest.mark.parametrize('terminal_event', ['fatal', 'ambiguous'])
+def test_terminal_event_clears_retry_schedule_but_keeps_diagnostics(
+    tmp_path, terminal_event
+):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('file_ready', fingerprint='fp1', file='/video.flv')
+    journal.append(
+        'upload_started',
+        fingerprint='fp1',
+        title='Title',
+        duration=120,
+        upload_started_at='2026-07-27T11:00:00+00:00',
+    )
+    journal.append(
+        'stage_retry_scheduled',
+        fingerprint='fp1',
+        stage='video',
+        status='retryable',
+        retry_at='2026-07-27T12:00:00+00:00',
+        attempt=2,
+    )
+
+    journal.append(
+        terminal_event,
+        fingerprint='fp1',
+        stage='video',
+        message='manual review required',
+    )
+
+    state = journal.replay().files['fp1']
+    assert state.event == terminal_event
+    assert state.retry_at is None
+    assert state.stage is None
+    assert state.status is None
+    assert state.attempt == 0
+    assert state.error_stage == 'video'
+    assert state.error_message == 'manual review required'
+    assert state.ambiguous is (terminal_event == 'ambiguous')
+
+
+def test_public_replay_mappings_are_copied_and_read_only():
+    file_state = JournalFileState(fingerprint='fp1', event='baseline')
+    files = {'fp1': file_state}
+    snapshot = {'/video.flv': (100, 200)}
+    session = JournalSessionState(
+        state=SessionState.SETTLING,
+        session_id='session-1',
+        session_paths=('/video.flv',),
+        snapshot=snapshot,
+        quiet_since='2026-07-27T12:00:00+00:00',
+        started_at='2026-07-27T08:00:00+00:00',
+    )
+    replay = JournalReplay(
+        files=files,
+        manifests=(),
+        session=session,
+        initialized=True,
+    )
+
+    files.clear()
+    snapshot.clear()
+    assert set(replay.files) == {'fp1'}
+    assert replay.session.snapshot == {'/video.flv': (100, 200)}
+    with pytest.raises(TypeError):
+        replay.files['other'] = file_state
+    with pytest.raises(TypeError):
+        replay.session.snapshot['/other.flv'] = (1, 2)
+
+
+@pytest.mark.parametrize(
+    'event, fields',
+    [
+        (
+            'upload_started',
+            {
+                'fingerprint': 'fp1',
+                'title': 'Title',
+                'duration': 120,
+                'upload_started_at': '2026-07-27 11:00:00',
+            },
+        ),
+        (
+            'stage_retry_scheduled',
+            {
+                'fingerprint': 'fp1',
+                'stage': 'video',
+                'status': 'retryable',
+                'retry_at': 'not-a-time',
+                'attempt': 1,
+            },
+        ),
+    ],
+)
+def test_file_safety_timestamps_require_timezone_aware_iso(
+    tmp_path, event, fields
+):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('file_ready', fingerprint='fp1', file='/video.flv')
+
+    with pytest.raises((TypeError, ValueError), match='timezone-aware'):
+        journal.append(event, **fields)
+
+
+@pytest.mark.parametrize(
+    'field, value',
+    [('quiet_since', '2026-07-27T12:00:00'), ('started_at', 'invalid')],
+)
+def test_session_safety_timestamps_require_timezone_aware_iso(
+    tmp_path, field, value
+):
+    fields = {
+        'state': 'settling',
+        'session_id': 'session-1',
+        'session_paths': (),
+        'snapshot': {},
+        'quiet_since': '2026-07-27T12:00:00Z',
+        'started_at': '2026-07-27T08:00:00+00:00',
+    }
+    fields[field] = value
+
+    with pytest.raises((TypeError, ValueError), match='timezone-aware'):
+        JsonlJournal(tmp_path / 'state.jsonl').append('session_state', **fields)
+
+
+def test_manifests_sort_by_instant_across_offsets_and_accept_z(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'session_manifest_ready',
+        manifest_id='later-instant',
+        room_id=123,
+        started_at='2026-07-27T03:00:00Z',
+        settled_at='2026-07-27T04:00:00+00:00',
+        flv_paths=('/later.flv',),
+    )
+    journal.append(
+        'session_manifest_ready',
+        manifest_id='earlier-instant',
+        room_id=123,
+        started_at='2026-07-27T11:00:00+09:00',
+        settled_at='2026-07-27T12:00:00+09:00',
+        flv_paths=('/earlier.flv',),
+    )
+
+    assert [item.manifest_id for item in journal.replay().manifests] == [
+        'earlier-instant', 'later-instant'
+    ]
+
+
+def test_manifest_timestamps_reject_naive_values(tmp_path):
+    with pytest.raises((TypeError, ValueError), match='timezone-aware'):
+        JsonlJournal(tmp_path / 'state.jsonl').append(
+            'session_manifest_ready',
+            manifest_id='session-1',
+            room_id=123,
+            started_at='2026-07-27T08:00:00',
+            settled_at='2026-07-27T12:00:00+00:00',
+            flv_paths=('/video.flv',),
+        )
+
+
+def test_two_journal_instances_share_lock_and_append_without_loss(tmp_path):
+    path = tmp_path / 'state.jsonl'
+    first = JsonlJournal(path)
+    second = JsonlJournal(path.parent / '.' / path.name)
+    assert first._mutex is second._mutex
+
+    def append_batch(journal, prefix):
+        for index in range(25):
+            journal.append(
+                'baseline',
+                fingerprint=f'baseline:{prefix}:{index}',
+                file=f'/{prefix}-{index}.flv',
+            )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(append_batch, first, 'first'),
+            executor.submit(append_batch, second, 'second'),
+        ]
+        for future in futures:
+            future.result()
+
+    assert len(first.replay().files) == 50
+    assert len(path.read_bytes().splitlines()) == 50
+
+
+def test_process_lock_rejects_nested_or_closed_context(tmp_path):
+    process_lock = ProcessLock(tmp_path / 'state')
+    with process_lock:
+        with pytest.raises(RuntimeError, match='already entered'):
+            process_lock.__enter__()
+
+    with pytest.raises(RuntimeError, match='closed'):
+        process_lock.__enter__()
+
+
+def test_process_lock_closes_file_when_initial_fsync_fails(tmp_path, monkeypatch):
+    state_dir = tmp_path / 'state'
+    state_dir.mkdir()
+    opened_files = []
+    original_open = type(state_dir).open
+
+    def tracked_open(path, *args, **kwargs):
+        opened_file = original_open(path, *args, **kwargs)
+        opened_files.append(opened_file)
+        return opened_file
+
+    monkeypatch.setattr(type(state_dir), 'open', tracked_open)
+    monkeypatch.setattr(
+        journal_module.os,
+        'fsync',
+        lambda file_descriptor: (_ for _ in ()).throw(OSError(errno.EIO, 'fail')),
+    )
+
+    with pytest.raises(OSError, match='fail'):
+        ProcessLock(state_dir)
+
+    assert len(opened_files) == 1
+    assert opened_files[0].closed is True

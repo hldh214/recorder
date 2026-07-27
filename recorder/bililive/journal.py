@@ -5,7 +5,7 @@ import json
 import math
 import os
 import threading
-from dataclasses import fields, replace
+from dataclasses import dataclass, fields, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -27,6 +27,8 @@ class AlreadyRunningError(RuntimeError):
 
 
 _FILE_FIELD_NAMES = frozenset(field.name for field in fields(JournalFileState))
+_JOURNAL_LOCKS = {}
+_JOURNAL_LOCKS_GUARD = threading.Lock()
 _INITIAL_FILE_EVENTS = frozenset({
     'baseline',
     'file_ready',
@@ -82,6 +84,28 @@ def _require_non_empty_string(record, name, event):
     value = record.get(name)
     if not isinstance(value, str) or not value:
         raise TypeError(f'{event} requires a non-empty {name}')
+
+
+def _parse_aware_instant(value, name, event):
+    if not isinstance(value, str) or not value:
+        raise TypeError(f'{event} requires timezone-aware ISO {name}')
+    normalized = value[:-1] + '+00:00' if value.endswith(('Z', 'z')) else value
+    try:
+        instant = datetime.fromisoformat(normalized)
+        offset = instant.utcoffset()
+    except (TypeError, ValueError) as exception:
+        raise ValueError(
+            f'{event} requires timezone-aware ISO {name}'
+        ) from exception
+    if instant.tzinfo is None or offset is None:
+        raise ValueError(f'{event} requires timezone-aware ISO {name}')
+    return instant.astimezone(timezone.utc)
+
+
+def _shared_journal_lock(path):
+    normalized_path = str(Path(path).resolve())
+    with _JOURNAL_LOCKS_GUARD:
+        return _JOURNAL_LOCKS.setdefault(normalized_path, threading.RLock())
 
 
 def _validate_file_record(record, event, existing, enforce_history=True):
@@ -155,6 +179,7 @@ def _validate_file_record(record, event, existing, enforce_history=True):
             raise TypeError('upload_started requires a finite non-negative duration')
         if existing is not None and existing.video_id is not None:
             raise ValueError('upload_started cannot replace an existing video_id')
+        _parse_aware_instant(record['upload_started_at'], 'upload_started_at', event)
         attempt = record.get('attempt', 0)
         if isinstance(attempt, bool) or not isinstance(attempt, int) or attempt < 0:
             raise TypeError(
@@ -174,12 +199,13 @@ def _validate_file_record(record, event, existing, enforce_history=True):
             raise TypeError(
                 'stage_retry_scheduled requires a non-negative integer attempt'
             )
+        _parse_aware_instant(record['retry_at'], 'retry_at', event)
     elif event == 'source_deleted':
         _require_non_empty_string(record, 'path', event)
         _require_non_empty_string(record, 'reason', event)
 
 
-def _file_event_updates(record, event):
+def _file_event_updates(record, event, existing=None):
     # Extra diagnostics remain in JSONL without entering the stable replay model.
     updates = {
         key: record[key]
@@ -187,7 +213,7 @@ def _file_event_updates(record, event):
         if key in record and key in _FILE_FIELD_NAMES
     }
     if 'stage' in record and event in {
-        'stage_retry_scheduled', 'fatal', 'video_upload_rejected'
+        'stage_retry_scheduled', 'fatal', 'ambiguous', 'video_upload_rejected'
     }:
         updates['error_stage'] = record['stage']
     if 'message' in record and event in {
@@ -226,13 +252,27 @@ def _file_event_updates(record, event):
             error_message=None,
         )
     elif event == 'ambiguous':
-        updates.update(video_upload_rejected=False, ambiguous=True, retry_at=None)
+        updates.update(
+            video_upload_rejected=False,
+            ambiguous=True,
+            retry_at=None,
+            attempt=0,
+            stage=None,
+            status=None,
+        )
+    elif event == 'fatal':
+        updates.update(retry_at=None, attempt=0, stage=None, status=None)
     elif event == 'caption_uploaded':
         updates['caption_uploaded'] = True
     elif event == 'playlist_inserted':
         updates['playlist_inserted'] = True
     elif event == 'youtube_processed':
         updates['youtube_processed'] = True
+    elif event == 'source_deleted':
+        deleted_paths = existing.deleted_paths if existing is not None else ()
+        if record['path'] not in deleted_paths:
+            deleted_paths += (record['path'],)
+        updates['deleted_paths'] = deleted_paths
     return updates
 
 
@@ -267,6 +307,9 @@ def _reduce_session_state(replay, record):
     _validate_optional_string(record, 'session_id')
     _validate_optional_string(record, 'quiet_since')
     _validate_optional_string(record, 'started_at')
+    for name in ('quiet_since', 'started_at'):
+        if record[name] is not None:
+            _parse_aware_instant(record[name], name, 'session_state')
 
     session_paths = record['session_paths']
     if not isinstance(session_paths, (list, tuple)) or any(
@@ -310,6 +353,7 @@ def _reduce_manifest_ready(replay, record):
     _validate_manifest_id(record, event)
     for name in ('started_at', 'settled_at'):
         _require_non_empty_string(record, name, event)
+        _parse_aware_instant(record[name], name, event)
     room_id = record.get('room_id')
     if isinstance(room_id, bool) or not isinstance(room_id, int):
         raise TypeError(f'{event} requires an integer room_id')
@@ -318,6 +362,8 @@ def _reduce_manifest_ready(replay, record):
         not isinstance(path, str) or not path for path in flv_paths
     ):
         raise TypeError(f'{event} requires a list of non-empty flv_paths')
+    if len(set(flv_paths)) != len(flv_paths):
+        raise ValueError(f'{event} contains duplicate flv_paths')
 
     manifest = JournalManifest(
         manifest_id=record['manifest_id'],
@@ -329,18 +375,20 @@ def _reduce_manifest_ready(replay, record):
     manifests = list(replay.manifests)
     for index, existing in enumerate(manifests):
         if existing.manifest_id == manifest.manifest_id:
+            existing_identity = replace(existing, completed=False)
+            if existing_identity != manifest:
+                raise ValueError(
+                    'cannot replace a manifest with different data'
+                )
             if existing.completed:
-                existing_identity = replace(existing, completed=False)
-                if existing_identity != manifest:
-                    raise ValueError(
-                        'cannot replace a completed manifest with different data'
-                    )
                 manifest = replace(manifest, completed=True)
             manifests[index] = manifest
             break
     else:
         manifests.append(manifest)
-    manifests.sort(key=lambda item: item.settled_at)
+    manifests.sort(key=lambda item: _parse_aware_instant(
+        item.settled_at, 'settled_at', event
+    ))
     return replace(replay, manifests=tuple(manifests))
 
 
@@ -423,41 +471,63 @@ class ProcessLock:
         _ensure_directory(self.state_dir)
         self.path = self.state_dir / 'monitor.lock'
         lock_file_existed = self.path.exists()
-        self._file = self.path.open('a+b')
-        if not lock_file_existed:
-            self._file.flush()
-            os.fsync(self._file.fileno())
-            _fsync_directory(self.state_dir)
+        self._file = None
+        self._entered = False
+        lock_file = self.path.open('a+b')
+        locking = False
         try:
-            fcntl.flock(self._file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError as exception:
-            self._file.close()
-            self._file = None
-            if exception.errno in (errno.EACCES, errno.EAGAIN):
+            if not lock_file_existed:
+                lock_file.flush()
+                os.fsync(lock_file.fileno())
+                _fsync_directory(self.state_dir)
+            locking = True
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BaseException as exception:
+            lock_file.close()
+            if (
+                locking
+                and isinstance(exception, OSError)
+                and exception.errno in (errno.EACCES, errno.EAGAIN)
+            ):
                 raise AlreadyRunningError(
                     f'Bililive monitor is already running: {self.path}'
                 ) from exception
             raise
+        self._file = lock_file
 
     def close(self):
         lock_file = self._file
         if lock_file is None:
             return
         self._file = None
+        self._entered = False
         try:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
         finally:
             lock_file.close()
 
     def __enter__(self):
+        if self._file is None:
+            raise RuntimeError('process lock is closed')
+        if self._entered:
+            raise RuntimeError('process lock is already entered')
+        self._entered = True
         return self
 
     def __exit__(self, exception_type, exception, traceback):
         self.close()
 
 
+@dataclass(frozen=True)
+class _ReplayState:
+    files: dict[str, JournalFileState]
+    manifests: tuple[JournalManifest, ...]
+    session: JournalSessionState
+    initialized: bool
+
+
 def _empty_replay():
-    return JournalReplay(
+    return _ReplayState(
         files={},
         manifests=(),
         session=JournalSessionState(
@@ -472,10 +542,19 @@ def _empty_replay():
     )
 
 
+def _public_replay(replay):
+    return JournalReplay(
+        files=replay.files,
+        manifests=replay.manifests,
+        session=replay.session,
+        initialized=replay.initialized,
+    )
+
+
 class JsonlJournal:
     def __init__(self, path):
         self.path = Path(path)
-        self._mutex = threading.Lock()
+        self._mutex = _shared_journal_lock(self.path)
 
     def append(self, event, **fields):
         record = dict(fields, event=event)
@@ -511,10 +590,10 @@ class JsonlJournal:
     def replay(self):
         with self._mutex:
             if not self.path.exists():
-                return _empty_replay()
+                return _public_replay(_empty_replay())
             payload = self.path.read_bytes()
             replay, _, _ = self._replay_payload(payload)
-            return replay
+            return _public_replay(replay)
 
     @classmethod
     def _replay_payload(cls, payload):
@@ -568,12 +647,13 @@ class JsonlJournal:
         fingerprint = record.get('fingerprint')
         existing = replay.files.get(fingerprint)
         _validate_file_record(record, event, existing)
-        updates = _file_event_updates(record, event)
+        updates = _file_event_updates(record, event, existing)
+        state_event = existing.event if event == 'source_deleted' else event
         if existing is None:
-            state = JournalFileState(fingerprint=fingerprint, event=event, **updates)
+            state = JournalFileState(
+                fingerprint=fingerprint, event=state_event, **updates
+            )
         else:
-            state = replace(existing, event=event, **updates)
+            state = replace(existing, event=state_event, **updates)
         replay.files[fingerprint] = state
-        if event == 'baseline':
-            return replace(replay, initialized=True)
         return replay
