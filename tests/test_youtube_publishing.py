@@ -424,9 +424,15 @@ def test_caption_refresh_updates_the_known_remote_track_in_place(tmp_path):
     assert youtube.upload_calls == []
 
 
-@pytest.mark.parametrize('tracks', [(), ('track-1', 'track-2')])
+@pytest.mark.parametrize(
+    ('tracks', 'expected_status'),
+    [
+        ((), PublishStatus.RETRYABLE),
+        (('track-1', 'track-2'), PublishStatus.FATAL),
+    ],
+)
 def test_caption_refresh_never_inserts_when_remote_track_is_not_unique(
-    tmp_path, tracks,
+    tmp_path, tracks, expected_status,
 ):
     video = make_video(tmp_path)
     caption_path = tmp_path / 'recording.vtt'
@@ -448,7 +454,7 @@ def test_caption_refresh_never_inserts_when_remote_track_is_not_unique(
         ),
     )
 
-    assert result.status in {PublishStatus.RETRYABLE, PublishStatus.FATAL}
+    assert result.status is expected_status
     assert result.error_stage == 'caption'
     assert youtube.caption_calls == []
     assert youtube.caption_update_calls == []
@@ -463,7 +469,7 @@ def test_caption_refresh_retries_same_track_after_checkpoint_failure(tmp_path):
     checkpoint = PublishCheckpoint(
         video_id='yt123', video_uploaded=True, description_updated=True,
         description_fingerprint=description_fingerprint('Base description'),
-        caption_refresh_required=True, caption_track_id='track-1',
+        caption_refresh_required=True,
     )
 
     first = service.publish_video(
@@ -482,7 +488,10 @@ def test_caption_refresh_retries_same_track_after_checkpoint_failure(tmp_path):
 
     assert first.status is PublishStatus.RETRYABLE
     assert first.error_stage == 'checkpoint'
+    assert first.caption_track_id == 'track-1'
     assert second.status is PublishStatus.COMPLETE
+    assert second.caption_track_id == 'track-1'
+    assert youtube.caption_calls == []
     assert [call[0] for call in youtube.caption_update_calls] == [
         'track-1', 'track-1'
     ]

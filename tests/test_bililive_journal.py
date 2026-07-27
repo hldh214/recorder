@@ -668,10 +668,6 @@ def test_unpublished_ignored_state_can_be_reclassified_in_replacement(
             'upload_started_at': '2026-07-27T12:01:00+00:00',
             'attempt': 1,
         }),)),
-        ('file_ready', (
-            ('video_uploaded', {'video_id': 'yt123'}),
-            ('caption_uploaded', {}),
-        )),
     ],
 )
 def test_xml_migration_without_durable_remote_caption_uses_normal_caption_path(
@@ -781,12 +777,12 @@ def test_consecutive_xml_migrations_preserve_pending_caption_refresh(tmp_path):
         new_xml=(20, 2),
         publication_events=(
             ('video_uploaded', {'video_id': 'yt123'}),
-            ('caption_uploaded', {'caption_track_id': 'track-1'}),
+            ('caption_uploaded', {}),
         ),
     )
     assert state.caption_uploaded is False
     assert state.caption_refresh_required is True
-    assert state.caption_track_id == 'track-1'
+    assert state.caption_track_id is None
 
     video = '/recording/video.flv'
     xml = '/recording/video.xml'
@@ -825,7 +821,7 @@ def test_consecutive_xml_migrations_preserve_pending_caption_refresh(tmp_path):
     assert replayed.manifest_id == 'final-session'
     assert replayed.caption_uploaded is False
     assert replayed.caption_refresh_required is True
-    assert replayed.caption_track_id == 'track-1'
+    assert replayed.caption_track_id is None
     assert replayed.caption_status == 'pending'
 
 

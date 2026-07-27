@@ -1602,9 +1602,7 @@ def test_consecutive_xml_replacements_update_latest_caption_after_replay(
     )
     append_ready(journal, classified, 'manifest-1')
     journal.append('video_uploaded', fingerprint='fp1', video_id='yt123')
-    journal.append(
-        'caption_uploaded', fingerprint='fp1', caption_track_id='track-1'
-    )
+    journal.append('caption_uploaded', fingerprint='fp1')
     journal.append('youtube_processed', fingerprint='fp1')
 
     xml_path.write_text('<i><d>middle</d></i>')
@@ -1641,7 +1639,7 @@ def test_consecutive_xml_replacements_update_latest_caption_after_replay(
     )
     after_restart = JsonlJournal(journal.path).replay().files['fp1']
     assert after_restart.caption_refresh_required is True
-    assert after_restart.caption_track_id == 'track-1'
+    assert after_restart.caption_track_id is None
 
     xml_path.write_text('<i><d>latest</d></i>')
     snapshots.append({
