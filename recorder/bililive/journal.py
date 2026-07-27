@@ -308,8 +308,8 @@ def _reduce_initialized(replay, record):
 
 def _reduce_session_state(replay, record):
     required = {
-        'state', 'session_id', 'session_paths', 'snapshot', 'quiet_since',
-        'started_at',
+        'state', 'room_id', 'session_id', 'session_paths', 'snapshot',
+        'quiet_since', 'started_at',
     }
     missing = required.difference(record)
     if missing:
@@ -320,6 +320,17 @@ def _reduce_session_state(replay, record):
         state = SessionState(record['state'])
     except (TypeError, ValueError) as exception:
         raise TypeError('session_state has an invalid state') from exception
+
+    room_id = record['room_id']
+    if isinstance(room_id, bool) or not isinstance(room_id, int):
+        raise TypeError('session_state requires an integer room_id')
+    if (
+        replay.session.room_id is not None
+        and replay.session.room_id != room_id
+    ):
+        raise ValueError('session_state cannot change the bound room_id')
+    if any(manifest.room_id != room_id for manifest in replay.manifests):
+        raise ValueError('session_state room_id conflicts with a manifest')
 
     _validate_optional_string(record, 'session_id')
     _validate_optional_string(record, 'quiet_since')
@@ -354,6 +365,7 @@ def _reduce_session_state(replay, record):
 
     session = JournalSessionState(
         state=state,
+        room_id=room_id,
         session_id=record['session_id'],
         session_paths=tuple(session_paths),
         snapshot=snapshot,
@@ -393,6 +405,13 @@ def _reduce_manifest_ready(replay, record):
     room_id = record.get('room_id')
     if isinstance(room_id, bool) or not isinstance(room_id, int):
         raise TypeError(f'{event} requires an integer room_id')
+    if (
+        replay.session.room_id is not None
+        and replay.session.room_id != room_id
+    ):
+        raise ValueError(f'{event} room_id conflicts with the bound session')
+    if any(manifest.room_id != room_id for manifest in replay.manifests):
+        raise ValueError(f'{event} room_id conflicts with retained manifests')
     flv_paths = record.get('flv_paths')
     if not isinstance(flv_paths, (list, tuple)) or any(
         not isinstance(path, str) or not path for path in flv_paths
@@ -626,6 +645,7 @@ def _empty_replay():
         manifests=(),
         session=JournalSessionState(
             state=SessionState.BASELINING,
+            room_id=None,
             session_id=None,
             session_paths=(),
             snapshot={},

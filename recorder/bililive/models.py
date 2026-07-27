@@ -102,6 +102,7 @@ class JournalManifest:
 @dataclass(frozen=True)
 class JournalSessionState:
     state: SessionState
+    room_id: int | None
     session_id: str | None
     session_paths: tuple[str, ...]
     snapshot: Mapping[str, tuple[int, int]]

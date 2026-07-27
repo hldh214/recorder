@@ -189,6 +189,7 @@ def test_restored_settling_session_waits_a_fresh_quiet_period(tmp_path):
     journal.append('initialized')
     journal.append(
         'session_state',
+        room_id=123,
         state='settling',
         session_id='stable-id',
         session_paths=('a.flv',),
@@ -219,6 +220,7 @@ def test_restored_recording_keeps_session_id_and_accumulated_paths(tmp_path):
     journal.append('initialized')
     journal.append(
         'session_state',
+        room_id=123,
         state='recording',
         session_id='persisted-id',
         session_paths=('a.flv', 'a.xml'),
@@ -243,6 +245,7 @@ def test_restored_recording_cannot_count_downtime_as_quiet_time(tmp_path):
     journal.append('initialized')
     journal.append(
         'session_state',
+        room_id=123,
         state='recording',
         session_id='persisted-id',
         session_paths=('a.flv',),
@@ -277,6 +280,7 @@ def test_journaled_offline_baseline_marks_initialized_only_after_file_events(
 
     assert decision.state is SessionState.WAITING
     assert replay.initialized is True
+    assert replay.session.room_id == 123
     assert replay.session.state is SessionState.WAITING
     assert events[-1] == 'initialized'
     assert events[:2] == ['baseline', 'baseline']
@@ -284,6 +288,66 @@ def test_journaled_offline_baseline_marks_initialized_only_after_file_events(
         baseline_fingerprint(path, *identity)
         for path, identity in snapshot.items()
     }
+
+
+def test_monitor_rejects_configured_room_mismatch_with_waiting_state(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'session_state',
+        room_id=123,
+        state='waiting',
+        session_id=None,
+        session_paths=(),
+        snapshot={},
+        quiet_since=None,
+        started_at=None,
+    )
+
+    with pytest.raises(ValueError, match='room_id'):
+        BililiveSessionMonitor(journal=journal, room_id=456)
+
+
+def test_monitor_checks_retained_completed_manifest_room_with_injected_machine(
+    tmp_path,
+):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    video = str(tmp_path / 'video.flv')
+    journal.append(
+        'session_manifest_ready',
+        manifest_id='old-session',
+        room_id=456,
+        started_at=at(18).isoformat(),
+        settled_at=at(22, 30).isoformat(),
+        flv_paths=(video,),
+        snapshot={video: (200, 2)},
+    )
+    journal.append(
+        'session_manifest_completed', manifest_id='old-session'
+    )
+
+    with pytest.raises(ValueError, match='room_id'):
+        BililiveSessionMonitor(
+            journal=journal, room_id=123, machine=armed_machine()
+        )
+
+
+def test_monitor_replays_journal_once_when_machine_is_injected(tmp_path):
+    class CountingJournal(JsonlJournal):
+        def __init__(self, path):
+            super().__init__(path)
+            self.replay_calls = 0
+
+        def replay(self):
+            self.replay_calls += 1
+            return super().replay()
+
+    journal = CountingJournal(tmp_path / 'state.jsonl')
+
+    BililiveSessionMonitor(
+        journal=journal, room_id=123, machine=armed_machine()
+    )
+
+    assert journal.replay_calls == 1
 
 
 def test_live_first_run_defers_baselines_until_offline_and_quiet(tmp_path):
@@ -509,6 +573,7 @@ def test_restart_after_manifest_fsync_does_not_emit_conflicting_manifest(
     journal.append('initialized')
     journal.append(
         'session_state',
+        room_id=123,
         state='settling',
         session_id='session-1',
         session_paths=(video,),
@@ -544,6 +609,7 @@ def test_restart_rejects_observation_before_durable_manifest_settlement(
     journal.append('initialized')
     journal.append(
         'session_state',
+        room_id=123,
         state='settling',
         session_id='session-1',
         session_paths=(video,),
@@ -604,6 +670,7 @@ def _replay_with_active_session_and_manifest(
         ),
         session=JournalSessionState(
             state=state,
+            room_id=123,
             session_id='session-1',
             session_paths=session_paths,
             snapshot=session_snapshot,
@@ -745,6 +812,7 @@ def test_monitor_decision_snapshot_is_copied_and_read_only():
     [
         JournalSessionState(
             state=SessionState.RECORDING,
+            room_id=123,
             session_id=None,
             session_paths=(),
             snapshot={},
@@ -753,6 +821,7 @@ def test_monitor_decision_snapshot_is_copied_and_read_only():
         ),
         JournalSessionState(
             state=SessionState.SETTLING,
+            room_id=123,
             session_id='session-1',
             session_paths=('a.flv',),
             snapshot={'a.flv': (100, 1)},
@@ -761,6 +830,7 @@ def test_monitor_decision_snapshot_is_copied_and_read_only():
         ),
         JournalSessionState(
             state=SessionState.WAITING,
+            room_id=123,
             session_id='stale',
             session_paths=('a.flv',),
             snapshot={'a.flv': (100, 1)},
@@ -784,6 +854,7 @@ def test_restore_validates_uninitialized_partial_session_before_ignoring_it():
         manifests=(),
         session=JournalSessionState(
             state=SessionState.WAITING,
+            room_id=123,
             session_id='stale',
             session_paths=('a.flv',),
             snapshot={'a.flv': (100, 1)},
@@ -803,6 +874,7 @@ def test_restore_rejects_unsupported_publishing_state():
         manifests=(),
         session=JournalSessionState(
             state=SessionState.PUBLISHING,
+            room_id=123,
             session_id=None,
             session_paths=(),
             snapshot={},

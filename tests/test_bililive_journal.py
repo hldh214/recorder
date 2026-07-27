@@ -82,6 +82,7 @@ def test_missing_or_empty_journal_has_conservative_defaults(tmp_path):
         assert replay.files == {}
         assert replay.manifests == ()
         assert replay.session.state is SessionState.BASELINING
+        assert replay.session.room_id is None
         assert replay.session.session_id is None
         assert replay.session.session_paths == ()
         assert replay.session.snapshot == {}
@@ -274,6 +275,7 @@ def test_session_state_and_initialized_events_restore_json_tuple_shapes(tmp_path
     journal.append('initialized')
     journal.append(
         'session_state',
+        room_id=123,
         state=SessionState.SETTLING,
         session_id='session-1',
         session_paths=('/a.flv', '/b.flv'),
@@ -289,6 +291,7 @@ def test_session_state_and_initialized_events_restore_json_tuple_shapes(tmp_path
 
     assert replay.initialized is True
     assert replay.session.state is SessionState.SETTLING
+    assert replay.session.room_id == 123
     assert replay.session.session_id == 'session-1'
     assert replay.session.session_paths == ('/a.flv', '/b.flv')
     assert replay.session.snapshot == {
@@ -303,6 +306,7 @@ def test_replayed_session_snapshot_can_be_reappended(tmp_path):
     journal = JsonlJournal(tmp_path / 'state.jsonl')
     journal.append(
         'session_state',
+        room_id=123,
         state=SessionState.SETTLING,
         session_id='session-1',
         session_paths=('/video.flv',),
@@ -314,6 +318,7 @@ def test_replayed_session_snapshot_can_be_reappended(tmp_path):
 
     journal.append(
         'session_state',
+        room_id=replayed.room_id,
         state=replayed.state,
         session_id=replayed.session_id,
         session_paths=replayed.session_paths,
@@ -323,6 +328,91 @@ def test_replayed_session_snapshot_can_be_reappended(tmp_path):
     )
 
     assert journal.replay().session == replayed
+
+
+def _waiting_session_fields(room_id):
+    return {
+        'room_id': room_id,
+        'state': SessionState.WAITING,
+        'session_id': None,
+        'session_paths': (),
+        'snapshot': {},
+        'quiet_since': None,
+        'started_at': None,
+    }
+
+
+def _ready_manifest_fields(room_id, name='video'):
+    path = f'/recording/{name}.flv'
+    return {
+        'manifest_id': f'session-{name}',
+        'room_id': room_id,
+        'started_at': '2026-07-27T08:00:00+00:00',
+        'settled_at': '2026-07-27T12:00:00+00:00',
+        'flv_paths': (path,),
+        'snapshot': {path: (100, 200)},
+    }
+
+
+def test_first_session_state_durably_binds_room_id(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+
+    journal.append('session_state', **_waiting_session_fields(123))
+
+    assert journal.replay().session.room_id == 123
+
+
+def test_session_state_rejects_bound_room_id_change(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('session_state', **_waiting_session_fields(123))
+    before = journal.path.read_bytes()
+
+    with pytest.raises(ValueError, match='room_id'):
+        journal.append('session_state', **_waiting_session_fields(456))
+
+    assert journal.path.read_bytes() == before
+
+
+def test_manifest_rejects_bound_session_room_mismatch(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('session_state', **_waiting_session_fields(123))
+
+    with pytest.raises(ValueError, match='room_id'):
+        journal.append(
+            'session_manifest_ready', **_ready_manifest_fields(456)
+        )
+
+
+def test_session_state_rejects_prior_manifest_room_mismatch(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'session_manifest_ready', **_ready_manifest_fields(123)
+    )
+
+    with pytest.raises(ValueError, match='room_id'):
+        journal.append('session_state', **_waiting_session_fields(456))
+
+
+def test_retained_manifests_cannot_span_multiple_rooms(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'session_manifest_ready', **_ready_manifest_fields(123, 'first')
+    )
+
+    with pytest.raises(ValueError, match='room_id'):
+        journal.append(
+            'session_manifest_ready', **_ready_manifest_fields(456, 'second')
+        )
+
+
+def test_session_state_without_room_id_fails_closed(tmp_path):
+    fields = _waiting_session_fields(123)
+    del fields['room_id']
+
+    with pytest.raises(TypeError, match='room_id'):
+        JsonlJournal(tmp_path / 'state.jsonl').append(
+            'session_state', **fields
+        )
 
 
 def test_partial_baseline_restart_remains_uninitialized_until_explicit_marker(
@@ -413,6 +503,7 @@ def test_manifest_completion_without_ready_event_is_corruption(tmp_path):
 def test_invalid_session_state_fields_are_corruption(tmp_path, field, value):
     record = {
         'event': 'session_state',
+        'room_id': 123,
         'state': 'waiting',
         'session_id': None,
         'session_paths': [],
@@ -1065,6 +1156,7 @@ def test_public_replay_mappings_are_copied_and_read_only():
     snapshot = {'/video.flv': (100, 200)}
     session = JournalSessionState(
         state=SessionState.SETTLING,
+        room_id=123,
         session_id='session-1',
         session_paths=('/video.flv',),
         snapshot=snapshot,
@@ -1130,6 +1222,7 @@ def test_session_safety_timestamps_require_timezone_aware_iso(
     tmp_path, field, value
 ):
     fields = {
+        'room_id': 123,
         'state': 'settling',
         'session_id': 'session-1',
         'session_paths': (),

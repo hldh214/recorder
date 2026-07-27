@@ -95,6 +95,13 @@ def _manifest_snapshot(flv_paths, snapshot):
     return frozen
 
 
+def _validate_room_ownership(replay, room_id):
+    if replay.session.room_id not in (None, room_id):
+        raise ValueError('journal session has conflicting room_id')
+    if any(manifest.room_id != room_id for manifest in replay.manifests):
+        raise ValueError('journal manifest has conflicting room_id')
+
+
 class SessionMonitorState:
     def __init__(self, initialized=False, id_factory=None):
         self.initialized = bool(initialized)
@@ -112,6 +119,8 @@ class SessionMonitorState:
 
     @classmethod
     def restore(cls, replay: JournalReplay, id_factory=None, room_id=None):
+        if room_id is not None:
+            _validate_room_ownership(replay, room_id)
         machine = cls(initialized=replay.initialized, id_factory=id_factory)
         session = replay.session
         if not isinstance(session.state, SessionState):
@@ -453,8 +462,10 @@ class BililiveSessionMonitor:
             raise TypeError('room_id must be an integer')
         self.journal = journal
         self.room_id = room_id
+        replay = journal.replay()
+        _validate_room_ownership(replay, room_id)
         self.machine = machine or SessionMonitorState.restore(
-            journal.replay(), id_factory=id_factory, room_id=room_id
+            replay, id_factory=id_factory, room_id=room_id
         )
 
     def observe(self, now: datetime, room: RoomState | None, snapshot: Snapshot):
@@ -520,6 +531,7 @@ class BililiveSessionMonitor:
     def _append_session_state(self):
         self.journal.append(
             'session_state',
+            room_id=self.room_id,
             state=self.machine.state.value,
             session_id=self.machine.session_id,
             session_paths=tuple(sorted(self.machine.session_paths)),
