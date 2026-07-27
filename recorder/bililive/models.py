@@ -57,6 +57,7 @@ class JournalFileState:
     file: str | None = None
     xml_file: str | None = None
     title: str | None = None
+    stream_title: str | None = None
     start_time: str | None = None
     duration: float | None = None
     video_id: str | None = None
