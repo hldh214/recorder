@@ -106,7 +106,7 @@ class StateAwareCleanup:
             with RootDirectory(self.root) as root_directory:
                 for index, intent in enumerate(replay.pending_deletions):
                     try:
-                        reconciled, protected = self._reconcile_intent(
+                        reconciled, protected, deleted = self._reconcile_intent(
                             root_directory, intent
                         )
                     except Exception:
@@ -117,11 +117,12 @@ class StateAwareCleanup:
                         )
                         break
                     if reconciled:
-                        reconciled_deleted.append(Path(intent.original_path))
                         reconciled_intents.append(intent)
+                    if deleted:
+                        reconciled_deleted.append(Path(intent.original_path))
                     if protected:
                         reconciliation_protected.add(
-                            Path(intent.original_path)
+                            self._intent_protected_path(intent)
                         )
             replay = self._replay_after_reconciliation(
                 replay, reconciled_intents
@@ -374,16 +375,15 @@ class StateAwareCleanup:
     def _intent_identity(intent):
         return (intent.dev, intent.ino, intent.size, intent.mtime_ns)
 
+    def _intent_protected_path(self, intent):
+        if intent.source_deleted:
+            return self.root / intent.quarantine_path
+        return Path(intent.original_path)
+
     def _reconcile_intent(self, root_directory, intent):
         identity = self._intent_identity(intent)
-        original_stat = root_directory.lstat(intent.original_path)
         quarantine_stat = root_directory.quarantine_stat(
             intent.quarantine_path
-        )
-        original_matches = (
-            original_stat is not None
-            and original_stat.st_nlink == 1
-            and self._stat_identity(original_stat) == identity
         )
         quarantine_matches = (
             quarantine_stat is not None
@@ -391,27 +391,31 @@ class StateAwareCleanup:
             and self._stat_identity(quarantine_stat) == identity
         )
         if intent.source_deleted:
-            if original_stat is not None:
-                return False, True
             if quarantine_matches:
                 root_directory.unlink_quarantine(
                     intent.quarantine_path, identity
                 )
             elif quarantine_stat is not None:
-                return False, True
+                return False, True, False
             self._record_quarantine_removed(intent)
-            return True, False
+            return True, False, False
 
+        original_stat = root_directory.lstat(intent.original_path)
+        original_matches = (
+            original_stat is not None
+            and original_stat.st_nlink == 1
+            and self._stat_identity(original_stat) == identity
+        )
         if original_matches and quarantine_stat is None:
             root_directory.rename_to_quarantine(
                 intent.original_path, intent.quarantine_path, identity
             )
         elif original_stat is not None or not quarantine_matches:
-            return False, True
+            return False, True, False
         self._record_source_deleted(intent)
         root_directory.unlink_quarantine(intent.quarantine_path, identity)
         self._record_quarantine_removed(intent)
-        return True, False
+        return True, False, True
 
     def _state_paths(self, state, relationship_valid):
         file_value = (
@@ -1077,20 +1081,28 @@ class StateAwareCleanup:
         replacement_flvs = {
             canonical_source_path(path) for path in replacement.flv_paths
         }
-        if (
-            source_snapshot.keys() != replacement_snapshot.keys()
-            or source_flvs != replacement_flvs
-            or any(path not in source_snapshot for path in changed_paths)
+        paired_xmls = {
+            str(Path(path).with_suffix('.xml')) for path in source_flvs
+        }
+        snapshot_paths = source_snapshot.keys() | replacement_snapshot.keys()
+        if source_flvs != replacement_flvs or not changed_paths.issubset(
+            snapshot_paths
         ):
             return False
-        for path, source_identity in source_snapshot.items():
-            replacement_identity = replacement_snapshot.get(path)
+        for path in snapshot_paths:
+            in_source = path in source_snapshot
+            in_replacement = path in replacement_snapshot
             if (
-                replacement_identity is None
-                or (
-                    path not in changed_paths
-                    and source_identity != replacement_identity
-                )
+                in_source
+                and in_replacement
+                and source_snapshot[path] == replacement_snapshot[path]
+            ):
+                continue
+            if path not in changed_paths:
+                return False
+            if in_source != in_replacement and (
+                Path(path).suffix.lower() != '.xml'
+                or path not in paired_xmls
             ):
                 return False
         return True
@@ -1133,12 +1145,16 @@ class StateAwareCleanup:
             )
             if (
                 state is None
-                or owners != {intent.fingerprint}
                 or intent.source_deleted
                 != (
                     canonical_source_path(intent.original_path)
                     in deleted_paths
                 )
+                or (
+                    not intent.source_deleted
+                    and owners != {intent.fingerprint}
+                )
+                or (intent.source_deleted and len(owners) > 1)
             ):
                 return False
             sources.add(source_key)
@@ -1158,7 +1174,10 @@ class StateAwareCleanup:
                 owned.add(str(Path(file_path).with_suffix('.xml')))
         if cls._non_empty_string(state.xml_file):
             owned.add(canonical_source_path(state.xml_file))
-        return owned
+        deleted = {
+            canonical_source_path(path) for path in state.deleted_paths
+        }
+        return owned - deleted
 
     @classmethod
     def _path_sequence_valid(cls, paths, *, suffix=None, nonempty=False):

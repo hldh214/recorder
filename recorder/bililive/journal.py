@@ -507,7 +507,8 @@ def _validate_file_binding(replay, state, existing=None, event=None):
     owned_paths = _owned_source_paths(state)
     for intent in replay.pending_deletions:
         if (
-            intent.fingerprint != state.fingerprint
+            not intent.source_deleted
+            and intent.fingerprint != state.fingerprint
             and intent.original_path in owned_paths
         ):
             raise ValueError(
@@ -1019,7 +1020,10 @@ def _owned_source_paths(state):
         owned.add(canonical_source_path(
             os.path.splitext(state.file)[0] + '.xml'
         ))
-    return owned
+    deleted = {
+        canonical_source_path(path) for path in state.deleted_paths
+    }
+    return owned - deleted
 
 
 def _source_path_owners(replay, path):

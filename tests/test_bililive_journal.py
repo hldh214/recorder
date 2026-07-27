@@ -185,6 +185,80 @@ def test_source_deleted_alias_replays_as_canonical_tombstone(tmp_path):
     assert records[-1]['path'] == '/recording/video.flv'
 
 
+def test_completed_deletion_releases_path_for_new_generation_intent(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'baseline', fingerprint='old', file='/recording/video.flv'
+    )
+    append_delete_intent(
+        journal, fingerprint='old', original_path='/recording/video.flv',
+        quarantine_path='.bililive-cleanup-quarantine/old',
+    )
+    journal.append(
+        'source_deleted', fingerprint='old', path='/recording/video.flv',
+        reason='disk pressure',
+    )
+    journal.append(
+        'quarantine_removed', fingerprint='old',
+        original_path='/recording/video.flv',
+        quarantine_path='.bililive-cleanup-quarantine/old',
+    )
+
+    journal.append(
+        'baseline', fingerprint='new', file='/recording/video.flv',
+        source_size=300, source_mtime_ns=400,
+    )
+    append_delete_intent(
+        journal, fingerprint='new', original_path='/recording/video.flv',
+        quarantine_path='.bililive-cleanup-quarantine/new',
+        dev=11, ino=21, size=300, mtime_ns=400,
+    )
+
+    replay = journal.replay()
+    assert replay.files['old'].deleted_paths == ('/recording/video.flv',)
+    assert replay.pending_deletions == (JournalDeleteIntent(
+        fingerprint='new', original_path='/recording/video.flv',
+        quarantine_path='.bililive-cleanup-quarantine/new',
+        dev=11, ino=21, size=300, mtime_ns=400,
+        reason='disk pressure', source_deleted=False,
+    ),)
+
+
+def test_deleted_source_releases_path_while_old_quarantine_is_pending(
+    tmp_path,
+):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'baseline', fingerprint='old', file='/recording/video.flv'
+    )
+    append_delete_intent(
+        journal, fingerprint='old', original_path='/recording/video.flv',
+        quarantine_path='.bililive-cleanup-quarantine/old',
+    )
+    journal.append(
+        'source_deleted', fingerprint='old', path='/recording/video.flv',
+        reason='disk pressure',
+    )
+
+    journal.append(
+        'baseline', fingerprint='new', file='/recording/video.flv',
+        source_size=300, source_mtime_ns=400,
+    )
+    append_delete_intent(
+        journal, fingerprint='new', original_path='/recording/video.flv',
+        quarantine_path='.bililive-cleanup-quarantine/new',
+        dev=11, ino=21, size=300, mtime_ns=400,
+    )
+
+    pending = journal.replay().pending_deletions
+    assert tuple(item.fingerprint for item in pending) == ('old', 'new')
+    assert tuple(item.source_deleted for item in pending) == (True, False)
+    assert tuple(item.quarantine_path for item in pending) == (
+        '.bililive-cleanup-quarantine/old',
+        '.bililive-cleanup-quarantine/new',
+    )
+
+
 def test_relative_source_path_is_persisted_as_canonical_absolute_path(
     tmp_path, monkeypatch
 ):

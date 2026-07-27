@@ -1606,6 +1606,153 @@ def test_pending_phase_must_match_source_deleted_tombstone(tmp_path):
     assert journal.events == []
 
 
+def test_raw_tombstoned_owner_releases_recreated_path_with_pending_quarantine(
+    tmp_path,
+):
+    nested = tmp_path / 'nested'
+    nested.mkdir()
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'new generation')
+    old = replace(
+        file_state(
+            nested / '..' / video.name,
+            fingerprint='old', event='baseline', durable_identity=False,
+        ),
+        deleted_paths=(str(video),),
+    )
+    new = file_state(video, event='baseline')
+    old_intent = JournalDeleteIntent(
+        fingerprint='old', original_path=str(video),
+        quarantine_path='.bililive-cleanup-quarantine/old',
+        dev=10, ino=20, size=30, mtime_ns=40,
+        reason='disk pressure', source_deleted=True,
+    )
+    current_replay = replace(
+        replay((old, new)), pending_deletions=(old_intent,)
+    )
+
+    assert StateAwareCleanup._control_graph_valid(current_replay)
+
+
+def test_raw_tombstone_does_not_hide_conflicting_active_aliases(tmp_path):
+    nested = tmp_path / 'nested'
+    nested.mkdir()
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'new generation')
+    old = replace(
+        file_state(
+            video, fingerprint='old', event='baseline',
+            durable_identity=False,
+        ),
+        deleted_paths=(str(video),),
+    )
+    new = file_state(video, fingerprint='new', event='baseline')
+    conflicting = file_state(
+        nested / '..' / video.name,
+        fingerprint='conflicting', event='baseline',
+    )
+    old_intent = JournalDeleteIntent(
+        fingerprint='old', original_path=str(video),
+        quarantine_path='.bililive-cleanup-quarantine/old',
+        dev=10, ino=20, size=30, mtime_ns=40,
+        reason='disk pressure', source_deleted=True,
+    )
+    current_replay = replace(
+        replay((old, new, conflicting)),
+        pending_deletions=(old_intent,),
+    )
+
+    assert not StateAwareCleanup._control_graph_valid(current_replay)
+
+
+def test_pending_old_quarantine_reconciles_after_source_path_is_recreated(
+    tmp_path, monkeypatch,
+):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'old generation')
+    journal, old_fingerprint = baseline_journal(
+        tmp_path / 'state.jsonl', video
+    )
+    old_stat = video.stat()
+    journal.append(
+        'source_delete_intent', fingerprint=old_fingerprint,
+        original_path=str(video),
+        quarantine_path='.bililive-cleanup-quarantine/old',
+        dev=old_stat.st_dev, ino=old_stat.st_ino, size=old_stat.st_size,
+        mtime_ns=old_stat.st_mtime_ns, reason='disk pressure',
+    )
+    quarantine_directory = tmp_path / '.bililive-cleanup-quarantine'
+    quarantine_directory.mkdir(mode=0o700)
+    quarantine = quarantine_directory / 'old'
+    video.rename(quarantine)
+    journal.append(
+        'source_deleted', fingerprint=old_fingerprint, path=str(video),
+        reason='disk pressure',
+    )
+    video.write_bytes(b'new generation')
+    new_stat = video.stat()
+    new_fingerprint = baseline_fingerprint(
+        video, new_stat.st_size, new_stat.st_mtime_ns
+    )
+    journal.append(
+        'baseline', fingerprint=new_fingerprint, file=str(video),
+        source_size=new_stat.st_size, source_mtime_ns=new_stat.st_mtime_ns,
+    )
+    monkeypatch.setattr(
+        RootDirectory, 'lstat',
+        lambda *args: (_ for _ in ()).throw(
+            AssertionError('tombstoned source path must not be inspected')
+        ),
+    )
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=Usage(1)
+    ).run((), dry_run=False)
+
+    assert video.read_bytes() == b'new generation'
+    assert not quarantine.exists()
+    assert journal.replay().pending_deletions == ()
+    assert result.deleted == ()
+
+
+def test_mismatched_old_quarantine_only_protects_quarantine_not_recreated_path(
+    tmp_path,
+):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'new generation')
+    quarantine_directory = tmp_path / '.bililive-cleanup-quarantine'
+    quarantine_directory.mkdir(mode=0o700)
+    quarantine = quarantine_directory / 'old'
+    quarantine.write_bytes(b'unrelated quarantine entry')
+    old = replace(
+        file_state(
+            video, fingerprint='old', event='baseline',
+            durable_identity=False,
+        ),
+        deleted_paths=(str(video),),
+    )
+    new = file_state(video, event='baseline')
+    old_intent = JournalDeleteIntent(
+        fingerprint='old', original_path=str(video),
+        quarantine_path='.bililive-cleanup-quarantine/old',
+        dev=10, ino=20, size=30, mtime_ns=40,
+        reason='disk pressure', source_deleted=True,
+    )
+    current_replay = replace(
+        replay((old, new)), pending_deletions=(old_intent,)
+    )
+    journal = FakeJournal(current_replay)
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=Usage(99, 84)
+    ).run((), dry_run=False)
+
+    assert result.deleted == (video,)
+    assert quarantine in result.protected
+    assert video not in result.protected
+    assert quarantine.read_bytes() == b'unrelated quarantine entry'
+
+
 def test_quarantine_rename_never_replaces_existing_entry(tmp_path):
     video = tmp_path / 'recording.flv'
     video.write_bytes(b'video')
@@ -1924,23 +2071,240 @@ def test_completed_replacement_rejects_undeclared_flv_identity_change(
     assert journal.events == []
 
 
-def test_completed_replacement_rejects_undeclared_added_paths(tmp_path):
+@pytest.mark.parametrize('flv_change', ['added', 'removed'])
+def test_completed_replacement_rejects_declared_flv_set_change(
+    tmp_path, flv_change
+):
     video = tmp_path / 'recording.flv'
-    added = tmp_path / 'added.flv'
+    changed = tmp_path / 'changed.flv'
     video.write_bytes(b'old generation')
+    changed.write_bytes(b'changed generation')
+    source_videos = (
+        (video,) if flv_change == 'added' else (video, changed)
+    )
+    replacement_videos = (
+        (video, changed) if flv_change == 'added' else (video,)
+    )
     old = manifest(
-        'old', (video,), invalidated=True,
+        'old', source_videos, invalidated=True,
         replacement_manifest_id='replacement',
     )
-    video.write_bytes(b'new generation')
-    added.write_bytes(b'added generation')
+    old = replace(old, changed_paths=(str(changed),))
     replacement_manifest = manifest(
-        'replacement', (video, added), completed=True
+        'replacement', replacement_videos, completed=True
     )
 
     assert not StateAwareCleanup._replacement_continuity_valid(
         old, replacement_manifest
     )
+
+
+@pytest.mark.parametrize('xml_change', ['added', 'removed'])
+def test_completed_replacement_allows_declared_paired_xml_key_change(
+    tmp_path, xml_change
+):
+    video = tmp_path / 'recording.flv'
+    xml = video.with_suffix('.xml')
+    video.write_bytes(b'video')
+    if xml_change == 'removed':
+        xml.write_text('<i/>', encoding='utf8')
+    old = manifest(
+        'old', (video,), invalidated=True,
+        replacement_manifest_id='replacement',
+    )
+    old = replace(old, changed_paths=(str(xml),))
+    if xml_change == 'added':
+        xml.write_text('<i/>', encoding='utf8')
+    else:
+        xml.unlink()
+    replacement_manifest = manifest(
+        'replacement', (video,), completed=True
+    )
+
+    assert StateAwareCleanup._replacement_continuity_valid(
+        old, replacement_manifest
+    )
+
+
+def test_completed_replacement_pairs_xml_with_uppercase_flv_extension(
+    tmp_path,
+):
+    video = tmp_path / 'recording.FLV'
+    xml = video.with_suffix('.xml')
+    video.write_bytes(b'video')
+    old = manifest(
+        'old', (video,), invalidated=True,
+        replacement_manifest_id='replacement',
+    )
+    old = replace(old, changed_paths=(str(xml),))
+    xml.write_text('<i/>', encoding='utf8')
+    replacement_manifest = manifest(
+        'replacement', (video,), completed=True
+    )
+
+    assert StateAwareCleanup._replacement_continuity_valid(
+        old, replacement_manifest
+    )
+
+
+@pytest.mark.parametrize('xml_change', ['added', 'removed'])
+def test_completed_replacement_rejects_undeclared_xml_key_change(
+    tmp_path, xml_change
+):
+    video = tmp_path / 'recording.flv'
+    xml = video.with_suffix('.xml')
+    video.write_bytes(b'video')
+    if xml_change == 'removed':
+        xml.write_text('<i/>', encoding='utf8')
+    old = manifest(
+        'old', (video,), invalidated=True,
+        replacement_manifest_id='replacement',
+    )
+    if xml_change == 'added':
+        xml.write_text('<i/>', encoding='utf8')
+    else:
+        xml.unlink()
+    replacement_manifest = manifest(
+        'replacement', (video,), completed=True
+    )
+    old = replace(old, changed_paths=(str(video),))
+
+    assert not StateAwareCleanup._replacement_continuity_valid(
+        old, replacement_manifest
+    )
+
+
+def test_completed_replacement_rejects_declared_unpaired_xml_addition(
+    tmp_path,
+):
+    video = tmp_path / 'recording.flv'
+    unpaired_xml = tmp_path / 'other.xml'
+    video.write_bytes(b'video')
+    old = manifest(
+        'old', (video,), invalidated=True,
+        replacement_manifest_id='replacement',
+    )
+    old = replace(old, changed_paths=(str(unpaired_xml),))
+    unpaired_xml.write_text('<i/>', encoding='utf8')
+    replacement_manifest = manifest(
+        'replacement', (video,), completed=True
+    )
+    unpaired_stat = unpaired_xml.stat()
+    replacement_manifest = replace(
+        replacement_manifest,
+        snapshot={
+            **replacement_manifest.snapshot,
+            str(unpaired_xml): (
+                unpaired_stat.st_size, unpaired_stat.st_mtime_ns
+            ),
+        },
+    )
+
+    assert not StateAwareCleanup._replacement_continuity_valid(
+        old, replacement_manifest
+    )
+
+
+def _append_real_xml_key_replacement(journal, video, xml, xml_change):
+    video_stat = video.stat()
+    source_snapshot = {
+        str(video): (video_stat.st_size, video_stat.st_mtime_ns)
+    }
+    source_has_xml = xml_change == 'removed'
+    if source_has_xml:
+        xml_stat = xml.stat()
+        source_snapshot[str(xml)] = (
+            xml_stat.st_size, xml_stat.st_mtime_ns
+        )
+    journal.append('initialized')
+    journal.append(
+        'session_state', room_id=1829181560, state='waiting',
+        session_id=None, session_paths=(), snapshot=source_snapshot,
+        quiet_since=None, started_at=None,
+    )
+    journal.append(
+        'session_manifest_ready', manifest_id='old', room_id=1829181560,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:00:00+00:00',
+        flv_paths=(str(video),), snapshot=source_snapshot,
+    )
+    journal.append(
+        'file_ready', fingerprint='fp', manifest_id='old', file=str(video),
+        xml_file=str(xml) if source_has_xml else None,
+    )
+    journal.append('video_uploaded', fingerprint='fp', video_id='yt')
+    if source_has_xml:
+        journal.append('caption_uploaded', fingerprint='fp')
+    journal.append('youtube_processed', fingerprint='fp')
+
+    if xml_change == 'added':
+        xml.write_text('<i/>', encoding='utf8')
+    else:
+        xml.unlink()
+    target_snapshot = {
+        str(video): (video_stat.st_size, video_stat.st_mtime_ns)
+    }
+    if xml_change == 'added':
+        xml_stat = xml.stat()
+        target_snapshot[str(xml)] = (
+            xml_stat.st_size, xml_stat.st_mtime_ns
+        )
+    journal.append(
+        'session_manifest_changed', manifest_id='old',
+        detected_at='2026-07-27T12:05:00+00:00', reason='XML changed',
+        changed_paths=(str(xml),),
+    )
+    journal.append(
+        'session_resettle_started', source_manifest_id='old',
+        replacement_manifest_id='replacement', room_id=1829181560,
+        state='settling', session_paths=tuple(target_snapshot),
+        snapshot=target_snapshot,
+        quiet_since='2026-07-27T12:10:00+00:00',
+        started_at='2026-07-27T08:00:00+00:00',
+    )
+    journal.append(
+        'session_manifest_ready', manifest_id='replacement',
+        room_id=1829181560,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:40:00+00:00',
+        flv_paths=(str(video),), snapshot=target_snapshot,
+    )
+    journal.append(
+        'file_ready', fingerprint='fp', manifest_id='replacement',
+        file=str(video),
+        xml_file=str(xml) if xml_change == 'added' else None,
+    )
+    if xml_change == 'added':
+        journal.append('caption_uploaded', fingerprint='fp')
+    journal.append('session_manifest_completed', manifest_id='replacement')
+    journal.append(
+        'session_state', room_id=1829181560, state='waiting',
+        session_id=None, session_paths=(), snapshot=target_snapshot,
+        quiet_since=None, started_at=None,
+    )
+
+
+@pytest.mark.parametrize('xml_change', ['added', 'removed'])
+def test_real_journal_declared_xml_key_change_eventually_cleans(
+    tmp_path, xml_change
+):
+    video = tmp_path / 'recording.flv'
+    xml = video.with_suffix('.xml')
+    video.write_bytes(b'video')
+    if xml_change == 'removed':
+        xml.write_text('<i/>', encoding='utf8')
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    _append_real_xml_key_replacement(journal, video, xml, xml_change)
+    usage = Usage(99, 99, 84) if xml_change == 'added' else Usage(99, 84)
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=usage
+    ).run((), dry_run=False)
+
+    expected = {video, xml} if xml_change == 'added' else {video}
+    assert set(result.deleted) == expected
+    assert all(not path.exists() for path in expected)
+    assert result.exhausted is False
 
 
 def test_cleanup_stops_after_usage_falls_below_threshold(tmp_path):
