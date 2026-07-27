@@ -272,6 +272,202 @@ def test_valid_journal_sequence_ending_ambiguous_protects_completed_flags(
     assert video.exists() and xml.exists()
 
 
+def append_processed_video(journal, video, xml):
+    journal.append(
+        'file_ready', fingerprint='fp1', file=str(video), xml_file=str(xml)
+    )
+    journal.append('video_uploaded', fingerprint='fp1', video_id='yt123')
+    journal.append('youtube_processed', fingerprint='fp1')
+
+
+@pytest.mark.parametrize(
+    ('suffix_events', 'xml_eligible'),
+    [
+        ((), False),
+        ((('description_updated', {
+            'description_fingerprint': 'description-v2',
+        }),), False),
+        ((('caption_status', {
+            'caption_status': 'not_requested',
+        }),), False),
+        ((('caption_source_frozen', {}),), False),
+        ((
+            ('caption_source_frozen', {}),
+            ('caption_uploaded', {}),
+        ), True),
+        ((
+            ('caption_source_frozen', {}),
+            ('caption_uploaded', {}),
+            ('playlist_inserted', {}),
+        ), True),
+        ((
+            ('playlist_inserted', {}),
+            ('caption_source_frozen', {}),
+            ('caption_uploaded', {}),
+        ), True),
+        ((
+            ('caption_source_frozen', {}),
+            ('caption_uploaded', {}),
+            ('description_updated', {
+                'description_fingerprint': 'caption-highlights',
+            }),
+        ), True),
+        ((
+            ('caption_source_frozen', {}),
+            ('caption_uploaded', {}),
+            ('caption_status', {'caption_status': 'uploaded'}),
+        ), True),
+        ((('stage_retry_scheduled', {
+            'stage': 'caption', 'status': 'retryable',
+            'retry_at': '2026-07-28T12:05:00+00:00', 'attempt': 1,
+            'error_message': 'caption API unavailable',
+        }),), False),
+        ((('fatal', {
+            'stage': 'caption', 'message': 'caption rejected',
+        }),), False),
+        ((('stage_retry_scheduled', {
+            'stage': 'playlist', 'status': 'retryable',
+            'retry_at': '2026-07-28T12:05:00+00:00', 'attempt': 1,
+            'error_message': 'playlist API unavailable',
+        }),), False),
+        ((('fatal', {
+            'stage': 'processing', 'message': 'processing rejected',
+        }),), False),
+        ((
+            ('caption_source_frozen', {}),
+            ('caption_uploaded', {}),
+            ('stage_retry_scheduled', {
+                'stage': 'playlist', 'status': 'retryable',
+                'retry_at': '2026-07-28T12:05:00+00:00', 'attempt': 1,
+                'error_message': 'playlist API unavailable',
+            }),
+        ), True),
+        ((
+            ('caption_source_frozen', {}),
+            ('caption_uploaded', {}),
+            ('fatal', {
+                'stage': 'processing', 'message': 'processing rejected',
+            }),
+        ), True),
+    ],
+)
+def test_processed_flv_remains_eligible_after_legitimate_non_video_events(
+    tmp_path, suffix_events, xml_eligible
+):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    append_processed_video(journal, video, xml)
+    xml_stat = xml.stat()
+    for event, fields in suffix_events:
+        fields = dict(fields)
+        if event == 'caption_source_frozen':
+            fields.update(
+                xml_file=str(xml),
+                caption_source_xml_size=xml_stat.st_size,
+                caption_source_xml_mtime_ns=xml_stat.st_mtime_ns,
+            )
+        journal.append(event, fingerprint='fp1', **fields)
+    state = journal.replay().files['fp1']
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=lambda path: 99
+    ).run([state], dry_run=True)
+
+    assert video in result.deleted
+    assert (xml in result.deleted) is xml_eligible
+    assert (xml in result.protected) is (not xml_eligible)
+    assert result.exhausted is False
+
+
+@pytest.mark.parametrize(
+    'suffix_events',
+    [
+        (),
+        (('upload_started', {
+            'title': 'title', 'duration': 60,
+            'upload_started_at': '2026-07-28T12:00:00+00:00',
+            'attempt': 0,
+        }),),
+        (('video_uploaded', {'video_id': 'yt123'}),),
+        (('video_upload_rejected', {
+            'stage': 'video', 'message': 'upload rejected',
+        }),),
+        (
+            ('upload_started', {
+                'title': 'title', 'duration': 60,
+                'upload_started_at': '2026-07-28T12:00:00+00:00',
+                'attempt': 0,
+            }),
+            ('ambiguous', {
+                'stage': 'video', 'message': 'outcome unknown',
+            }),
+        ),
+        (('stage_retry_scheduled', {
+            'stage': 'video', 'status': 'retryable',
+            'retry_at': '2026-07-28T12:05:00+00:00', 'attempt': 1,
+            'error_message': 'upload unavailable',
+        }),),
+        (('fatal', {
+            'stage': 'video', 'message': 'upload rejected',
+        }),),
+    ],
+)
+def test_real_video_stage_final_events_protect_flv_and_xml(
+    tmp_path, suffix_events
+):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'file_ready', fingerprint='fp1', file=str(video), xml_file=str(xml)
+    )
+    for event, fields in suffix_events:
+        journal.append(event, fingerprint='fp1', **fields)
+    state = journal.replay().files['fp1']
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=lambda path: 99
+    ).run([state], dry_run=True)
+
+    assert result.deleted == ()
+    assert set(result.protected) == {video, xml}
+    assert result.exhausted is True
+
+
+@pytest.mark.parametrize(
+    'event', ['baseline', 'ignored_invalid', 'ignored_tiny',
+              'ignored_invalid_tail']
+)
+def test_real_baseline_and_ignored_final_events_are_cleanup_eligible(
+    tmp_path, event
+):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    fields = {
+        'fingerprint': 'fp1', 'file': str(video), 'xml_file': str(xml),
+    }
+    if event.startswith('ignored_'):
+        fields['reason'] = 'classification policy'
+    journal.append(event, **fields)
+    state = journal.replay().files['fp1']
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=lambda path: 99
+    ).run([state], dry_run=True)
+
+    assert set(result.deleted) == {video, xml}
+    assert result.protected == ()
+    assert result.exhausted is False
+
+
 @pytest.mark.parametrize(
     'state_changes',
     [
@@ -293,6 +489,28 @@ def test_valid_journal_sequence_ending_ambiguous_protects_completed_flags(
             'caption_uploaded': False,
             'video_id': 'yt123',
         },
+        {
+            'event': 'stage_retry_scheduled',
+            'youtube_processed': True,
+            'video_id': 'yt123',
+            'stage': 'caption',
+            'status': None,
+            'retry_at': None,
+        },
+        {
+            'event': 'description_updated',
+            'youtube_processed': True,
+            'video_id': 'yt123',
+            'description_updated': True,
+            'description_fingerprint': None,
+        },
+        {
+            'event': 'caption_source_frozen',
+            'youtube_processed': True,
+            'video_id': 'yt123',
+            'caption_source_xml_size': None,
+            'caption_source_xml_mtime_ns': None,
+        },
     ],
 )
 def test_raw_inconsistent_completion_state_is_fully_protected(
@@ -303,11 +521,14 @@ def test_raw_inconsistent_completion_state_is_fully_protected(
     video.write_bytes(b'video')
     xml.write_text('<i/>', encoding='utf8')
     xml_stat = xml.stat()
+    replacements = {
+        'caption_source_xml_size': xml_stat.st_size,
+        'caption_source_xml_mtime_ns': xml_stat.st_mtime_ns,
+    }
+    replacements.update(state_changes)
     state = replace(
         file_state(video, xml),
-        caption_source_xml_size=xml_stat.st_size,
-        caption_source_xml_mtime_ns=xml_stat.st_mtime_ns,
-        **state_changes,
+        **replacements,
     )
     journal, cleanup = cleanup_for(tmp_path, [state], Usage(99))
 

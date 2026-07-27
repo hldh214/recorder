@@ -16,14 +16,30 @@ _IGNORED_EVENTS = frozenset({
     'ignored_tiny',
     'ignored_invalid_tail',
 })
-_COMPLETION_ELIGIBLE_EVENTS = _IGNORED_EVENTS | frozenset({
+_KNOWN_FILE_EVENTS = _IGNORED_EVENTS | frozenset({
     'baseline',
+    'file_ready',
+    'upload_started',
+    'video_upload_rejected',
+    'video_uploaded',
+    'description_updated',
     'caption_status',
+    'caption_source_frozen',
     'caption_uploaded',
     'playlist_inserted',
     'youtube_processed',
+    'stage_retry_scheduled',
+    'ambiguous',
+    'fatal',
 })
 _TERMINAL_CAPTION_STATUSES = frozenset({'uploaded', 'existing'})
+_HARD_VIDEO_EVENTS = frozenset({
+    'file_ready',
+    'upload_started',
+    'video_upload_rejected',
+    'video_uploaded',
+    'ambiguous',
+})
 _ACTIVE_SESSION_STATES = frozenset({
     SessionState.SKIP_CURRENT_SESSION,
     SessionState.RECORDING,
@@ -161,12 +177,13 @@ class StateAwareCleanup:
         baseline_or_ignored = (
             state.event == 'baseline' or state.event in _IGNORED_EVENTS
         )
-        hard_protected = self._hard_lifecycle_protected(state)
+        video_eligible = self._video_eligible(state, baseline_or_ignored)
+        xml_eligible = self._xml_eligible(state, baseline_or_ignored)
         if state.file is not None:
-            yield Path(state.file), (
-                not hard_protected
-                and (baseline_or_ignored or state.youtube_processed)
-            ), False, baseline_or_ignored
+            yield (
+                Path(state.file), video_eligible, False,
+                baseline_or_ignored,
+            )
         if state.xml_file is not None:
             xml_path = Path(state.xml_file)
         elif state.file is not None:
@@ -175,31 +192,103 @@ class StateAwareCleanup:
                 return
         else:
             return
-        yield xml_path, (
-            not hard_protected
-            and (baseline_or_ignored or state.caption_uploaded)
-        ), True, baseline_or_ignored
+        yield xml_path, xml_eligible, True, baseline_or_ignored
+
+    @classmethod
+    def _video_eligible(cls, state, baseline_or_ignored):
+        if cls._inconsistent_lifecycle(state):
+            return False
+        if baseline_or_ignored:
+            return True
+        if not state.youtube_processed or not state.video_id:
+            return False
+        if state.event in _HARD_VIDEO_EVENTS:
+            return False
+        if state.event == 'stage_retry_scheduled':
+            return state.stage != 'video'
+        if state.event == 'fatal':
+            return state.error_stage != 'video'
+        return True
+
+    @classmethod
+    def _xml_eligible(cls, state, baseline_or_ignored):
+        if cls._inconsistent_lifecycle(state):
+            return False
+        if baseline_or_ignored:
+            return True
+        if (
+            not state.caption_uploaded
+            or state.caption_refresh_required
+            or not state.video_id
+            or state.event in _HARD_VIDEO_EVENTS
+        ):
+            return False
+        if state.event == 'stage_retry_scheduled' and state.stage == 'video':
+            return False
+        if state.event == 'fatal' and state.error_stage == 'video':
+            return False
+        return True
 
     @staticmethod
-    def _hard_lifecycle_protected(state):
-        if state.ambiguous or state.event not in _COMPLETION_ELIGIBLE_EVENTS:
+    def _inconsistent_lifecycle(state):
+        if (
+            state.ambiguous
+            or state.event not in _KNOWN_FILE_EVENTS
+            or state.event == 'ambiguous'
+        ):
             return True
-        baseline_or_ignored = (
-            state.event == 'baseline' or state.event in _IGNORED_EVENTS
-        )
         remote_evidence = any((
             state.youtube_processed,
             state.caption_uploaded,
             state.playlist_inserted,
             state.description_updated,
         ))
-        if not baseline_or_ignored and remote_evidence and not state.video_id:
+        if remote_evidence and not state.video_id:
             return True
         if state.event == 'youtube_processed' and not state.youtube_processed:
             return True
         if state.event == 'caption_uploaded' and not state.caption_uploaded:
             return True
         if state.event == 'playlist_inserted' and not state.playlist_inserted:
+            return True
+        if state.event == 'description_updated' and (
+            not state.description_updated
+            or not isinstance(state.description_fingerprint, str)
+            or not state.description_fingerprint
+        ):
+            return True
+        if state.event == 'caption_status' and (
+            not isinstance(state.caption_status, str)
+            or not state.caption_status
+        ):
+            return True
+        if state.event == 'caption_source_frozen' and (
+            not isinstance(state.xml_file, str)
+            or not state.xml_file
+            or isinstance(state.caption_source_xml_size, bool)
+            or not isinstance(state.caption_source_xml_size, int)
+            or state.caption_source_xml_size < 0
+            or isinstance(state.caption_source_xml_mtime_ns, bool)
+            or not isinstance(state.caption_source_xml_mtime_ns, int)
+            or state.caption_source_xml_mtime_ns < 0
+        ):
+            return True
+        if state.event == 'stage_retry_scheduled' and (
+            not isinstance(state.stage, str)
+            or not state.stage
+            or not isinstance(state.status, str)
+            or not state.status
+            or not isinstance(state.retry_at, str)
+            or not state.retry_at
+            or isinstance(state.attempt, bool)
+            or not isinstance(state.attempt, int)
+            or state.attempt < 0
+        ):
+            return True
+        if state.event == 'fatal' and (
+            not isinstance(state.error_stage, str)
+            or not state.error_stage
+        ):
             return True
         if (
             state.event == 'caption_status'
