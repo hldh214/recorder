@@ -54,7 +54,7 @@ _FILE_EVENT_UPDATES = {
     }),
     'upload_started': frozenset({
         'file', 'xml_file', 'title', 'duration', 'description_fingerprint',
-        'upload_started_at',
+        'upload_started_at', 'attempt',
     }),
     'video_upload_rejected': frozenset({'error_stage', 'error_message'}),
     'video_uploaded': frozenset({'video_id'}),
@@ -64,7 +64,8 @@ _FILE_EVENT_UPDATES = {
     'playlist_inserted': frozenset(),
     'youtube_processed': frozenset(),
     'stage_retry_scheduled': frozenset({
-        'retry_at', 'attempt', 'error_stage', 'error_message',
+        'retry_at', 'attempt', 'stage', 'status', 'error_stage',
+        'error_message',
     }),
     'ambiguous': frozenset({'error_stage', 'error_message'}),
     'fatal': frozenset({'error_stage', 'error_message'}),
@@ -102,7 +103,7 @@ def _validate_file_record(record, event, existing, enforce_history=True):
     string_fields = {
         'manifest_id', 'file', 'xml_file', 'title', 'start_time', 'video_id',
         'caption_status', 'description_fingerprint', 'upload_started_at',
-        'retry_at', 'error_stage',
+        'retry_at', 'stage', 'status', 'error_stage',
     }
     for name in string_fields.intersection(_FILE_EVENT_UPDATES[event], record):
         value = record[name]
@@ -147,6 +148,11 @@ def _validate_file_record(record, event, existing, enforce_history=True):
             raise TypeError('upload_started requires a finite non-negative duration')
         if existing is not None and existing.video_id is not None:
             raise ValueError('upload_started cannot replace an existing video_id')
+        attempt = record.get('attempt', 0)
+        if isinstance(attempt, bool) or not isinstance(attempt, int) or attempt < 0:
+            raise TypeError(
+                'upload_started requires a non-negative integer attempt'
+            )
     elif event == 'video_uploaded':
         _require_non_empty_string(record, 'video_id', event)
     elif event == 'description_updated':
@@ -154,7 +160,8 @@ def _validate_file_record(record, event, existing, enforce_history=True):
     elif event == 'caption_status':
         _require_non_empty_string(record, 'caption_status', event)
     elif event == 'stage_retry_scheduled':
-        _require_non_empty_string(record, 'retry_at', event)
+        for name in ('stage', 'status', 'retry_at'):
+            _require_non_empty_string(record, name, event)
         attempt = record.get('attempt')
         if isinstance(attempt, bool) or not isinstance(attempt, int) or attempt < 0:
             raise TypeError(
@@ -166,6 +173,7 @@ def _validate_file_record(record, event, existing, enforce_history=True):
 
 
 def _file_event_updates(record, event):
+    # Extra diagnostics remain in JSONL without entering the stable replay model.
     updates = {
         key: record[key]
         for key in _FILE_EVENT_UPDATES[event]
@@ -188,6 +196,11 @@ def _file_event_updates(record, event):
             video_upload_rejected=False,
             ambiguous=False,
             retry_at=None,
+            attempt=record.get('attempt', 0),
+            stage=None,
+            status=None,
+            error_stage=None,
+            error_message=None,
         )
     elif event == 'video_upload_rejected':
         updates.update(
@@ -196,7 +209,15 @@ def _file_event_updates(record, event):
             ambiguous=False,
         )
     elif event == 'video_uploaded':
-        updates.update(video_upload_rejected=False, ambiguous=False, retry_at=None)
+        updates.update(
+            video_upload_rejected=False,
+            ambiguous=False,
+            retry_at=None,
+            stage=None,
+            status=None,
+            error_stage=None,
+            error_message=None,
+        )
     elif event == 'ambiguous':
         updates.update(video_upload_rejected=False, ambiguous=True, retry_at=None)
     elif event == 'caption_uploaded':

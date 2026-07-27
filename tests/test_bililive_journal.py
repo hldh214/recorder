@@ -154,8 +154,16 @@ def test_upload_attempt_and_resolution_events_replace_only_attempt_state(tmp_pat
     journal.append(
         'stage_retry_scheduled',
         fingerprint='fp1',
+        stage='video',
+        status='retryable',
         retry_at='2026-07-27T12:00:00+00:00',
         attempt=2,
+    )
+    journal.append(
+        'fatal',
+        fingerprint='fp1',
+        stage='video',
+        message='stale failure',
     )
     journal.append(
         'upload_started',
@@ -172,7 +180,12 @@ def test_upload_attempt_and_resolution_events_replace_only_attempt_state(tmp_pat
     assert started.title == 'Second title'
     assert started.duration == 3601
     assert started.upload_started_at == '2026-07-27T12:01:00+00:00'
-    assert started.attempt == 2
+    assert started.attempt == 0
+    assert started.stage is None
+    assert started.status is None
+    assert started.error_stage is None
+    assert started.error_message is None
+    assert started.retry_at is None
     assert started.video_upload_rejected is False
     assert started.video_id is None
     assert started.ambiguous is False
@@ -204,6 +217,8 @@ def test_later_publication_events_retain_completed_fields(tmp_path):
     journal.append(
         'stage_retry_scheduled',
         fingerprint='fp1',
+        stage='processing',
+        status='pending',
         retry_at='2026-07-27T13:00:00+00:00',
         attempt=3,
     )
@@ -218,6 +233,8 @@ def test_later_publication_events_retain_completed_fields(tmp_path):
     assert state.youtube_processed is True
     assert state.retry_at == '2026-07-27T13:00:00+00:00'
     assert state.attempt == 3
+    assert state.stage == 'processing'
+    assert state.status == 'pending'
 
 
 @pytest.mark.parametrize(
@@ -639,3 +656,108 @@ def test_source_deleted_without_path_is_rejected_before_append(tmp_path):
         )
 
     assert journal.path.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    'missing_field', ['stage', 'status', 'retry_at', 'attempt']
+)
+def test_retry_event_missing_required_field_is_rejected_before_append(
+    tmp_path, missing_field
+):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('file_ready', fingerprint='fp1', file='/video.flv')
+    fields = {
+        'stage': 'caption',
+        'status': 'retryable',
+        'retry_at': '2026-07-27T13:00:00+00:00',
+        'attempt': 2,
+    }
+    del fields[missing_field]
+    before = journal.path.read_bytes()
+
+    with pytest.raises((TypeError, ValueError), match=missing_field):
+        journal.append(
+            'stage_retry_scheduled', fingerprint='fp1', **fields
+        )
+
+    assert journal.path.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    'field, value',
+    [
+        ('stage', 1),
+        ('status', False),
+        ('retry_at', None),
+        ('attempt', 1.5),
+    ],
+)
+def test_retry_event_wrong_field_type_is_corruption(tmp_path, field, value):
+    ready = {
+        'event': 'file_ready',
+        'fingerprint': 'fp1',
+        'file': '/video.flv',
+    }
+    retry = {
+        'event': 'stage_retry_scheduled',
+        'fingerprint': 'fp1',
+        'stage': 'caption',
+        'status': 'retryable',
+        'retry_at': '2026-07-27T13:00:00+00:00',
+        'attempt': 2,
+    }
+    retry[field] = value
+    path = tmp_path / 'state.jsonl'
+    path.write_text(
+        json.dumps(ready) + '\n' + json.dumps(retry) + '\n', encoding='utf8'
+    )
+
+    with pytest.raises(JournalCorruptError, match='line 2'):
+        JsonlJournal(path).replay()
+
+
+def test_upload_started_uses_explicit_attempt_and_clears_stale_outcome(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('file_ready', fingerprint='fp1', file='/video.flv')
+    journal.append(
+        'stage_retry_scheduled',
+        fingerprint='fp1',
+        stage='video',
+        status='retryable',
+        retry_at='2026-07-27T13:00:00+00:00',
+        attempt=2,
+    )
+
+    journal.append(
+        'upload_started',
+        fingerprint='fp1',
+        title='Retry title',
+        duration=120,
+        upload_started_at='2026-07-27T13:01:00+00:00',
+        attempt=3,
+    )
+
+    state = journal.replay().files['fp1']
+    assert state.attempt == 3
+    assert state.stage is None
+    assert state.status is None
+    assert state.retry_at is None
+
+
+def test_extra_diagnostic_fields_are_accepted_without_changing_state_schema(
+    tmp_path,
+):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+
+    journal.append(
+        'file_ready',
+        fingerprint='fp1',
+        file='/video.flv',
+        measured_size=123456,
+        diagnostics={'probe': 'clean', 'streams': 2},
+    )
+
+    record = json.loads(journal.path.read_text(encoding='utf8'))
+    assert record['measured_size'] == 123456
+    assert record['diagnostics'] == {'probe': 'clean', 'streams': 2}
+    assert journal.replay().files['fp1'].event == 'file_ready'

@@ -42,6 +42,8 @@ class JournalFileState:
     upload_started_at: str | None = None
     retry_at: str | None = None
     attempt: int = 0
+    stage: str | None = None
+    status: str | None = None
     ambiguous: bool = False
     error_stage: str | None = None
     error_message: str | None = None
