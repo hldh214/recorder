@@ -349,6 +349,33 @@ def append_processed_video(journal, video, xml):
                 'stage': 'processing', 'message': 'processing rejected',
             }),
         ), True),
+        ((
+            ('caption_source_frozen', {}),
+            ('caption_uploaded', {}),
+            ('stage_retry_scheduled', {
+                'stage': 'caption', 'status': 'retryable',
+                'retry_at': '2026-07-28T12:05:00+00:00', 'attempt': 1,
+                'error_message': 'caption refresh unavailable',
+            }),
+        ), False),
+        ((
+            ('caption_source_frozen', {}),
+            ('caption_uploaded', {}),
+            ('fatal', {
+                'stage': 'caption', 'message': 'caption refresh rejected',
+            }),
+        ), False),
+        ((
+            ('caption_source_frozen', {}),
+            ('caption_uploaded', {}),
+            ('caption_source_frozen', {}),
+        ), False),
+        ((
+            ('caption_source_frozen', {}),
+            ('caption_uploaded', {}),
+            ('caption_source_frozen', {}),
+            ('caption_status', {'caption_status': 'existing'}),
+        ), True),
     ],
 )
 def test_processed_flv_remains_eligible_after_legitimate_non_video_events(
@@ -536,6 +563,129 @@ def test_raw_inconsistent_completion_state_is_fully_protected(
 
     assert set(result.protected) == {video, xml}
     assert video.exists() and xml.exists()
+    assert journal.events == []
+
+
+@pytest.mark.parametrize(
+    ('field', 'bad_value'),
+    [
+        ('event', None),
+        ('event', 1),
+        ('event', True),
+        ('event', ''),
+        ('event', []),
+        ('fingerprint', None),
+        ('fingerprint', 1),
+        ('fingerprint', True),
+        ('fingerprint', ''),
+        ('file', None),
+        ('file', 1),
+        ('file', True),
+        ('file', ''),
+        ('xml_file', 1),
+        ('xml_file', True),
+        ('xml_file', ''),
+        ('manifest_id', 1),
+        ('manifest_id', True),
+        ('manifest_id', ''),
+        *[
+            (field, bad_value)
+            for field in (
+                'youtube_processed',
+                'caption_uploaded',
+                'caption_refresh_required',
+                'ambiguous',
+                'playlist_inserted',
+                'description_updated',
+                'video_upload_rejected',
+            )
+            for bad_value in (None, 0, 1, 'invalid-boolean')
+        ],
+        ('video_id', None),
+        ('video_id', 1),
+        ('video_id', True),
+        ('video_id', ''),
+        ('deleted_paths', []),
+        ('deleted_paths', (1,)),
+    ],
+)
+def test_corrupt_cleanup_state_shape_protects_paired_sources(
+    tmp_path, field, bad_value
+):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    xml_stat = xml.stat()
+    state = replace(
+        file_state(
+            video,
+            xml,
+            event='youtube_processed',
+            youtube_processed=True,
+            caption_uploaded=True,
+            video_id='yt123',
+        ),
+        caption_source_xml_size=xml_stat.st_size,
+        caption_source_xml_mtime_ns=xml_stat.st_mtime_ns,
+        **{field: bad_value},
+    )
+    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99))
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert result.deleted == ()
+    assert set(result.protected) == {video, xml}
+    assert video.exists() and xml.exists()
+    assert journal.events == []
+
+
+@pytest.mark.parametrize(
+    ('field', 'bad_value'),
+    [
+        ('stage', None),
+        ('stage', 1),
+        ('stage', ''),
+        ('status', None),
+        ('status', 1),
+        ('status', ''),
+        ('retry_at', None),
+        ('retry_at', 1),
+        ('retry_at', ''),
+        ('retry_at', 'not-a-timestamp'),
+        ('retry_at', '2026-07-28T12:05:00'),
+        ('attempt', True),
+        ('attempt', -1),
+    ],
+)
+def test_corrupt_retry_shape_protects_paired_sources(
+    tmp_path, field, bad_value
+):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    state = file_state(
+        video,
+        xml,
+        event='stage_retry_scheduled',
+        youtube_processed=True,
+        video_id='yt123',
+    )
+    retry_fields = {
+        'stage': 'caption',
+        'status': 'retryable',
+        'retry_at': '2026-07-28T12:05:00+00:00',
+        'attempt': 1,
+    }
+    retry_fields[field] = bad_value
+    state = replace(state, **retry_fields)
+    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99))
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert result.deleted == ()
+    assert set(result.protected) == {video, xml}
     assert journal.events == []
 
 

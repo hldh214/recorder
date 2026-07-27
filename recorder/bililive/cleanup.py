@@ -1,8 +1,10 @@
 import logging
+import math
 import os
 import shutil
 import stat
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from recorder.bililive.models import SessionState
@@ -92,15 +94,20 @@ class StateAwareCleanup:
         identities = {}
 
         for state in states:
-            manifest = manifest_index.get(state.manifest_id)
-            if manifest is not None and manifest.invalidated:
+            shape_valid = self._state_shape_valid(state)
+            manifest = (
+                manifest_index.get(state.manifest_id)
+                if shape_valid and state.manifest_id is not None
+                else None
+            )
+            if shape_valid and manifest is not None and manifest.invalidated:
                 # An invalidated generation is either protected by its resettle
                 # chain or superseded by a safely completed replacement.
                 continue
             for path, eligible, is_xml, identity_optional in self._state_paths(
-                state
+                state, shape_valid
             ):
-                if str(path) in state.deleted_paths:
+                if shape_valid and str(path) in state.deleted_paths:
                     continue
                 fingerprints.setdefault(path, state.fingerprint)
                 safe, file_stat = self._safe_regular_file(path)
@@ -173,34 +180,52 @@ class StateAwareCleanup:
             tuple(deleted), self._ordered(protected), usage, exhausted
         )
 
-    def _state_paths(self, state):
-        baseline_or_ignored = (
+    def _state_paths(self, state, shape_valid):
+        file_value = (
+            state.file if self._non_empty_string(state.file) else None
+        )
+        xml_value = (
+            state.xml_file
+            if self._non_empty_string(state.xml_file)
+            else None
+        )
+        if file_value is not None:
+            video_path = Path(file_value)
+        elif xml_value is not None:
+            video_path = Path(xml_value).with_suffix('.flv')
+        else:
+            return
+        xml_path = (
+            Path(xml_value)
+            if xml_value is not None
+            else video_path.with_suffix('.xml')
+        )
+        baseline_or_ignored = shape_valid and (
             state.event == 'baseline' or state.event in _IGNORED_EVENTS
         )
-        video_eligible = self._video_eligible(state, baseline_or_ignored)
-        xml_eligible = self._xml_eligible(state, baseline_or_ignored)
-        if state.file is not None:
-            yield (
-                Path(state.file), video_eligible, False,
-                baseline_or_ignored,
-            )
-        if state.xml_file is not None:
-            xml_path = Path(state.xml_file)
-        elif state.file is not None:
-            xml_path = Path(state.file).with_suffix('.xml')
-            if not os.path.lexists(xml_path):
-                return
-        else:
+        video_eligible = self._video_eligible(
+            state, baseline_or_ignored, shape_valid
+        )
+        xml_eligible = self._xml_eligible(
+            state, baseline_or_ignored, shape_valid
+        )
+        yield (
+            video_path, video_eligible, False,
+            baseline_or_ignored and shape_valid,
+        )
+        if xml_value is None and not os.path.lexists(xml_path):
             return
         yield xml_path, xml_eligible, True, baseline_or_ignored
 
     @classmethod
-    def _video_eligible(cls, state, baseline_or_ignored):
+    def _video_eligible(cls, state, baseline_or_ignored, shape_valid):
+        if not shape_valid:
+            return False
         if cls._inconsistent_lifecycle(state):
             return False
         if baseline_or_ignored:
             return True
-        if not state.youtube_processed or not state.video_id:
+        if state.youtube_processed is not True or not state.video_id:
             return False
         if state.event in _HARD_VIDEO_EVENTS:
             return False
@@ -211,84 +236,219 @@ class StateAwareCleanup:
         return True
 
     @classmethod
-    def _xml_eligible(cls, state, baseline_or_ignored):
+    def _xml_eligible(cls, state, baseline_or_ignored, shape_valid):
+        if not shape_valid:
+            return False
         if cls._inconsistent_lifecycle(state):
             return False
         if baseline_or_ignored:
             return True
         if (
-            not state.caption_uploaded
-            or state.caption_refresh_required
+            state.caption_uploaded is not True
+            or state.caption_refresh_required is True
             or not state.video_id
             or state.event in _HARD_VIDEO_EVENTS
         ):
             return False
-        if state.event == 'stage_retry_scheduled' and state.stage == 'video':
+        if state.event == 'caption_source_frozen':
             return False
-        if state.event == 'fatal' and state.error_stage == 'video':
+        if (
+            state.event == 'stage_retry_scheduled'
+            and state.stage in {'video', 'caption'}
+        ):
+            return False
+        if (
+            state.event == 'fatal'
+            and state.error_stage in {'video', 'caption'}
+        ):
+            return False
+        return True
+
+    @classmethod
+    def _state_shape_valid(cls, state):
+        if (
+            not cls._non_empty_string(state.fingerprint)
+            or not cls._non_empty_string(state.event)
+            or not cls._non_empty_string(state.file)
+            or not cls._optional_non_empty_string(state.xml_file)
+            or not cls._optional_non_empty_string(state.manifest_id)
+            or not cls._optional_non_empty_string(state.video_id)
+        ):
+            return False
+
+        boolean_fields = (
+            'video_upload_rejected',
+            'caption_uploaded',
+            'caption_refresh_required',
+            'playlist_inserted',
+            'youtube_processed',
+            'description_updated',
+            'ambiguous',
+        )
+        if any(
+            type(getattr(state, name)) is not bool
+            for name in boolean_fields
+        ):
+            return False
+
+        optional_string_fields = (
+            'title',
+            'stream_title',
+            'start_time',
+            'caption_status',
+            'reason',
+            'caption_track_id',
+            'description_fingerprint',
+            'upload_started_at',
+            'retry_at',
+            'stage',
+            'status',
+            'error_stage',
+        )
+        if any(
+            not cls._optional_non_empty_string(getattr(state, name))
+            for name in optional_string_fields
+        ):
+            return False
+        if state.error_message is not None and not isinstance(
+            state.error_message, str
+        ):
+            return False
+
+        if (
+            not cls._optional_non_negative_number(state.duration)
+            or not cls._non_negative_integer(state.attempt)
+            or not cls._optional_non_negative_integer(
+                state.caption_source_xml_size
+            )
+            or not cls._optional_non_negative_integer(
+                state.caption_source_xml_mtime_ns
+            )
+        ):
+            return False
+        if (
+            not isinstance(state.deleted_paths, tuple)
+            or any(
+                not cls._non_empty_string(path)
+                for path in state.deleted_paths
+            )
+        ):
+            return False
+
+        timestamp_fields = ('start_time', 'upload_started_at', 'retry_at')
+        if any(
+            value is not None and not cls._aware_instant(value)
+            for value in (getattr(state, name) for name in timestamp_fields)
+        ):
             return False
         return True
 
     @staticmethod
+    def _non_empty_string(value):
+        return isinstance(value, str) and bool(value)
+
+    @classmethod
+    def _optional_non_empty_string(cls, value):
+        return value is None or cls._non_empty_string(value)
+
+    @staticmethod
+    def _non_negative_integer(value):
+        return type(value) is int and value >= 0
+
+    @classmethod
+    def _optional_non_negative_integer(cls, value):
+        return value is None or cls._non_negative_integer(value)
+
+    @staticmethod
+    def _optional_non_negative_number(value):
+        return (
+            value is None
+            or (
+                not isinstance(value, bool)
+                and isinstance(value, (int, float))
+                and math.isfinite(value)
+                and value >= 0
+            )
+        )
+
+    @staticmethod
+    def _aware_instant(value):
+        normalized = (
+            value[:-1] + '+00:00'
+            if value.endswith(('Z', 'z'))
+            else value
+        )
+        try:
+            instant = datetime.fromisoformat(normalized)
+            return instant.tzinfo is not None and instant.utcoffset() is not None
+        except (TypeError, ValueError):
+            return False
+
+    @staticmethod
     def _inconsistent_lifecycle(state):
         if (
-            state.ambiguous
+            state.ambiguous is True
             or state.event not in _KNOWN_FILE_EVENTS
             or state.event == 'ambiguous'
         ):
             return True
         remote_evidence = any((
-            state.youtube_processed,
-            state.caption_uploaded,
-            state.playlist_inserted,
-            state.description_updated,
+            state.youtube_processed is True,
+            state.caption_uploaded is True,
+            state.playlist_inserted is True,
+            state.description_updated is True,
         ))
         if remote_evidence and not state.video_id:
             return True
-        if state.event == 'youtube_processed' and not state.youtube_processed:
+        if (
+            state.event == 'youtube_processed'
+            and state.youtube_processed is not True
+        ):
             return True
-        if state.event == 'caption_uploaded' and not state.caption_uploaded:
+        if (
+            state.event == 'caption_uploaded'
+            and state.caption_uploaded is not True
+        ):
             return True
-        if state.event == 'playlist_inserted' and not state.playlist_inserted:
+        if (
+            state.event == 'playlist_inserted'
+            and state.playlist_inserted is not True
+        ):
             return True
         if state.event == 'description_updated' and (
-            not state.description_updated
-            or not isinstance(state.description_fingerprint, str)
+            state.description_updated is not True
             or not state.description_fingerprint
         ):
             return True
-        if state.event == 'caption_status' and (
-            not isinstance(state.caption_status, str)
-            or not state.caption_status
-        ):
+        if state.event == 'caption_status' and not state.caption_status:
             return True
         if state.event == 'caption_source_frozen' and (
-            not isinstance(state.xml_file, str)
-            or not state.xml_file
-            or isinstance(state.caption_source_xml_size, bool)
-            or not isinstance(state.caption_source_xml_size, int)
-            or state.caption_source_xml_size < 0
-            or isinstance(state.caption_source_xml_mtime_ns, bool)
-            or not isinstance(state.caption_source_xml_mtime_ns, int)
-            or state.caption_source_xml_mtime_ns < 0
+            not state.xml_file
+            or state.caption_source_xml_size is None
+            or state.caption_source_xml_mtime_ns is None
         ):
             return True
         if state.event == 'stage_retry_scheduled' and (
-            not isinstance(state.stage, str)
-            or not state.stage
-            or not isinstance(state.status, str)
+            not state.stage
             or not state.status
-            or not isinstance(state.retry_at, str)
             or not state.retry_at
-            or isinstance(state.attempt, bool)
-            or not isinstance(state.attempt, int)
-            or state.attempt < 0
+            or not StateAwareCleanup._aware_instant(state.retry_at)
         ):
             return True
-        if state.event == 'fatal' and (
-            not isinstance(state.error_stage, str)
-            or not state.error_stage
+        if state.event == 'fatal' and not state.error_stage:
+            return True
+        if state.event == 'upload_started' and (
+            not state.title
+            or state.duration is None
+            or not state.upload_started_at
+            or not StateAwareCleanup._aware_instant(state.upload_started_at)
         ):
+            return True
+        if state.event == 'video_upload_rejected' and (
+            state.video_upload_rejected is not True
+        ):
+            return True
+        if state.event == 'video_uploaded' and not state.video_id:
             return True
         if (
             state.event == 'caption_status'
