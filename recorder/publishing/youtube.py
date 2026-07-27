@@ -8,6 +8,7 @@ from pathlib import Path
 import httplib2
 
 from recorder.destination.youtube import (
+    CAPTION_UPLOAD_FAILED,
     CAPTION_UPLOAD_QUOTA_EXCEEDED,
     CAPTION_UPLOAD_SUCCESS,
     YOUTUBE_QUOTA_REASONS,
@@ -50,6 +51,7 @@ class PublishCheckpoint:
     video_uploaded: bool = False
     caption_uploaded: bool = False
     caption_refresh_required: bool = False
+    caption_track_id: str | None = None
     playlist_inserted: bool = False
     youtube_processed: bool = False
     description_updated: bool = False
@@ -62,6 +64,7 @@ class PublishResult:
     video_id: str | None = None
     video_uploaded: bool = False
     caption_uploaded: bool = False
+    caption_track_id: str | None = None
     playlist_inserted: bool = False
     youtube_processed: bool = False
     description_fingerprint: str | None = None
@@ -154,6 +157,7 @@ class YoutubePublishService:
         video_uploaded = checkpoint.video_uploaded or video_id is not None
         caption_uploaded = checkpoint.caption_uploaded
         caption_refresh_required = checkpoint.caption_refresh_required
+        caption_track_id = checkpoint.caption_track_id
         playlist_inserted = checkpoint.playlist_inserted
         youtube_processed = checkpoint.youtube_processed
         fingerprint = checkpoint.description_fingerprint
@@ -172,6 +176,7 @@ class YoutubePublishService:
                 video_id=video_id,
                 video_uploaded=video_uploaded,
                 caption_uploaded=caption_uploaded,
+                caption_track_id=caption_track_id,
                 playlist_inserted=playlist_inserted,
                 youtube_processed=youtube_processed,
                 description_fingerprint=fingerprint,
@@ -358,29 +363,69 @@ class YoutubePublishService:
             if caption_uploaded and not caption_refresh_required:
                 caption_status = CAPTION_UPLOAD_SUCCESS
             else:
-                exists = False
-                if not caption_refresh_required:
-                    try:
+                track_query = getattr(
+                    self.youtube, 'matching_caption_track_ids', None
+                )
+                legacy_caption_api = not callable(track_query)
+                if legacy_caption_api and caption_refresh_required:
+                    return result(
+                        PublishStatus.FATAL,
+                        error_stage='caption',
+                        error_message=(
+                            'Caption refresh requires track-aware YouTube APIs'
+                        ),
+                    )
+                try:
+                    if legacy_caption_api:
                         exists = self.youtube.caption_exists(
                             video_id, self.CAPTION_NAME
                         )
-                    except Exception as exception:
-                        return error_result(exception, 'caption')
+                        track_ids = (None,) if exists else ()
+                    else:
+                        track_ids = track_query(video_id, self.CAPTION_NAME)
+                except Exception as exception:
+                    return error_result(exception, 'caption')
+                if len(track_ids) > 1:
+                    return result(
+                        PublishStatus.FATAL,
+                        error_stage='caption',
+                        error_message=(
+                            'Multiple matching YouTube caption tracks found'
+                        ),
+                    )
 
-                if exists:
-                    caption_uploaded = True
-                    caption_status = 'existing'
-                else:
+                if caption_refresh_required:
+                    if len(track_ids) != 1:
+                        return result(
+                            PublishStatus.RETRYABLE,
+                            error_stage='caption',
+                            error_message=(
+                                'Caption refresh requires exactly one '
+                                'matching YouTube track'
+                            ),
+                        )
+                    remote_track_id = track_ids[0]
+                    if (
+                        caption_track_id is not None
+                        and caption_track_id != remote_track_id
+                    ):
+                        return result(
+                            PublishStatus.FATAL,
+                            error_stage='caption',
+                            error_message=(
+                                'Stored caption track does not match the '
+                                'remote YouTube track'
+                            ),
+                        )
+                    caption_track_id = remote_track_id
                     try:
-                        caption_result = self.youtube.add_caption_result(
-                            video_id,
+                        caption_result = self.youtube.update_caption_result(
+                            caption_track_id,
                             str(caption_path),
-                            self.CAPTION_NAME,
                             raise_errors=True,
                         )
                     except Exception as exception:
                         return error_result(exception, 'caption')
-
                     caption_status = caption_result
                     if caption_result == CAPTION_UPLOAD_QUOTA_EXCEEDED:
                         return result(
@@ -392,13 +437,67 @@ class YoutubePublishService:
                         return result(
                             PublishStatus.RETRYABLE,
                             error_stage='caption',
+                            error_message=(
+                                'YouTube caption update was not confirmed'
+                            ),
+                        )
+                    caption_uploaded = True
+                    caption_refresh_required = False
+                elif track_ids:
+                    caption_track_id = track_ids[0]
+                    caption_uploaded = True
+                    caption_status = 'existing'
+                else:
+                    try:
+                        if legacy_caption_api:
+                            caption_result = self.youtube.add_caption_result(
+                                video_id,
+                                str(caption_path),
+                                self.CAPTION_NAME,
+                                raise_errors=True,
+                            )
+                        else:
+                            caption_result = (
+                                self.youtube.add_caption_track_result(
+                                    video_id,
+                                    str(caption_path),
+                                    self.CAPTION_NAME,
+                                    raise_errors=True,
+                                )
+                            )
+                    except Exception as exception:
+                        return error_result(exception, 'caption')
+
+                    caption_status = caption_result
+                    if caption_result == CAPTION_UPLOAD_QUOTA_EXCEEDED:
+                        return result(
+                            PublishStatus.QUOTA_EXCEEDED,
+                            error_stage='caption',
+                            error_message='YouTube API quota exceeded',
+                        )
+                    confirmed = (
+                        legacy_caption_api and caption_result is True
+                    ) or (
+                        isinstance(caption_result, str)
+                        and bool(caption_result)
+                        and caption_result != CAPTION_UPLOAD_FAILED
+                    )
+                    if not confirmed:
+                        return result(
+                            PublishStatus.RETRYABLE,
+                            error_stage='caption',
                             error_message='YouTube caption upload was not confirmed',
                         )
                     caption_uploaded = True
+                    caption_track_id = (
+                        None if legacy_caption_api else caption_result
+                    )
                     caption_status = CAPTION_UPLOAD_SUCCESS
                     caption_refresh_required = False
 
-                checkpoint_error = checkpoint_stage('caption_uploaded')
+                checkpoint_error = checkpoint_stage(
+                    'caption_uploaded', caption_track_id=caption_track_id
+                )
                 if checkpoint_error is not None:
                     return checkpoint_error
 

@@ -345,6 +345,10 @@ def test_multi_file_migration_reuses_only_unchanged_flv_binding(tmp_path):
         a_flv: (150, 2), a_xml: (10, 1),
         b_flv: (200, 1), b_xml: (20, 1),
     }
+    final_snapshot = {
+        a_flv: (175, 3), a_xml: (10, 1),
+        b_flv: (200, 1), b_xml: (20, 1),
+    }
     journal.append('initialized')
     journal.append(
         'session_state',
@@ -410,18 +414,50 @@ def test_multi_file_migration_reuses_only_unchanged_flv_binding(tmp_path):
         flv_paths=(a_flv, b_flv),
         snapshot=replacement_snapshot,
     )
+    journal.append(
+        'session_manifest_changed',
+        manifest_id='replacement-session',
+        detected_at='2026-07-27T12:45:00+00:00',
+        reason='A FLV changed again',
+        changed_paths=(a_flv,),
+    )
+    journal.append(
+        'session_state', room_id=123, state='waiting', session_id=None,
+        session_paths=(), snapshot=final_snapshot, quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_resettle_started',
+        source_manifest_id='replacement-session',
+        replacement_manifest_id='final-session',
+        room_id=123,
+        state='settling',
+        session_paths=(a_flv, a_xml, b_flv, b_xml),
+        snapshot=final_snapshot,
+        quiet_since='2026-07-27T12:50:00+00:00',
+        started_at='2026-07-27T08:00:00+00:00',
+    )
+    journal.append(
+        'session_manifest_ready',
+        manifest_id='final-session',
+        room_id=123,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T13:20:00+00:00',
+        flv_paths=(a_flv, b_flv),
+        snapshot=final_snapshot,
+    )
 
     journal.append(
         'file_ready',
         fingerprint='fp-b',
-        manifest_id='replacement-session',
+        manifest_id='final-session',
         file=b_flv,
         xml_file=b_xml,
         caption_status='pending',
     )
 
     migrated_b = journal.replay().files['fp-b']
-    assert migrated_b.manifest_id == 'replacement-session'
+    assert migrated_b.manifest_id == 'final-session'
     assert migrated_b.video_id == 'yt-b-old'
     assert migrated_b.caption_uploaded is True
     before_rejected_a = journal.path.read_bytes()
@@ -429,12 +465,333 @@ def test_multi_file_migration_reuses_only_unchanged_flv_binding(tmp_path):
         journal.append(
             'file_ready',
             fingerprint='fp-a-old',
-            manifest_id='replacement-session',
+            manifest_id='final-session',
             file=a_flv,
             xml_file=a_xml,
         )
     assert journal.path.read_bytes() == before_rejected_a
     assert journal.replay().files['fp-a-old'].manifest_id == 'old-session'
+
+
+def _append_single_file_replacement(
+    journal, *, fingerprint='fp1', initial_event='file_ready',
+    replacement_event='file_ready', old_xml=(10, 1), new_xml=(10, 1),
+    publication_events=(),
+):
+    video = '/recording/video.flv'
+    xml = '/recording/video.xml'
+    old_snapshot = {video: (100, 1), xml: old_xml}
+    new_snapshot = {video: (100, 1), xml: new_xml}
+    journal.append('initialized')
+    journal.append(
+        'session_state', room_id=123, state='waiting', session_id=None,
+        session_paths=(), snapshot=old_snapshot, quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_manifest_ready', manifest_id='old-session', room_id=123,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:00:00+00:00', flv_paths=(video,),
+        snapshot=old_snapshot,
+    )
+    classification = {
+        'fingerprint': fingerprint, 'manifest_id': 'old-session',
+        'file': video, 'xml_file': xml, 'start_time':
+        '2026-07-27T08:00:00+00:00', 'duration': 3600,
+    }
+    if initial_event.startswith('ignored_'):
+        classification['reason'] = 'old classification'
+    journal.append(initial_event, **classification)
+    for publication_event, fields in publication_events:
+        journal.append(publication_event, fingerprint=fingerprint, **fields)
+    journal.append(
+        'session_manifest_changed', manifest_id='old-session',
+        detected_at='2026-07-27T12:05:00+00:00', reason='replacement',
+        changed_paths=(xml,),
+    )
+    journal.append(
+        'session_resettle_started', source_manifest_id='old-session',
+        replacement_manifest_id='replacement-session', room_id=123,
+        state='settling', session_paths=(video, xml), snapshot=new_snapshot,
+        quiet_since='2026-07-27T12:10:00+00:00',
+        started_at='2026-07-27T08:00:00+00:00',
+    )
+    journal.append(
+        'session_manifest_ready', manifest_id='replacement-session',
+        room_id=123, started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:40:00+00:00', flv_paths=(video,),
+        snapshot=new_snapshot,
+    )
+    replacement = dict(classification, manifest_id='replacement-session')
+    if replacement_event.startswith('ignored_'):
+        replacement['reason'] = 'replacement classification'
+    journal.append(replacement_event, **replacement)
+    return journal.replay().files[fingerprint]
+
+
+def test_manifest_migration_preserves_unresolved_upload_lifecycle(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    video = '/recording/video.flv'
+    xml = '/recording/video.xml'
+    snapshot = {video: (100, 1), xml: (10, 1)}
+    journal.append('initialized')
+    journal.append(
+        'session_state', room_id=123, state='waiting', session_id=None,
+        session_paths=(), snapshot=snapshot, quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_manifest_ready', manifest_id='old-session', room_id=123,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:00:00+00:00', flv_paths=(video,),
+        snapshot=snapshot,
+    )
+    journal.append(
+        'file_ready', fingerprint='fp1', manifest_id='old-session',
+        file=video, xml_file=xml, start_time='2026-07-27T08:00:00+00:00',
+        duration=3600,
+    )
+    journal.append(
+        'upload_started', fingerprint='fp1', file=video, xml_file=xml,
+        title='title', duration=3600,
+        description_fingerprint='description',
+        upload_started_at='2026-07-27T12:01:00+00:00', attempt=2,
+    )
+    journal.append(
+        'session_manifest_changed', manifest_id='old-session',
+        detected_at='2026-07-27T12:05:00+00:00', reason='XML changed',
+        changed_paths=(xml,),
+    )
+    journal.append(
+        'session_resettle_started', source_manifest_id='old-session',
+        replacement_manifest_id='replacement-session', room_id=123,
+        state='settling', session_paths=(video, xml), snapshot=snapshot,
+        quiet_since='2026-07-27T12:10:00+00:00',
+        started_at='2026-07-27T08:00:00+00:00',
+    )
+    journal.append(
+        'session_manifest_ready', manifest_id='replacement-session',
+        room_id=123, started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:40:00+00:00', flv_paths=(video,),
+        snapshot=snapshot,
+    )
+
+    journal.append(
+        'file_ready', fingerprint='fp1', manifest_id='replacement-session',
+        file=video, xml_file=xml, start_time='2026-07-27T08:00:00+00:00',
+        duration=3600,
+    )
+
+    state = journal.replay().files['fp1']
+    assert state.manifest_id == 'replacement-session'
+    assert state.event == 'upload_started'
+    assert state.upload_started_at == '2026-07-27T12:01:00+00:00'
+    assert state.description_fingerprint == 'description'
+    assert state.attempt == 2
+    assert state.video_id is None
+
+
+def test_manifest_migration_preserves_retry_lifecycle_fields(tmp_path):
+    state = _append_single_file_replacement(
+        JsonlJournal(tmp_path / 'state.jsonl'),
+        publication_events=(
+            ('upload_started', {
+                'file': '/recording/video.flv',
+                'xml_file': '/recording/video.xml',
+                'title': 'title', 'duration': 3600,
+                'description_fingerprint': 'description',
+                'upload_started_at': '2026-07-27T12:01:00+00:00',
+                'attempt': 1,
+            }),
+            ('stage_retry_scheduled', {
+                'stage': 'video', 'status': 'retryable',
+                'retry_at': '2026-07-27T13:00:00+00:00', 'attempt': 2,
+                'error_message': 'network unavailable',
+            }),
+        ),
+    )
+
+    assert state.event == 'stage_retry_scheduled'
+    assert state.upload_started_at == '2026-07-27T12:01:00+00:00'
+    assert state.retry_at == '2026-07-27T13:00:00+00:00'
+    assert state.attempt == 2
+    assert state.stage == 'video'
+    assert state.status == 'retryable'
+    assert state.error_message == 'network unavailable'
+
+
+def test_attempted_publication_cannot_be_reclassified_as_ignored(tmp_path):
+    with pytest.raises(ValueError, match='ready classification'):
+        _append_single_file_replacement(
+            JsonlJournal(tmp_path / 'state.jsonl'),
+            replacement_event='ignored_tiny',
+            publication_events=((
+                'video_uploaded', {'video_id': 'yt123'},
+            ),),
+        )
+
+
+@pytest.mark.parametrize(
+    ('initial_event', 'replacement_event'),
+    [
+        ('ignored_tiny', 'file_ready'),
+        ('ignored_invalid', 'ignored_tiny'),
+        ('ignored_invalid_tail', 'ignored_invalid'),
+    ],
+)
+def test_unpublished_ignored_state_can_be_reclassified_in_replacement(
+    tmp_path, initial_event, replacement_event,
+):
+    state = _append_single_file_replacement(
+        JsonlJournal(tmp_path / 'state.jsonl'),
+        initial_event=initial_event,
+        replacement_event=replacement_event,
+    )
+
+    assert state.manifest_id == 'replacement-session'
+    assert state.event == replacement_event
+    if replacement_event.startswith('ignored_'):
+        assert state.reason == 'replacement classification'
+
+
+def test_manifest_migration_follows_multiple_exact_replacement_links(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    video = '/recording/video.flv'
+    xml = '/recording/video.xml'
+    snapshots = (
+        {video: (100, 1), xml: (10, 1)},
+        {video: (100, 1), xml: (20, 2)},
+        {video: (100, 1), xml: (30, 3)},
+    )
+    started_at = '2026-07-27T08:00:00+00:00'
+    journal.append('initialized')
+    journal.append(
+        'session_state', room_id=123, state='waiting', session_id=None,
+        session_paths=(), snapshot=snapshots[0], quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_manifest_ready', manifest_id='manifest-1', room_id=123,
+        started_at=started_at, settled_at='2026-07-27T12:00:00+00:00',
+        flv_paths=(video,), snapshot=snapshots[0],
+    )
+    journal.append(
+        'file_ready', fingerprint='fp1', manifest_id='manifest-1',
+        file=video, xml_file=xml,
+    )
+    journal.append('video_uploaded', fingerprint='fp1', video_id='yt123')
+    journal.append(
+        'caption_uploaded', fingerprint='fp1', caption_track_id='track-1'
+    )
+
+    for index in (0, 1):
+        source = f'manifest-{index + 1}'
+        target = f'manifest-{index + 2}'
+        detected_minute = 5 + index * 45
+        quiet_minute = 10 + index * 45
+        settled_minute = 40 + index * 45
+        journal.append(
+            'session_manifest_changed', manifest_id=source,
+            detected_at=(
+                f'2026-07-27T12:{detected_minute:02d}:00+00:00'
+                if detected_minute < 60 else '2026-07-27T13:05:00+00:00'
+            ),
+            reason='XML changed', changed_paths=(xml,),
+        )
+        journal.append(
+            'session_state', room_id=123, state='waiting', session_id=None,
+            session_paths=(), snapshot=snapshots[index + 1],
+            quiet_since=None, started_at=None,
+        )
+        journal.append(
+            'session_resettle_started', source_manifest_id=source,
+            replacement_manifest_id=target, room_id=123, state='settling',
+            session_paths=(video, xml), snapshot=snapshots[index + 1],
+            quiet_since=(
+                f'2026-07-27T12:{quiet_minute:02d}:00+00:00'
+                if quiet_minute < 60 else '2026-07-27T13:10:00+00:00'
+            ),
+            started_at=started_at,
+        )
+        journal.append(
+            'session_manifest_ready', manifest_id=target, room_id=123,
+            started_at=started_at,
+            settled_at=(
+                f'2026-07-27T12:{settled_minute:02d}:00+00:00'
+                if settled_minute < 60 else '2026-07-27T13:25:00+00:00'
+            ),
+            flv_paths=(video,), snapshot=snapshots[index + 1],
+        )
+
+    journal.append(
+        'file_ready', fingerprint='fp1', manifest_id='manifest-3',
+        file=video, xml_file=xml,
+    )
+
+    state = journal.replay().files['fp1']
+    assert state.manifest_id == 'manifest-3'
+    assert state.video_id == 'yt123'
+    assert state.caption_uploaded is False
+    assert state.caption_refresh_required is True
+    assert state.caption_track_id == 'track-1'
+
+
+@pytest.mark.parametrize(
+    ('damage', 'message'),
+    [
+        ('cycle', 'cycle'),
+        ('missing', 'missing link'),
+        ('cross-room', 'cross rooms'),
+    ],
+)
+def test_manifest_migration_rejects_damaged_replacement_chains(
+    damage, message,
+):
+    video = '/recording/video.flv'
+    snapshot = {video: (100, 1)}
+
+    def manifest(
+        manifest_id, *, invalidated=False, replacement=None, room_id=123,
+    ):
+        return JournalManifest(
+            manifest_id=manifest_id, room_id=room_id,
+            started_at='2026-07-27T08:00:00+00:00',
+            settled_at='2026-07-27T12:00:00+00:00',
+            flv_paths=(video,), snapshot=snapshot, invalidated=invalidated,
+            invalidated_at=(
+                '2026-07-27T11:55:00+00:00' if invalidated else None
+            ),
+            replacement_manifest_id=replacement,
+        )
+
+    if damage == 'cycle':
+        manifests = (
+            manifest('old', invalidated=True, replacement='middle'),
+            manifest('middle', invalidated=True, replacement='old'),
+            manifest('final'),
+        )
+    elif damage == 'missing':
+        manifests = (
+            manifest('old', invalidated=True, replacement='missing'),
+            manifest('final'),
+        )
+    else:
+        manifests = (
+            manifest('old', invalidated=True, replacement='final'),
+            manifest('final', room_id=456),
+        )
+    replay = type('Replay', (), {'manifests': manifests})()
+    existing = JournalFileState(
+        fingerprint='fp1', event='file_ready', manifest_id='old', file=video
+    )
+    classified = JournalFileState(
+        fingerprint='fp1', event='file_ready', manifest_id='final', file=video
+    )
+
+    with pytest.raises(ValueError, match=message):
+        journal_module._controlled_manifest_migration(
+            replay, existing, classified, 'file_ready'
+        )
 
 
 def test_manifest_and_resettle_collections_are_defensively_frozen():

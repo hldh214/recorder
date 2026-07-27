@@ -540,6 +540,22 @@ class Youtube:
             self.list_captions(video_id), self.DEFAULT_CAPTION_LANGUAGE, caption_name
         )
 
+    def matching_caption_track_ids(
+        self, video_id, caption_name='via_recorder_vtt'
+    ):
+        matches = []
+        for caption in self.list_captions(video_id):
+            snippet = caption.get('snippet', {})
+            track_id = caption.get('id')
+            if (
+                snippet.get('language') == self.DEFAULT_CAPTION_LANGUAGE
+                and snippet.get('name') == caption_name
+                and isinstance(track_id, str)
+                and track_id
+            ):
+                matches.append(track_id)
+        return tuple(matches)
+
     def playlist_contains(self, video_id, playlist_id):
         response = self.youtube.playlistItems().list(
             part='contentDetails',
@@ -591,11 +607,11 @@ class Youtube:
             for item in uploads
         ]
 
-    def add_caption_result(
+    def add_caption_track_result(
         self, video_id, caption_path, caption_name='via_recorder', *, raise_errors=False
     ):
         try:
-            self.youtube.captions().insert(
+            response = self.youtube.captions().insert(
                 part='snippet',
                 body={
                     'snippet': {
@@ -624,6 +640,43 @@ class Youtube:
             traceback.print_exc()
             return CAPTION_UPLOAD_FAILED
 
+        track_id = response.get('id') if isinstance(response, dict) else None
+        return track_id or CAPTION_UPLOAD_FAILED
+
+    def add_caption_result(
+        self, video_id, caption_path, caption_name='via_recorder', *, raise_errors=False
+    ):
+        result = self.add_caption_track_result(
+            video_id,
+            caption_path,
+            caption_name,
+            raise_errors=raise_errors,
+        )
+        if result in {CAPTION_UPLOAD_FAILED, CAPTION_UPLOAD_QUOTA_EXCEEDED}:
+            return result
+        return CAPTION_UPLOAD_SUCCESS
+
+    def update_caption_result(
+        self, track_id, caption_path, *, raise_errors=False
+    ):
+        try:
+            self.youtube.captions().update(
+                part='id',
+                body={'id': track_id},
+                media_body=googleapiclient.http.MediaFileUpload(caption_path),
+            ).execute()
+        except googleapiclient.errors.HttpError as exception:
+            if _is_quota_error(exception):
+                return CAPTION_UPLOAD_QUOTA_EXCEEDED
+            if raise_errors:
+                raise
+            traceback.print_exc()
+            return CAPTION_UPLOAD_FAILED
+        except (OSError, googleapiclient.errors.Error):
+            if raise_errors:
+                raise
+            traceback.print_exc()
+            return CAPTION_UPLOAD_FAILED
         return CAPTION_UPLOAD_SUCCESS
 
     def add_caption(self, video_id, caption_path, caption_name='via_recorder'):

@@ -7,6 +7,7 @@ import pytest
 import recorder.destination.youtube as youtube_module
 from recorder.destination.youtube import (
     CAPTION_UPLOAD_QUOTA_EXCEEDED,
+    CAPTION_UPLOAD_SUCCESS,
     find_missing_caption_uploads,
     upload_missing_captions,
     upload_missing_captions_from_roots,
@@ -176,6 +177,24 @@ class FailingMutationYoutubeApi:
 
     def playlistItems(self):
         return self.endpoint
+
+    def captions(self):
+        return self.endpoint
+
+
+class RecordingCaptionEndpoint:
+    def __init__(self, response):
+        self.response = response
+        self.update_calls = []
+
+    def update(self, **kwargs):
+        self.update_calls.append(kwargs)
+        return FakeRequest(response=self.response)
+
+
+class RecordingCaptionYoutubeApi:
+    def __init__(self, response):
+        self.endpoint = RecordingCaptionEndpoint(response)
 
     def captions(self):
         return self.endpoint
@@ -596,6 +615,41 @@ def test_youtube_caption_exists_requires_both_language_and_name():
     ]
 
     assert youtube.caption_exists('yt123', caption_name='custom') is False
+
+
+def test_youtube_matching_caption_track_ids_returns_exact_named_tracks():
+    youtube = Youtube.__new__(Youtube)
+    youtube.list_captions = lambda video_id: [
+        {'id': 'track-1', 'snippet': {
+            'language': youtube.DEFAULT_CAPTION_LANGUAGE,
+            'name': 'via_recorder_vtt',
+        }},
+        {'id': 'track-2', 'snippet': {
+            'language': 'en', 'name': 'via_recorder_vtt',
+        }},
+    ]
+
+    assert youtube.matching_caption_track_ids(
+        'yt123', 'via_recorder_vtt'
+    ) == ('track-1',)
+
+
+def test_youtube_update_caption_result_updates_track_media_in_place(tmp_path):
+    caption = tmp_path / 'caption.vtt'
+    caption.write_text('WEBVTT\n\n', encoding='utf8')
+    api = RecordingCaptionYoutubeApi({'id': 'track-1'})
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = api
+
+    result = youtube.update_caption_result(
+        'track-1', str(caption), raise_errors=True
+    )
+
+    assert result == CAPTION_UPLOAD_SUCCESS
+    call = api.endpoint.update_calls[0]
+    assert call['part'] == 'id'
+    assert call['body'] == {'id': 'track-1'}
+    assert call['media_body']._filename == str(caption)
 
 
 def test_youtube_playlist_contains_queries_video_membership():

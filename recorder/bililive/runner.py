@@ -298,6 +298,7 @@ class BililivePublishRunner:
             video_uploaded=state.video_id is not None,
             caption_uploaded=state.caption_uploaded,
             caption_refresh_required=state.caption_refresh_required,
+            caption_track_id=state.caption_track_id,
             playlist_inserted=state.playlist_inserted,
             youtube_processed=state.youtube_processed,
             description_updated=state.description_updated,
@@ -338,11 +339,13 @@ class BililivePublishRunner:
                         'description_fingerprint'
                     ],
                 )
-            elif stage in {
-                'caption_uploaded',
-                'playlist_inserted',
-                'youtube_processed',
-            }:
+            elif stage == 'caption_uploaded':
+                self.journal.append(
+                    stage,
+                    fingerprint=fingerprint,
+                    caption_track_id=fields.get('caption_track_id'),
+                )
+            elif stage in {'playlist_inserted', 'youtube_processed'}:
                 self.journal.append(stage, fingerprint=fingerprint)
             else:
                 raise ValueError(f'unknown publication stage {stage!r}')
@@ -488,8 +491,15 @@ class BililivePublishRunner:
                 description_fingerprint=result.description_fingerprint,
             )
             current = self.journal.replay().files[fingerprint]
-        if result.caption_uploaded and not current.caption_uploaded:
-            self.journal.append('caption_uploaded', fingerprint=fingerprint)
+        if result.caption_uploaded and (
+            not current.caption_uploaded
+            or current.caption_track_id != result.caption_track_id
+        ):
+            self.journal.append(
+                'caption_uploaded',
+                fingerprint=fingerprint,
+                caption_track_id=result.caption_track_id,
+            )
             current = self.journal.replay().files[fingerprint]
         if result.playlist_inserted and not current.playlist_inserted:
             self.journal.append('playlist_inserted', fingerprint=fingerprint)

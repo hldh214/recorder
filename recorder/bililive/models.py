@@ -66,6 +66,7 @@ class JournalFileState:
     video_upload_rejected: bool = False
     caption_uploaded: bool = False
     caption_refresh_required: bool = False
+    caption_track_id: str | None = None
     playlist_inserted: bool = False
     youtube_processed: bool = False
     description_updated: bool = False

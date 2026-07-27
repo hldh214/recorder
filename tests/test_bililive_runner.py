@@ -1382,7 +1382,9 @@ def test_xml_only_replacement_reuses_video_and_backfills_caption(tmp_path):
     journal.append(
         'caption_status', fingerprint='fp1', caption_status='uploaded'
     )
-    journal.append('caption_uploaded', fingerprint='fp1')
+    journal.append(
+        'caption_uploaded', fingerprint='fp1', caption_track_id='track-1'
+    )
     journal.append('playlist_inserted', fingerprint='fp1')
     journal.append('youtube_processed', fingerprint='fp1')
 
@@ -1425,6 +1427,7 @@ def test_xml_only_replacement_reuses_video_and_backfills_caption(tmp_path):
     publisher = FakePublisher([
         publish_result(
             caption_uploaded=True,
+            caption_track_id='track-1',
             caption_status='uploaded',
             description_fingerprint='new-description',
         )
@@ -1452,6 +1455,7 @@ def test_xml_only_replacement_reuses_video_and_backfills_caption(tmp_path):
     assert checkpoint.video_id == 'yt123'
     assert checkpoint.caption_uploaded is False
     assert checkpoint.caption_refresh_required is True
+    assert checkpoint.caption_track_id == 'track-1'
     assert checkpoint.playlist_inserted is True
     assert checkpoint.youtube_processed is True
     assert checkpoint.description_fingerprint == 'old-description'
@@ -1462,10 +1466,206 @@ def test_xml_only_replacement_reuses_video_and_backfills_caption(tmp_path):
     assert state.video_id == 'yt123'
     assert state.caption_uploaded is True
     assert state.caption_refresh_required is False
+    assert state.caption_track_id == 'track-1'
     old, replacement = replay.manifests
     assert old.invalidated is True
     assert old.replacement_manifest_id == replacement.manifest_id
     assert replacement.completed is True
+
+
+def test_replacement_reconciles_unresolved_upload_without_reupload(tmp_path):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    classified = ready_media(tmp_path)
+    classified.media.xml_path.write_text('<i/>')
+
+    def identity(path):
+        stat_result = path.stat()
+        return stat_result.st_size, stat_result.st_mtime_ns
+
+    snapshot = {
+        str(classified.media.path): identity(classified.media.path),
+        str(classified.media.xml_path): identity(classified.media.xml_path),
+    }
+    journal.append('initialized')
+    journal.append(
+        'session_state', room_id=ROOM_ID, state='waiting', session_id=None,
+        session_paths=(), snapshot=snapshot, quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_manifest_ready', manifest_id='old-session', room_id=ROOM_ID,
+        started_at=(NOW - timedelta(hours=1)).isoformat(),
+        settled_at=NOW.isoformat(),
+        flv_paths=(str(classified.media.path),), snapshot=snapshot,
+    )
+    append_ready(journal, classified, 'old-session')
+    journal.append(
+        'upload_started', fingerprint='fp1', file=str(classified.media.path),
+        xml_file=str(classified.media.xml_path), title='Generated title',
+        duration=classified.media.duration,
+        description_fingerprint='description-fingerprint',
+        upload_started_at=(NOW + timedelta(minutes=1)).isoformat(), attempt=1,
+    )
+    journal.append(
+        'session_manifest_changed', manifest_id='old-session',
+        detected_at=(NOW + timedelta(minutes=5)).isoformat(),
+        reason='XML changed', changed_paths=(str(classified.media.xml_path),),
+    )
+    journal.append(
+        'session_state', room_id=ROOM_ID, state='waiting', session_id=None,
+        session_paths=(), snapshot=snapshot, quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_resettle_started', source_manifest_id='old-session',
+        replacement_manifest_id='replacement-session', room_id=ROOM_ID,
+        state='settling', session_paths=tuple(snapshot), snapshot=snapshot,
+        quiet_since=(NOW + timedelta(minutes=10)).isoformat(),
+        started_at=(NOW - timedelta(hours=1)).isoformat(),
+    )
+    journal.append(
+        'session_manifest_ready', manifest_id='replacement-session',
+        room_id=ROOM_ID,
+        started_at=(NOW - timedelta(hours=1)).isoformat(),
+        settled_at=(NOW + timedelta(minutes=40)).isoformat(),
+        flv_paths=(str(classified.media.path),), snapshot=snapshot,
+    )
+    publisher = FakePublisher([publish_result(video_id='yt-reconciled')])
+    recent_calls = []
+    runner = BililivePublishRunner(
+        journal=journal, publisher=publisher, room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW + timedelta(minutes=41),
+        recent_uploads=lambda: recent_calls.append(True) or [{
+            'video_id': 'yt-reconciled', 'title': 'Generated title',
+            'published_at': (NOW + timedelta(minutes=2)).isoformat(),
+            'duration_seconds': classified.media.duration,
+        }],
+        probe=lambda path: classified.media,
+        classifier=lambda media: {'fp1': ClassifiedMedia(
+            media=media[0], status='ready', reason='ready'
+        )},
+        caption_provider=None,
+    )
+
+    result = runner.run_pending_once(journal.replay())
+
+    assert result.status == 'complete'
+    assert recent_calls == [True]
+    assert len(publisher.calls) == 1
+    assert publisher.calls[0]['checkpoint'].video_id == 'yt-reconciled'
+    assert publisher.calls[0]['before_video_upload'] is None
+    assert journal_events(journal.path).count('upload_started') == 1
+    assert journal.replay().files['fp1'].video_id == 'yt-reconciled'
+
+
+def test_ignored_fragment_reclassification_does_not_block_ready_peer(tmp_path):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    ignored_ready = ready_media(tmp_path, 'ignored.flv', 'fp-ignored')
+    peer = ready_media(tmp_path, 'peer.flv', 'fp-peer')
+    ignored_ready.media.xml_path.write_text('<i/>')
+    peer.media.xml_path.write_text('<i/>')
+
+    def identity(path):
+        stat_result = path.stat()
+        return stat_result.st_size, stat_result.st_mtime_ns
+
+    old_snapshot = {
+        str(item): identity(item)
+        for item in (
+            ignored_ready.media.path, ignored_ready.media.xml_path,
+            peer.media.path, peer.media.xml_path,
+        )
+    }
+    journal.append('initialized')
+    journal.append(
+        'session_state', room_id=ROOM_ID, state='waiting', session_id=None,
+        session_paths=(), snapshot=old_snapshot, quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_manifest_ready', manifest_id='old-session', room_id=ROOM_ID,
+        started_at=(NOW - timedelta(hours=1)).isoformat(),
+        settled_at=NOW.isoformat(),
+        flv_paths=(str(ignored_ready.media.path), str(peer.media.path)),
+        snapshot=old_snapshot,
+    )
+    journal.append(
+        'ignored_tiny', fingerprint='fp-ignored', manifest_id='old-session',
+        file=str(ignored_ready.media.path),
+        xml_file=str(ignored_ready.media.xml_path),
+        start_time=ignored_ready.media.start_time.isoformat(),
+        duration=ignored_ready.media.duration, reason='tiny',
+    )
+    append_ready(journal, peer, 'old-session')
+    journal.append('video_uploaded', fingerprint='fp-peer', video_id='yt-peer')
+    journal.append('youtube_processed', fingerprint='fp-peer')
+
+    ignored_ready.media.xml_path.write_text('<i><d>changed</d></i>')
+    replacement_snapshot = dict(old_snapshot)
+    replacement_snapshot[str(ignored_ready.media.xml_path)] = identity(
+        ignored_ready.media.xml_path
+    )
+    journal.append(
+        'session_manifest_changed', manifest_id='old-session',
+        detected_at=(NOW + timedelta(minutes=5)).isoformat(),
+        reason='ignored XML changed',
+        changed_paths=(str(ignored_ready.media.xml_path),),
+    )
+    journal.append(
+        'session_state', room_id=ROOM_ID, state='waiting', session_id=None,
+        session_paths=(), snapshot=replacement_snapshot, quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_resettle_started', source_manifest_id='old-session',
+        replacement_manifest_id='replacement-session', room_id=ROOM_ID,
+        state='settling', session_paths=tuple(replacement_snapshot),
+        snapshot=replacement_snapshot,
+        quiet_since=(NOW + timedelta(minutes=10)).isoformat(),
+        started_at=(NOW - timedelta(hours=1)).isoformat(),
+    )
+    journal.append(
+        'session_manifest_ready', manifest_id='replacement-session',
+        room_id=ROOM_ID,
+        started_at=(NOW - timedelta(hours=1)).isoformat(),
+        settled_at=(NOW + timedelta(minutes=40)).isoformat(),
+        flv_paths=(str(ignored_ready.media.path), str(peer.media.path)),
+        snapshot=replacement_snapshot,
+    )
+    ignored = ClassifiedMedia(
+        media=ignored_ready.media, status='ignored_invalid_tail',
+        reason='still ignored', is_tail=True,
+    )
+    media_by_path = {
+        str(ignored_ready.media.path): ignored_ready.media,
+        str(peer.media.path): peer.media,
+    }
+    publisher = FakePublisher([])
+    runner = BililivePublishRunner(
+        journal=journal, publisher=publisher, room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW + timedelta(minutes=41),
+        probe=lambda path: media_by_path[str(path)],
+        classifier=lambda media: {
+            'fp-ignored': ignored,
+            'fp-peer': ClassifiedMedia(
+                media=peer.media, status='ready', reason='ready'
+            ),
+        },
+        caption_provider=None,
+    )
+
+    result = runner.run_pending_once(journal.replay())
+
+    assert result.status == 'complete'
+    replay = journal.replay()
+    assert replay.files['fp-ignored'].event == 'ignored_invalid_tail'
+    assert replay.files['fp-ignored'].manifest_id == 'replacement-session'
+    assert replay.files['fp-peer'].video_id == 'yt-peer'
+    assert replay.files['fp-peer'].manifest_id == 'replacement-session'
+    assert replay.manifests[-1].completed is True
+    assert publisher.calls == []
 
 
 def test_multi_segment_replacement_reuses_only_unchanged_video(tmp_path):

@@ -37,6 +37,8 @@ class FakeYoutube:
         upload_result='yt123',
         caption_exists=False,
         caption_result=CAPTION_UPLOAD_SUCCESS,
+        caption_tracks=(),
+        caption_update_result=CAPTION_UPLOAD_SUCCESS,
         playlist_contains=False,
         playlist_result=True,
         update_result=True,
@@ -46,6 +48,8 @@ class FakeYoutube:
         self.upload_result = upload_result
         self.caption_exists_result = caption_exists
         self.caption_result = caption_result
+        self.caption_tracks = tuple(caption_tracks)
+        self.caption_update_result = caption_update_result
         self.playlist_contains_result = playlist_contains
         self.playlist_result = playlist_result
         self.update_result = update_result
@@ -58,6 +62,7 @@ class FakeYoutube:
         self.upload_calls = []
         self.caption_exists_calls = []
         self.caption_calls = []
+        self.caption_update_calls = []
         self.playlist_contains_calls = []
         self.playlist_calls = []
         self.update_calls = []
@@ -78,9 +83,25 @@ class FakeYoutube:
         self.caption_exists_calls.append((video_id, caption_name))
         return self._resolve(self.caption_exists_result)
 
+    def matching_caption_track_ids(self, video_id, caption_name):
+        if self.caption_tracks:
+            self.caption_exists_calls.append((video_id, caption_name))
+            return self._resolve(self.caption_tracks)
+        exists = self.caption_exists(video_id, caption_name)
+        return ('track-existing',) if exists else ()
+
+    def add_caption_track_result(self, video_id, path, caption_name, **kwargs):
+        self.caption_calls.append((video_id, path, caption_name, kwargs))
+        result = self._resolve(self.caption_result)
+        return 'track-new' if result == CAPTION_UPLOAD_SUCCESS else result
+
     def add_caption_result(self, video_id, path, caption_name, **kwargs):
         self.caption_calls.append((video_id, path, caption_name, kwargs))
         return self._resolve(self.caption_result)
+
+    def update_caption_result(self, track_id, path, **kwargs):
+        self.caption_update_calls.append((track_id, path, kwargs))
+        return self._resolve(self.caption_update_result)
 
     def playlist_contains(self, video_id, playlist_id):
         self.playlist_contains_calls.append((video_id, playlist_id))
@@ -176,6 +197,7 @@ def test_publish_video_completes_all_stages_without_mutating_source(tmp_path):
     assert result.video_id == 'yt123'
     assert result.video_uploaded is True
     assert result.caption_uploaded is True
+    assert result.caption_track_id == 'track-new'
     assert result.playlist_inserted is True
     assert result.youtube_processed is True
     assert result.caption_status == 'uploaded'
@@ -358,17 +380,18 @@ def test_existing_remote_caption_and_playlist_skip_mutations(tmp_path):
     assert result.caption_uploaded is True
     assert result.playlist_inserted is True
     assert result.caption_status == 'existing'
+    assert result.caption_track_id == 'track-existing'
     assert youtube.caption_calls == []
     assert youtube.playlist_calls == []
     assert not caption_path.exists()
 
 
-def test_caption_refresh_uploads_even_when_old_remote_caption_exists(tmp_path):
+def test_caption_refresh_updates_the_known_remote_track_in_place(tmp_path):
     video = make_video(tmp_path)
     caption_path = tmp_path / 'recording.vtt'
     caption_path.write_text('WEBVTT\n\n', encoding='utf8')
     fingerprint = description_fingerprint('Base description')
-    youtube = FakeYoutube(caption_exists=True)
+    youtube = FakeYoutube(caption_tracks=('track-1',))
 
     result = YoutubePublishService(
         youtube, source_config(playlist=False)
@@ -384,14 +407,124 @@ def test_caption_refresh_uploads_even_when_old_remote_caption_exists(tmp_path):
             description_updated=True,
             description_fingerprint=fingerprint,
             caption_refresh_required=True,
+            caption_track_id='track-1',
         ),
     )
 
     assert result.status is PublishStatus.COMPLETE
     assert result.caption_uploaded is True
-    assert youtube.caption_exists_calls == []
-    assert len(youtube.caption_calls) == 1
+    assert result.caption_track_id == 'track-1'
+    assert youtube.caption_exists_calls == [('yt123', 'via_recorder_vtt')]
+    assert youtube.caption_calls == []
+    assert youtube.caption_update_calls == [(
+        'track-1', str(caption_path), {'raise_errors': True}
+    )]
     assert youtube.upload_calls == []
+
+
+@pytest.mark.parametrize('tracks', [(), ('track-1', 'track-2')])
+def test_caption_refresh_never_inserts_when_remote_track_is_not_unique(
+    tmp_path, tracks,
+):
+    video = make_video(tmp_path)
+    caption_path = tmp_path / 'recording.vtt'
+    caption_path.write_text('WEBVTT\n\n', encoding='utf8')
+    youtube = FakeYoutube(caption_tracks=tracks)
+
+    result = YoutubePublishService(
+        youtube, source_config(playlist=False)
+    ).publish_video(
+        video, 'bilibili', '1829181560', '2026-07-27 18:00:00',
+        caption=CaptionArtifact(caption_path, temporary=False),
+        checkpoint=PublishCheckpoint(
+            video_id='yt123', video_uploaded=True,
+            description_updated=True,
+            description_fingerprint=description_fingerprint(
+                'Base description'
+            ),
+            caption_refresh_required=True,
+        ),
+    )
+
+    assert result.status in {PublishStatus.RETRYABLE, PublishStatus.FATAL}
+    assert result.error_stage == 'caption'
+    assert youtube.caption_calls == []
+    assert youtube.caption_update_calls == []
+
+
+def test_caption_refresh_retries_same_track_after_checkpoint_failure(tmp_path):
+    video = make_video(tmp_path)
+    caption_path = tmp_path / 'recording.vtt'
+    caption_path.write_text('WEBVTT\n\n', encoding='utf8')
+    youtube = FakeYoutube(caption_tracks=('track-1',))
+    service = YoutubePublishService(youtube, source_config(playlist=False))
+    checkpoint = PublishCheckpoint(
+        video_id='yt123', video_uploaded=True, description_updated=True,
+        description_fingerprint=description_fingerprint('Base description'),
+        caption_refresh_required=True, caption_track_id='track-1',
+    )
+
+    first = service.publish_video(
+        video, 'bilibili', '1829181560', '2026-07-27 18:00:00',
+        caption=CaptionArtifact(caption_path, temporary=False),
+        checkpoint=checkpoint,
+        on_stage_completed=lambda stage, **fields: (_ for _ in ()).throw(
+            OSError('checkpoint unavailable')
+        ),
+    )
+    second = service.publish_video(
+        video, 'bilibili', '1829181560', '2026-07-27 18:00:00',
+        caption=CaptionArtifact(caption_path, temporary=False),
+        checkpoint=checkpoint,
+    )
+
+    assert first.status is PublishStatus.RETRYABLE
+    assert first.error_stage == 'checkpoint'
+    assert second.status is PublishStatus.COMPLETE
+    assert [call[0] for call in youtube.caption_update_calls] == [
+        'track-1', 'track-1'
+    ]
+
+
+def test_legacy_caption_client_keeps_boolean_insert_compatibility(tmp_path):
+    class LegacyYoutube:
+        def caption_exists(self, video_id, caption_name):
+            return False
+
+        def add_caption_result(self, video_id, path, caption_name, **kwargs):
+            return True
+
+        def get_processing_status(self, video_id, **kwargs):
+            return {
+                'upload_status': 'processed',
+                'failure_reason': None,
+                'rejection_reason': None,
+            }
+
+        def update(self, *args, **kwargs):
+            return True
+
+    video = make_video(tmp_path)
+    caption_path = tmp_path / 'recording.vtt'
+    caption_path.write_text('WEBVTT\n\n', encoding='utf8')
+
+    result = YoutubePublishService(
+        LegacyYoutube(), source_config(playlist=False)
+    ).publish_video(
+        video, 'bilibili', '1829181560', '2026-07-27 18:00:00',
+        caption=CaptionArtifact(caption_path, temporary=False),
+        checkpoint=PublishCheckpoint(
+            video_id='yt123', video_uploaded=True,
+            description_updated=True,
+            description_fingerprint=description_fingerprint(
+                'Base description'
+            ),
+        ),
+    )
+
+    assert result.status is PublishStatus.COMPLETE
+    assert result.caption_uploaded is True
+    assert result.caption_track_id is None
 
 
 @pytest.mark.parametrize(

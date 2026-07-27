@@ -69,7 +69,7 @@ _FILE_EVENT_UPDATES = {
     'video_uploaded': frozenset({'video_id'}),
     'description_updated': frozenset({'description_fingerprint'}),
     'caption_status': frozenset({'caption_status', 'error_message'}),
-    'caption_uploaded': frozenset({'caption_status'}),
+    'caption_uploaded': frozenset({'caption_status', 'caption_track_id'}),
     'playlist_inserted': frozenset(),
     'youtube_processed': frozenset(),
     'stage_retry_scheduled': frozenset({
@@ -137,7 +137,7 @@ def _validate_file_record(record, event, existing, enforce_history=True):
         'manifest_id', 'file', 'xml_file', 'title', 'stream_title',
         'start_time', 'video_id', 'caption_status',
         'description_fingerprint', 'upload_started_at', 'retry_at', 'stage',
-        'status', 'reason', 'error_stage',
+        'status', 'reason', 'error_stage', 'caption_track_id',
     }
     for name in string_fields.intersection(_FILE_EVENT_UPDATES[event], record):
         value = record[name]
@@ -306,53 +306,103 @@ def _file_event_updates(record, event, existing=None):
 
 
 def _controlled_manifest_migration(replay, existing, state, event):
-    if event != 'file_ready':
-        raise ValueError('manifest migration requires file_ready classification')
-    old = next((
-        item for item in replay.manifests
-        if item.manifest_id == existing.manifest_id
-    ), None)
-    target = next((
-        item for item in replay.manifests
-        if item.manifest_id == state.manifest_id
-    ), None)
+    if event not in {'file_ready'} | _IGNORED_FILE_EVENTS:
+        raise ValueError('manifest migration requires a classification event')
+    if _has_publication_lifecycle(existing) and event != 'file_ready':
+        raise ValueError(
+            'attempted publication migration requires a ready classification'
+        )
+    manifests = {item.manifest_id: item for item in replay.manifests}
+    old = manifests.get(existing.manifest_id)
+    target = manifests.get(state.manifest_id)
     if old is None:
         raise ValueError('manifest migration requires the old ready manifest')
-    if not old.invalidated:
-        raise ValueError(
-            'manifest migration requires an invalidated old manifest'
-        )
-    if old.replacement_manifest_id != state.manifest_id:
-        raise ValueError(
-            'manifest migration is outside the claimed replacement chain'
-        )
     if target is None or target.invalidated or target.completed:
         raise ValueError(
             'manifest migration requires an active ready target manifest'
         )
-    if old.room_id != target.room_id:
-        raise ValueError('manifest migration cannot cross rooms')
-    if _parse_aware_instant(
-        old.started_at, 'started_at', 'manifest migration'
-    ) != _parse_aware_instant(
-        target.started_at, 'started_at', 'manifest migration'
-    ):
-        raise ValueError('manifest migration has a conflicting session chain')
-    if _parse_aware_instant(
-        target.settled_at, 'settled_at', 'manifest migration'
-    ) < _parse_aware_instant(
-        old.invalidated_at, 'invalidated_at', 'manifest migration'
-    ):
-        raise ValueError('manifest migration target predates invalidation')
-    if state.file not in old.flv_paths or state.file not in target.flv_paths:
-        raise ValueError(
-            'manifest migration target does not contain the same file'
-        )
-    if old.snapshot.get(state.file) != target.snapshot.get(state.file):
-        raise ValueError('manifest migration has conflicting frozen FLV identity')
-
     xml_path = os.path.splitext(state.file)[0] + '.xml'
-    return old.snapshot.get(xml_path) != target.snapshot.get(xml_path)
+    caption_changed = False
+    current = old
+    visited = set()
+    while current.manifest_id != target.manifest_id:
+        if current.manifest_id in visited:
+            raise ValueError('manifest migration replacement chain contains a cycle')
+        visited.add(current.manifest_id)
+        if not current.invalidated:
+            raise ValueError(
+                'manifest migration requires an invalidated replacement chain'
+            )
+        replacement_id = current.replacement_manifest_id
+        replacement = manifests.get(replacement_id)
+        if replacement is None:
+            raise ValueError(
+                'manifest migration replacement chain has a missing link'
+            )
+        if current.room_id != replacement.room_id:
+            raise ValueError('manifest migration cannot cross rooms')
+        if _parse_aware_instant(
+            current.started_at, 'started_at', 'manifest migration'
+        ) != _parse_aware_instant(
+            replacement.started_at, 'started_at', 'manifest migration'
+        ):
+            raise ValueError(
+                'manifest migration has a conflicting session chain'
+            )
+        if _parse_aware_instant(
+            replacement.settled_at, 'settled_at', 'manifest migration'
+        ) < _parse_aware_instant(
+            current.invalidated_at, 'invalidated_at', 'manifest migration'
+        ):
+            raise ValueError('manifest migration target predates invalidation')
+        if (
+            state.file not in current.flv_paths
+            or state.file not in replacement.flv_paths
+        ):
+            raise ValueError(
+                'manifest migration target does not contain the same file'
+            )
+        if (
+            current.snapshot.get(state.file)
+            != replacement.snapshot.get(state.file)
+        ):
+            raise ValueError(
+                'manifest migration has conflicting frozen FLV identity'
+            )
+        caption_changed = caption_changed or (
+            current.snapshot.get(xml_path)
+            != replacement.snapshot.get(xml_path)
+        )
+        current = replacement
+
+    return caption_changed
+
+
+def _has_publication_lifecycle(state):
+    return bool(
+        state.event not in _INITIAL_FILE_EVENTS
+        or state.upload_started_at
+        or state.retry_at
+        or state.video_id
+        or state.video_upload_rejected
+        or state.description_updated
+        or state.caption_uploaded
+        or state.playlist_inserted
+        or state.youtube_processed
+        or state.ambiguous
+    )
+
+
+def _migrate_publication_state(existing, classified):
+    return replace(
+        existing,
+        manifest_id=classified.manifest_id,
+        file=classified.file,
+        xml_file=classified.xml_file,
+        stream_title=classified.stream_title,
+        start_time=classified.start_time,
+        duration=classified.duration,
+    )
 
 
 def _validate_file_binding(replay, state, existing=None, event=None):
@@ -1114,18 +1164,14 @@ class JsonlJournal:
             existing is not None
             and existing.manifest_id != state.manifest_id
         ):
+            if _has_publication_lifecycle(existing):
+                state = _migrate_publication_state(existing, state)
             if caption_changed:
                 state = replace(
                     state,
                     caption_uploaded=False,
                     caption_refresh_required=True,
                     caption_status='pending',
-                    retry_at=None,
-                    attempt=0,
-                    stage=None,
-                    status=None,
-                    error_stage=None,
-                    error_message=None,
                 )
             else:
                 state = replace(
