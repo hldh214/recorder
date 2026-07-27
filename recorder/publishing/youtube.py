@@ -51,6 +51,7 @@ class PublishCheckpoint:
     caption_uploaded: bool = False
     playlist_inserted: bool = False
     youtube_processed: bool = False
+    description_updated: bool = False
     description_fingerprint: str | None = None
 
 
@@ -144,6 +145,7 @@ class YoutubePublishService:
         caption=None,
         checkpoint=None,
         before_video_upload=None,
+        on_stage_completed=None,
     ):
         del source_type
         checkpoint = checkpoint or PublishCheckpoint()
@@ -153,6 +155,7 @@ class YoutubePublishService:
         playlist_inserted = checkpoint.playlist_inserted
         youtube_processed = checkpoint.youtube_processed
         fingerprint = checkpoint.description_fingerprint
+        description_updated = checkpoint.description_updated
         caption_status = 'not_requested'
 
         def result(
@@ -186,6 +189,21 @@ class YoutubePublishService:
                     stage == 'video' and _upload_outcome_unknown(exception, status)
                 ),
             )
+
+        def checkpoint_stage(stage, **fields):
+            if on_stage_completed is None:
+                return None
+            try:
+                on_stage_completed(stage, **fields)
+            except Exception as exception:
+                return result(
+                    PublishStatus.RETRYABLE,
+                    error_stage='checkpoint',
+                    error_message=(
+                        f'Cannot checkpoint completed {stage}: {exception}'
+                    ),
+                )
+            return None
 
         try:
             path = Path(video_path)
@@ -289,6 +307,18 @@ class YoutubePublishService:
                 )
             video_uploaded = True
             fingerprint = desired_fingerprint
+            checkpoint_error = checkpoint_stage(
+                'video_uploaded', video_id=video_id
+            )
+            if checkpoint_error is not None:
+                return checkpoint_error
+            checkpoint_error = checkpoint_stage(
+                'description_updated',
+                description_fingerprint=fingerprint,
+            )
+            if checkpoint_error is not None:
+                return checkpoint_error
+            description_updated = True
         elif fingerprint != desired_fingerprint:
             try:
                 updated = self.youtube.update(
@@ -306,6 +336,21 @@ class YoutubePublishService:
                     error_message='YouTube description update was not confirmed',
                 )
             fingerprint = desired_fingerprint
+            checkpoint_error = checkpoint_stage(
+                'description_updated',
+                description_fingerprint=fingerprint,
+            )
+            if checkpoint_error is not None:
+                return checkpoint_error
+            description_updated = True
+        elif not description_updated:
+            checkpoint_error = checkpoint_stage(
+                'description_updated',
+                description_fingerprint=fingerprint,
+            )
+            if checkpoint_error is not None:
+                return checkpoint_error
+            description_updated = True
 
         if caption_required:
             if caption_uploaded:
@@ -345,6 +390,10 @@ class YoutubePublishService:
                         )
                     caption_uploaded = True
                     caption_status = CAPTION_UPLOAD_SUCCESS
+
+                checkpoint_error = checkpoint_stage('caption_uploaded')
+                if checkpoint_error is not None:
+                    return checkpoint_error
 
             if caption.temporary:
                 try:
@@ -388,6 +437,9 @@ class YoutubePublishService:
                         error_message='YouTube playlist insertion was not confirmed',
                     )
                 playlist_inserted = True
+            checkpoint_error = checkpoint_stage('playlist_inserted')
+            if checkpoint_error is not None:
+                return checkpoint_error
 
         if not youtube_processed:
             try:
@@ -404,6 +456,9 @@ class YoutubePublishService:
             upload_status = processing.get('upload_status')
             if upload_status == 'processed':
                 youtube_processed = True
+                checkpoint_error = checkpoint_stage('youtube_processed')
+                if checkpoint_error is not None:
+                    return checkpoint_error
             elif upload_status in ('deleted', 'failed', 'rejected'):
                 primary_reason = (
                     'rejection_reason' if upload_status == 'rejected' else 'failure_reason'

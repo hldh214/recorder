@@ -102,28 +102,47 @@ class BililivePublishRunner:
             self.recent_uploads = recent_uploads
         self._expected_snapshots = {}
         self._manifest_rooms = {}
+        self._settling_paths = {}
 
     def run_pending_once(self, replay: JournalReplay) -> RunnerResult | None:
         manifests = tuple(
-            manifest for manifest in replay.manifests if not manifest.completed
+            manifest for manifest in replay.manifests
+            if not manifest.completed and not manifest.invalidated
         )
+        eligible_manifest_ids = set()
+        deferred_result = None
         for manifest in manifests:
-            mismatch = self._manifest_mismatch(manifest)
-            if mismatch is not None:
-                return RunnerResult('settling', message=mismatch)
-
-        for manifest in manifests:
+            changed_paths = self._manifest_changed_paths(manifest)
+            if changed_paths:
+                if deferred_result is None:
+                    deferred_result = self._invalidate_changed_manifest(
+                        manifest, changed_paths
+                    )
+                else:
+                    self._invalidate_changed_manifest(
+                        manifest, changed_paths
+                    )
+                continue
             classification_result = self._ensure_manifest_classified(
                 manifest, replay
             )
             if classification_result is not None:
-                return classification_result
+                if deferred_result is None:
+                    deferred_result = classification_result
+                continue
+            eligible_manifest_ids.add(manifest.manifest_id)
             replay = self.journal.replay()
 
-        candidate = self._select_due_candidate(replay)
+        candidate = self._select_due_candidate(
+            replay, eligible_manifest_ids=eligible_manifest_ids
+        )
         if candidate is None:
-            completed = self._complete_finished_manifests(replay)
-            return RunnerResult('complete') if completed else None
+            completed = self._complete_finished_manifests(
+                replay, eligible_manifest_ids=eligible_manifest_ids
+            )
+            if completed:
+                return RunnerResult('complete')
+            return deferred_result
 
         classified, manifest, unresolved_upload = candidate
         fingerprint = classified.media.fingerprint
@@ -138,11 +157,22 @@ class BililivePublishRunner:
                 result = self.publish_one(
                     classified, caption_provider=self.caption_provider
                 )
+            settling_paths = self._settling_paths.get(fingerprint, ())
+            if result.status == 'settling' and settling_paths:
+                result = self._invalidate_changed_manifest(
+                    manifest,
+                    settling_paths,
+                    reason=result.message,
+                )
         finally:
             self._expected_snapshots.pop(fingerprint, None)
             self._manifest_rooms.pop(fingerprint, None)
+            self._settling_paths.pop(fingerprint, None)
 
-        self._complete_finished_manifests(self.journal.replay())
+        self._complete_finished_manifests(
+            self.journal.replay(),
+            eligible_manifest_ids=eligible_manifest_ids,
+        )
         return result
 
     def publish_session(self, classified_media):
@@ -166,6 +196,7 @@ class BililivePublishRunner:
     ) -> RunnerResult:
         media = classified.media
         fingerprint = media.fingerprint
+        self._settling_paths.pop(fingerprint, None)
         if classified.status in _IGNORED_STATUSES:
             self._append_classification(classified, manifest_id=None)
             return RunnerResult(classified.status, fingerprint, message=classified.reason)
@@ -196,6 +227,7 @@ class BililivePublishRunner:
             return RunnerResult('settling', fingerprint, message=mismatch)
 
         caption = None
+        caption_error_message = None
         if caption_provider is None:
             if state.caption_status != 'not_requested':
                 self.journal.append(
@@ -217,9 +249,13 @@ class BililivePublishRunner:
                 status=artifact.status,
                 temporary=artifact.temporary,
             )
+            caption_error_message = artifact.error_message
             if (
                 state.caption_status != artifact.status
-                or artifact.error_message
+                or (
+                    artifact.error_message is not None
+                    and state.error_message != artifact.error_message
+                )
             ):
                 self.journal.append(
                     'caption_status',
@@ -240,9 +276,11 @@ class BililivePublishRunner:
             caption_uploaded=state.caption_uploaded,
             playlist_inserted=state.playlist_inserted,
             youtube_processed=state.youtube_processed,
+            description_updated=state.description_updated,
             description_fingerprint=state.description_fingerprint,
         )
         callback_ran = False
+        checkpointed_stages = set()
 
         def before_video_upload(title, description_fingerprint):
             nonlocal callback_ran
@@ -260,6 +298,32 @@ class BililivePublishRunner:
             callback_ran = True
 
         before_upload = before_video_upload if state.video_id is None else None
+
+        def on_stage_completed(stage, **fields):
+            if stage == 'video_uploaded':
+                self.journal.append(
+                    'video_uploaded',
+                    fingerprint=fingerprint,
+                    video_id=fields['video_id'],
+                )
+            elif stage == 'description_updated':
+                self.journal.append(
+                    'description_updated',
+                    fingerprint=fingerprint,
+                    description_fingerprint=fields[
+                        'description_fingerprint'
+                    ],
+                )
+            elif stage in {
+                'caption_uploaded',
+                'playlist_inserted',
+                'youtube_processed',
+            }:
+                self.journal.append(stage, fingerprint=fingerprint)
+            else:
+                raise ValueError(f'unknown publication stage {stage!r}')
+            checkpointed_stages.add(stage)
+
         try:
             result = self.publisher.publish_video(
                 video_path=media.path,
@@ -270,9 +334,11 @@ class BililivePublishRunner:
                 caption=caption,
                 checkpoint=checkpoint,
                 before_video_upload=before_upload,
+                on_stage_completed=on_stage_completed,
             )
         except Exception as exception:
-            if callback_ran:
+            current = self.journal.replay().files[fingerprint]
+            if callback_ran and current.video_id is None:
                 self.journal.append(
                     'ambiguous',
                     fingerprint=fingerprint,
@@ -286,7 +352,12 @@ class BililivePublishRunner:
             )
 
         return self._record_publish_result(
-            classified, state, result, callback_ran
+            classified,
+            state,
+            result,
+            callback_ran,
+            checkpointed_stages,
+            caption_error_message,
         )
 
     def recover_ambiguous(
@@ -361,9 +432,17 @@ class BililivePublishRunner:
             classified, caption_provider=caption_provider
         )
 
-    def _record_publish_result(self, classified, previous, result, callback_ran):
+    def _record_publish_result(
+        self,
+        classified,
+        previous,
+        result,
+        callback_ran,
+        checkpointed_stages,
+        caption_error_message,
+    ):
         fingerprint = classified.media.fingerprint
-        current = previous
+        current = self.journal.replay().files[fingerprint]
         if result.video_id is not None and current.video_id is None:
             self.journal.append(
                 'video_uploaded', fingerprint=fingerprint, video_id=result.video_id
@@ -372,8 +451,9 @@ class BililivePublishRunner:
         if (
             result.video_id is not None
             and result.description_fingerprint is not None
+            and 'description_updated' not in checkpointed_stages
             and (
-                previous.video_id is None
+                not current.description_updated
                 or current.description_fingerprint
                 != result.description_fingerprint
             )
@@ -432,9 +512,15 @@ class BililivePublishRunner:
         status = result.status
         if status is PublishStatus.COMPLETE:
             if result.caption_status in ('missing', 'invalid'):
-                return RunnerResult(
-                    'caption_pending', fingerprint,
-                    message=result.error_message or result.caption_status,
+                return self._schedule_retry(
+                    fingerprint,
+                    current,
+                    'caption',
+                    PublishStatus.RETRYABLE.value,
+                    caption_error_message
+                    or current.error_message
+                    or f'caption XML is {result.caption_status}',
+                    quota=False,
                 )
             return RunnerResult('complete', fingerprint)
         if status in (PublishStatus.RETRYABLE, PublishStatus.QUOTA_EXCEEDED):
@@ -505,9 +591,11 @@ class BililivePublishRunner:
         except MediaProbeRetryableError as exception:
             return RunnerResult('retryable', message=str(exception))
         classified = self.classifier(inspected)
-        mismatch = self._manifest_mismatch(manifest)
-        if mismatch is not None:
-            return RunnerResult('settling', message=mismatch)
+        changed_paths = self._manifest_changed_paths(manifest)
+        if changed_paths:
+            return self._invalidate_changed_manifest(
+                manifest, changed_paths
+            )
         for path in manifest.flv_paths:
             if path in states_by_path:
                 continue
@@ -543,10 +631,16 @@ class BililivePublishRunner:
                 error_message=media.probe_error,
             )
 
-    def _select_due_candidate(self, replay):
+    def _select_due_candidate(self, replay, eligible_manifest_ids=None):
         candidates = []
+        now = self._now()
         for manifest in replay.manifests:
             if manifest.completed:
+                continue
+            if (
+                eligible_manifest_ids is not None
+                and manifest.manifest_id not in eligible_manifest_ids
+            ):
                 continue
             for path in manifest.flv_paths:
                 state = next((
@@ -557,7 +651,10 @@ class BililivePublishRunner:
                     continue
                 if state.event in ('fatal', 'ambiguous') or state.ambiguous:
                     continue
-                if state.retry_at is not None and _aware_datetime(state.retry_at) > self._now():
+                if (
+                    state.retry_at is not None
+                    and _aware_datetime(state.retry_at) > now
+                ):
                     continue
                 if self._state_complete(state, manifest.room_id):
                     continue
@@ -567,11 +664,9 @@ class BililivePublishRunner:
                     and state.video_id is None
                     and not state.video_upload_rejected
                 )
-                priority = 0 if state.video_id is None else 1
                 candidates.append((
-                    priority,
-                    classified.media.start_time,
                     _aware_datetime(manifest.settled_at),
+                    classified.media.start_time,
                     str(classified.media.path),
                     classified,
                     manifest,
@@ -579,8 +674,8 @@ class BililivePublishRunner:
                 ))
         if not candidates:
             return None
-        selected = min(candidates, key=lambda item: item[:4])
-        return selected[4], selected[5], selected[6]
+        selected = min(candidates, key=lambda item: item[:3])
+        return selected[3], selected[4], selected[5]
 
     def _classified_from_state(self, state, manifest):
         size, mtime_ns = manifest.snapshot[state.file]
@@ -624,10 +719,17 @@ class BililivePublishRunner:
         except (AttributeError, KeyError, TypeError):
             return False
 
-    def _complete_finished_manifests(self, replay):
+    def _complete_finished_manifests(
+        self, replay, eligible_manifest_ids=None
+    ):
         appended = False
         for manifest in replay.manifests:
             if manifest.completed:
+                continue
+            if (
+                eligible_manifest_ids is not None
+                and manifest.manifest_id not in eligible_manifest_ids
+            ):
                 continue
             states = []
             for path in manifest.flv_paths:
@@ -663,18 +765,35 @@ class BililivePublishRunner:
             dynamic[str(media.xml_path)] = xml_identity
         return dynamic
 
-    def _manifest_mismatch(self, manifest: JournalManifest):
-        for path, expected in manifest.snapshot.items():
-            if _identity(path) != tuple(expected):
-                return f'frozen manifest path changed: {path}'
-        return None
+    def _manifest_changed_paths(self, manifest: JournalManifest):
+        return tuple(
+            path for path, expected in manifest.snapshot.items()
+            if _identity(path) != tuple(expected)
+        )
+
+    def _invalidate_changed_manifest(
+        self, manifest, changed_paths, reason=None
+    ):
+        message = reason or (
+            'frozen manifest identity changed: ' + ', '.join(changed_paths)
+        )
+        self.journal.append(
+            'session_manifest_changed',
+            manifest_id=manifest.manifest_id,
+            detected_at=self._now().isoformat(),
+            reason=message,
+            changed_paths=changed_paths,
+        )
+        return RunnerResult('resettle_pending', message=message)
 
     def _snapshot_mismatch(self, media, expected):
         flv_path = str(media.path)
         if _identity(flv_path) != tuple(expected[flv_path]):
+            self._settling_paths[media.fingerprint] = (flv_path,)
             return f'frozen FLV identity changed: {flv_path}'
         xml_path = str(media.xml_path)
         if xml_path in expected and _identity(xml_path) != tuple(expected[xml_path]):
+            self._settling_paths[media.fingerprint] = (xml_path,)
             return f'frozen XML identity changed: {xml_path}'
         return None
 

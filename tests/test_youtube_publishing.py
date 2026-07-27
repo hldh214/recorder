@@ -527,6 +527,128 @@ def test_checkpoint_callback_completes_immediately_before_upload(tmp_path):
     )]
 
 
+def test_stage_callback_checkpoints_each_success_before_next_remote_stage(
+    tmp_path,
+):
+    video = make_video(tmp_path)
+    caption_path = tmp_path / 'recording.vtt'
+    caption_path.write_text('WEBVTT\n\n', encoding='utf8')
+    timeline = []
+
+    class OrderedYoutube(FakeYoutube):
+        def caption_exists(self, video_id, caption_name):
+            timeline.append('remote:caption_exists')
+            return super().caption_exists(video_id, caption_name)
+
+        def playlist_contains(self, video_id, playlist_id):
+            timeline.append('remote:playlist_contains')
+            return super().playlist_contains(video_id, playlist_id)
+
+        def get_processing_status(self, video_id, **kwargs):
+            timeline.append('remote:processing')
+            return super().get_processing_status(video_id, **kwargs)
+
+    youtube = OrderedYoutube(events=timeline)
+
+    result = YoutubePublishService(youtube, source_config()).publish_video(
+        video,
+        'bilibili',
+        '1829181560',
+        '2026-07-27 18:00:00',
+        caption=CaptionArtifact(caption_path, 'Highlights'),
+        before_video_upload=lambda *args: timeline.append('checkpoint:started'),
+        on_stage_completed=lambda stage, **fields: timeline.append(
+            f'checkpoint:{stage}'
+        ),
+    )
+
+    assert result.status is PublishStatus.COMPLETE
+    assert timeline == [
+        'checkpoint:started',
+        'upload',
+        'checkpoint:video_uploaded',
+        'checkpoint:description_updated',
+        'remote:caption_exists',
+        'checkpoint:caption_uploaded',
+        'remote:playlist_contains',
+        'checkpoint:playlist_inserted',
+        'remote:processing',
+        'checkpoint:youtube_processed',
+    ]
+
+
+def test_stage_callback_failure_stops_before_next_remote_stage(tmp_path):
+    video = make_video(tmp_path)
+    caption_path = tmp_path / 'recording.vtt'
+    caption_path.write_text('WEBVTT\n\n', encoding='utf8')
+    youtube = FakeYoutube()
+
+    def fail_video_checkpoint(stage, **fields):
+        assert stage == 'video_uploaded'
+        assert fields == {'video_id': 'yt123'}
+        raise OSError('journal fsync failed')
+
+    result = YoutubePublishService(youtube, source_config()).publish_video(
+        video,
+        'bilibili',
+        '1829181560',
+        '2026-07-27 18:00:00',
+        caption=CaptionArtifact(caption_path),
+        on_stage_completed=fail_video_checkpoint,
+    )
+
+    assert result.status is PublishStatus.RETRYABLE
+    assert result.video_id == 'yt123'
+    assert result.video_uploaded is True
+    assert result.error_stage == 'checkpoint'
+    assert 'video_uploaded' in result.error_message
+    assert youtube.caption_exists_calls == []
+    assert youtube.playlist_contains_calls == []
+    assert youtube.processing_calls == []
+    assert caption_path.exists()
+
+
+def test_resume_after_video_checkpoint_confirms_initial_description_locally(
+    tmp_path,
+):
+    video = make_video(tmp_path)
+    caption_path = tmp_path / 'recording.vtt'
+    caption_path.write_text('WEBVTT\n\n', encoding='utf8')
+    fingerprint = description_fingerprint('Base description')
+    timeline = []
+
+    class OrderedYoutube(FakeYoutube):
+        def caption_exists(self, video_id, caption_name):
+            timeline.append('remote:caption_exists')
+            return super().caption_exists(video_id, caption_name)
+
+    youtube = OrderedYoutube()
+
+    result = YoutubePublishService(youtube, source_config()).publish_video(
+        video,
+        'bilibili',
+        '1829181560',
+        '2026-07-27 18:00:00',
+        caption=CaptionArtifact(caption_path),
+        checkpoint=PublishCheckpoint(
+            video_id='yt123',
+            video_uploaded=True,
+            description_fingerprint=fingerprint,
+            description_updated=False,
+        ),
+        on_stage_completed=lambda stage, **fields: timeline.append(
+            f'checkpoint:{stage}'
+        ),
+    )
+
+    assert result.status is PublishStatus.COMPLETE
+    assert youtube.update_calls == []
+    assert timeline[:2] == [
+        'checkpoint:description_updated',
+        'remote:caption_exists',
+    ]
+
+
 def test_checkpoint_callback_failure_prevents_upload(tmp_path):
     video = make_video(tmp_path)
     youtube = FakeYoutube()

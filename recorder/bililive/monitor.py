@@ -375,6 +375,7 @@ class SessionMonitorState:
 
         if room.active:
             return self._decision()
+        self.quiet_since = now
         self.state = SessionState.SETTLING
         return self._decision()
 
@@ -465,6 +466,14 @@ class BililiveSessionMonitor:
         )
 
     def observe(self, now: datetime, room: RoomState | None, snapshot: Snapshot):
+        if self.machine.state is SessionState.WAITING and room is not None:
+            if not isinstance(room, RoomState):
+                raise TypeError('room must be RoomState or None')
+            replay = self.journal.replay()
+            if replay.pending_resettles:
+                return self._claim_pending_resettle(
+                    now, room, snapshot, replay
+                )
         was_initialized = self.machine.initialized
         previous_state = self.machine.state
         previous = self.machine.persistent_signature()
@@ -515,6 +524,63 @@ class BililiveSessionMonitor:
                     initialized=False, id_factory=id_factory
                 )
             raise
+
+    def _claim_pending_resettle(self, now, room, snapshot, replay):
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError('now must be timezone-aware')
+        if (
+            self.machine._last_observed_at is not None
+            and now < self.machine._last_observed_at
+        ):
+            raise ValueError('observation time cannot be earlier than prior state')
+        request = replay.pending_resettles[0]
+        source = next(
+            manifest for manifest in replay.manifests
+            if manifest.manifest_id == request.source_manifest_id
+        )
+        current = _normalize_snapshot(snapshot)
+        missing_flvs = [
+            path for path in source.flv_paths if path not in current
+        ]
+        if missing_flvs:
+            raise ValueError(
+                'pending resettle current source FLV is missing: '
+                + ', '.join(missing_flvs)
+            )
+        if not source.flv_paths:
+            raise ValueError('pending resettle has no current source FLV')
+        session_paths = set(source.flv_paths)
+        for flv_path in source.flv_paths:
+            xml_path = str(Path(flv_path).with_suffix('.xml'))
+            if xml_path in current:
+                session_paths.add(xml_path)
+        replacement_id = self.machine.id_factory()
+        state = (
+            SessionState.RECORDING
+            if room.active else SessionState.SETTLING
+        )
+        started_at = _parse_instant(source.started_at)
+        self.journal.append(
+            'session_resettle_started',
+            source_manifest_id=source.manifest_id,
+            replacement_manifest_id=replacement_id,
+            room_id=self.room_id,
+            state=state.value,
+            session_paths=tuple(sorted(session_paths)),
+            snapshot=current,
+            quiet_since=now.isoformat(),
+            started_at=source.started_at,
+        )
+
+        self.machine.state = state
+        self.machine.session_id = replacement_id
+        self.machine.session_paths = session_paths
+        self.machine.snapshot = current
+        self.machine.quiet_since = now
+        self.machine.started_at = started_at
+        self.machine._restart_quiet_pending = False
+        self.machine._last_observed_at = now
+        return self.machine._decision(reason='claimed pending resettle')
 
     def _append_baselining_ownership(self, decision):
         self.journal.append(

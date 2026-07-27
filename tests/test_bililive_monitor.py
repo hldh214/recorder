@@ -29,6 +29,28 @@ def armed_machine(ids=None):
     return SessionMonitorState(initialized=True, id_factory=lambda: next(values))
 
 
+def append_pending_resettle(
+    journal, video, manifest_id='old-session', settled_at=None
+):
+    settled_at = settled_at or at(12)
+    journal.append(
+        'session_manifest_ready',
+        manifest_id=manifest_id,
+        room_id=123,
+        started_at=at(8).isoformat(),
+        settled_at=settled_at.isoformat(),
+        flv_paths=(video,),
+        snapshot={video: (100, 1)},
+    )
+    journal.append(
+        'session_manifest_changed',
+        manifest_id=manifest_id,
+        detected_at=(settled_at + timedelta(minutes=5)).isoformat(),
+        reason='frozen identity changed',
+        changed_paths=(video,),
+    )
+
+
 def test_first_offline_observation_baselines_every_path_and_arms():
     machine = SessionMonitorState(initialized=False)
     snapshot = {'/recording/a.flv': (100, 1), '/recording/a.xml': (20, 2)}
@@ -685,6 +707,233 @@ def test_restart_after_manifest_fsync_does_not_emit_conflicting_manifest(
     assert decision.state is SessionState.WAITING
     assert restarted.machine.state is SessionState.WAITING
     assert len(journal.replay().manifests) == 1
+
+
+def test_offline_pending_resettle_claims_and_waits_fresh_quiet_period(tmp_path):
+    video = str(tmp_path / 'video.flv')
+    xml = str(tmp_path / 'video.xml')
+    unrelated = str(tmp_path / 'unrelated.flv')
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('initialized')
+    journal.append(
+        'session_state',
+        room_id=123,
+        state='waiting',
+        session_id=None,
+        session_paths=(),
+        snapshot={video: (100, 1)},
+        quiet_since=None,
+        started_at=None,
+    )
+    append_pending_resettle(journal, video)
+    snapshot = {
+        video: (200, 2),
+        xml: (20, 2),
+        unrelated: (900, 9),
+    }
+    monitor = BililiveSessionMonitor(
+        journal=journal,
+        room_id=123,
+        id_factory=lambda: 'replacement-session',
+    )
+
+    claimed = monitor.observe(at(13), RoomState(False, False), snapshot)
+    early = monitor.observe(at(13, 29), RoomState(False, False), snapshot)
+    ready = monitor.observe(at(13, 30), RoomState(False, False), snapshot)
+
+    assert claimed.state is SessionState.SETTLING
+    assert claimed.session_id == 'replacement-session'
+    assert claimed.quiet_since == at(13)
+    assert claimed.started_at == at(8)
+    assert set(claimed.session_paths) == {video, xml}
+    assert dict(claimed.snapshot) == snapshot
+    assert early.state is SessionState.SETTLING
+    assert ready.state is SessionState.READY
+    replay = journal.replay()
+    assert replay.pending_resettles == ()
+    old, replacement = replay.manifests
+    assert old.manifest_id == 'old-session'
+    assert old.invalidated is True
+    assert old.replacement_manifest_id == 'replacement-session'
+    assert dict(old.snapshot) == {video: (100, 1)}
+    assert replacement.manifest_id == 'replacement-session'
+    assert replacement.started_at == at(8).isoformat()
+    assert replacement.snapshot == {video: (200, 2), xml: (20, 2)}
+
+
+def test_active_pending_resettle_claims_as_recording(tmp_path):
+    video = str(tmp_path / 'video.flv')
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('initialized')
+    journal.append(
+        'session_state',
+        room_id=123,
+        state='waiting',
+        session_id=None,
+        session_paths=(),
+        snapshot={video: (100, 1)},
+        quiet_since=None,
+        started_at=None,
+    )
+    append_pending_resettle(journal, video)
+    monitor = BililiveSessionMonitor(
+        journal=journal,
+        room_id=123,
+        id_factory=lambda: 'replacement-session',
+    )
+
+    decision = monitor.observe(
+        at(13), RoomState(True, True), {video: (200, 2)}
+    )
+
+    assert decision.state is SessionState.RECORDING
+    assert decision.quiet_since == at(13)
+    replay = journal.replay()
+    assert replay.session.state is SessionState.RECORDING
+    assert replay.pending_resettles == ()
+    assert replay.manifests[0].replacement_manifest_id == (
+        'replacement-session'
+    )
+
+
+def test_active_resettle_starts_fresh_quiet_period_when_room_goes_offline(
+    tmp_path,
+):
+    video = str(tmp_path / 'video.flv')
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('initialized')
+    journal.append(
+        'session_state',
+        room_id=123,
+        state='waiting',
+        session_id=None,
+        session_paths=(),
+        snapshot={video: (100, 1)},
+        quiet_since=None,
+        started_at=None,
+    )
+    append_pending_resettle(journal, video)
+    monitor = BililiveSessionMonitor(
+        journal=journal,
+        room_id=123,
+        id_factory=lambda: 'replacement-session',
+    )
+    snapshot = {video: (200, 2)}
+
+    monitor.observe(at(13), RoomState(True, True), snapshot)
+    offline = monitor.observe(at(14), RoomState(False, False), snapshot)
+    early = monitor.observe(at(14, 29), RoomState(False, False), snapshot)
+    ready = monitor.observe(at(14, 30), RoomState(False, False), snapshot)
+
+    assert offline.state is SessionState.SETTLING
+    assert offline.quiet_since == at(14)
+    assert early.state is SessionState.SETTLING
+    assert ready.state is SessionState.READY
+
+
+def test_restart_after_resettle_claim_keeps_one_claim_and_resets_quiet(tmp_path):
+    video = str(tmp_path / 'video.flv')
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('initialized')
+    journal.append(
+        'session_state',
+        room_id=123,
+        state='waiting',
+        session_id=None,
+        session_paths=(),
+        snapshot={video: (100, 1)},
+        quiet_since=None,
+        started_at=None,
+    )
+    append_pending_resettle(journal, video)
+    first = BililiveSessionMonitor(
+        journal=journal,
+        room_id=123,
+        id_factory=lambda: 'replacement-session',
+    )
+    first.observe(at(13), RoomState(False, False), {video: (200, 2)})
+
+    restarted = BililiveSessionMonitor(
+        journal=journal,
+        room_id=123,
+        id_factory=lambda: 'must-not-be-used',
+    )
+    resumed = restarted.observe(
+        at(13, 10), RoomState(False, False), {video: (200, 2)}
+    )
+
+    assert resumed.session_id == 'replacement-session'
+    assert resumed.state is SessionState.SETTLING
+    assert resumed.quiet_since == at(13, 10)
+    events = [
+        line for line in journal.path.read_text().splitlines()
+        if '"event":"session_resettle_started"' in line
+    ]
+    assert len(events) == 1
+
+
+def test_pending_resettle_never_overwrites_active_session(tmp_path):
+    old_video = str(tmp_path / 'old.flv')
+    active_video = str(tmp_path / 'active.flv')
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('initialized')
+    journal.append(
+        'session_state',
+        room_id=123,
+        state='recording',
+        session_id='active-session',
+        session_paths=(active_video,),
+        snapshot={active_video: (10, 1)},
+        quiet_since=at(12).isoformat(),
+        started_at=at(12).isoformat(),
+    )
+    append_pending_resettle(journal, old_video)
+    monitor = BililiveSessionMonitor(
+        journal=journal,
+        room_id=123,
+        id_factory=lambda: 'replacement-session',
+    )
+
+    decision = monitor.observe(
+        at(13),
+        RoomState(True, True),
+        {active_video: (20, 2), old_video: (200, 2)},
+    )
+
+    assert decision.session_id == 'active-session'
+    replay = journal.replay()
+    assert replay.session.session_id == 'active-session'
+    assert len(replay.pending_resettles) == 1
+
+
+def test_pending_resettle_without_current_flv_remains_protected(tmp_path):
+    video = str(tmp_path / 'video.flv')
+    xml = str(tmp_path / 'video.xml')
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('initialized')
+    journal.append(
+        'session_state',
+        room_id=123,
+        state='waiting',
+        session_id=None,
+        session_paths=(),
+        snapshot={video: (100, 1)},
+        quiet_since=None,
+        started_at=None,
+    )
+    append_pending_resettle(journal, video)
+    monitor = BililiveSessionMonitor(
+        journal=journal,
+        room_id=123,
+        id_factory=lambda: 'replacement-session',
+    )
+
+    with pytest.raises(ValueError, match='current source FLV'):
+        monitor.observe(at(13), RoomState(False, False), {xml: (20, 2)})
+
+    replay = journal.replay()
+    assert replay.session.state is SessionState.WAITING
+    assert len(replay.pending_resettles) == 1
 
 
 def test_restart_rejects_observation_before_durable_manifest_settlement(

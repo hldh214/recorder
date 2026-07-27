@@ -14,6 +14,7 @@ from recorder.bililive.models import (
     JournalFileState,
     JournalManifest,
     JournalReplay,
+    JournalResettleRequest,
     JournalSessionState,
     SessionState,
 )
@@ -249,6 +250,7 @@ def _file_event_updates(record, event, existing=None):
         updates.update(
             video_id=None,
             video_upload_rejected=False,
+            description_updated=False,
             ambiguous=False,
             retry_at=None,
             attempt=record.get('attempt', 0),
@@ -273,6 +275,8 @@ def _file_event_updates(record, event, existing=None):
             error_stage=None,
             error_message=None,
         )
+    elif event == 'description_updated':
+        updates['description_updated'] = True
     elif event == 'ambiguous':
         updates.update(
             video_upload_rejected=False,
@@ -493,13 +497,28 @@ def _reduce_manifest_ready(replay, record):
     manifests = list(replay.manifests)
     for index, existing in enumerate(manifests):
         if existing.manifest_id == manifest.manifest_id:
-            existing_identity = replace(existing, completed=False)
+            existing_identity = replace(
+                existing,
+                completed=False,
+                invalidated=False,
+                invalidated_at=None,
+                invalidation_reason=None,
+                changed_paths=(),
+                replacement_manifest_id=None,
+            )
             if existing_identity != manifest:
                 raise ValueError(
                     'cannot replace a manifest with different data'
                 )
-            if existing.completed:
-                manifest = replace(manifest, completed=True)
+            manifest = replace(
+                manifest,
+                completed=existing.completed,
+                invalidated=existing.invalidated,
+                invalidated_at=existing.invalidated_at,
+                invalidation_reason=existing.invalidation_reason,
+                changed_paths=existing.changed_paths,
+                replacement_manifest_id=existing.replacement_manifest_id,
+            )
             manifests[index] = manifest
             break
     else:
@@ -516,10 +535,201 @@ def _reduce_manifest_completed(replay, record):
     manifests = list(replay.manifests)
     for index, manifest in enumerate(manifests):
         if manifest.manifest_id == record['manifest_id']:
+            if manifest.invalidated:
+                raise ValueError(
+                    'cannot complete an invalidated session manifest'
+                )
             manifests[index] = replace(manifest, completed=True)
             return replace(replay, manifests=tuple(manifests))
     raise ValueError(
         'session_manifest_completed requires an existing ready manifest'
+    )
+
+
+def _validated_changed_paths(record, manifest, event):
+    changed_paths = record.get('changed_paths')
+    if not isinstance(changed_paths, (list, tuple)) or not changed_paths:
+        raise ValueError(f'{event} requires non-empty changed_paths')
+    if any(not isinstance(path, str) or not path for path in changed_paths):
+        raise TypeError(f'{event} changed_paths must be non-empty strings')
+    if len(set(changed_paths)) != len(changed_paths):
+        raise ValueError(f'{event} contains duplicate changed_paths')
+    for path in changed_paths:
+        _require_normalized_absolute_path(path, event, 'changed_path')
+    allowed_paths = set(manifest.flv_paths)
+    allowed_paths.update(
+        os.path.splitext(path)[0] + '.xml' for path in manifest.flv_paths
+    )
+    unrelated = set(changed_paths).difference(allowed_paths)
+    if unrelated:
+        raise ValueError(
+            f'{event} changed_paths are outside the frozen manifest: '
+            + ', '.join(sorted(unrelated))
+        )
+    return tuple(changed_paths)
+
+
+def _reduce_manifest_changed(replay, record):
+    event = 'session_manifest_changed'
+    _validate_manifest_id(record, event)
+    _require_non_empty_string(record, 'detected_at', event)
+    _require_non_empty_string(record, 'reason', event)
+    detected_at = _parse_aware_instant(
+        record['detected_at'], 'detected_at', event
+    )
+    manifests = list(replay.manifests)
+    for index, manifest in enumerate(manifests):
+        if manifest.manifest_id != record['manifest_id']:
+            continue
+        changed_paths = _validated_changed_paths(record, manifest, event)
+        if detected_at < _parse_aware_instant(
+            manifest.settled_at, 'settled_at', event
+        ):
+            raise ValueError(
+                f'{event} detected_at cannot precede manifest settlement'
+            )
+        signature = (
+            record['detected_at'], record['reason'], changed_paths
+        )
+        existing_signature = (
+            manifest.invalidated_at,
+            manifest.invalidation_reason,
+            manifest.changed_paths,
+        )
+        if manifest.invalidated:
+            if signature != existing_signature:
+                raise ValueError('conflicting invalidation for manifest')
+            return replay
+        if manifest.completed:
+            raise ValueError('cannot invalidate a completed manifest')
+        manifests[index] = replace(
+            manifest,
+            invalidated=True,
+            invalidated_at=record['detected_at'],
+            invalidation_reason=record['reason'],
+            changed_paths=changed_paths,
+        )
+        pending = list(replay.pending_resettles)
+        pending.append(JournalResettleRequest(
+            source_manifest_id=manifest.manifest_id,
+            settled_at=manifest.settled_at,
+            detected_at=record['detected_at'],
+            reason=record['reason'],
+            changed_paths=changed_paths,
+        ))
+        pending.sort(key=lambda item: _parse_aware_instant(
+            item.settled_at, 'settled_at', event
+        ))
+        return replace(
+            replay,
+            manifests=tuple(manifests),
+            pending_resettles=tuple(pending),
+        )
+    raise ValueError(f'{event} requires an existing manifest')
+
+
+def _reduce_resettle_started(replay, record):
+    event = 'session_resettle_started'
+    for name in ('source_manifest_id', 'replacement_manifest_id'):
+        _require_non_empty_string(record, name, event)
+    source_id = record['source_manifest_id']
+    replacement_id = record['replacement_manifest_id']
+    if source_id == replacement_id:
+        raise ValueError(f'{event} replacement must use a new manifest ID')
+    manifests = list(replay.manifests)
+    source_index = next((
+        index for index, item in enumerate(manifests)
+        if item.manifest_id == source_id
+    ), None)
+    if source_index is None:
+        raise ValueError(f'{event} requires an existing source manifest')
+    source = manifests[source_index]
+    if not source.invalidated:
+        raise ValueError(f'{event} requires an invalidated source manifest')
+    if source.replacement_manifest_id is not None:
+        raise ValueError(f'{event} source manifest is already claimed')
+    if any(
+        item.manifest_id == replacement_id
+        or item.replacement_manifest_id == replacement_id
+        for item in manifests
+    ):
+        raise ValueError(f'{event} replacement manifest ID is already used')
+    if replay.session.state is not SessionState.WAITING:
+        raise ValueError(f'{event} cannot replace an active session')
+    if replay.session.room_id not in (None, source.room_id):
+        raise ValueError(f'{event} room conflicts with the current session')
+    room_id = record.get('room_id')
+    if room_id != source.room_id:
+        raise ValueError(f'{event} room conflicts with the source manifest')
+    try:
+        state = SessionState(record.get('state'))
+    except (TypeError, ValueError) as exception:
+        raise TypeError(f'{event} has an invalid state') from exception
+    if state not in {SessionState.RECORDING, SessionState.SETTLING}:
+        raise ValueError(f'{event} state must be recording or settling')
+
+    raw_snapshot = record.get('snapshot')
+    if not isinstance(raw_snapshot, Mapping):
+        raise TypeError(f'{event} requires a snapshot object')
+    for path in raw_snapshot:
+        if not isinstance(path, str) or not path:
+            raise TypeError(f'{event} snapshot paths must be non-empty strings')
+        _require_normalized_absolute_path(path, event, 'snapshot path')
+    session_paths = record.get('session_paths')
+    if not isinstance(session_paths, (list, tuple)):
+        raise TypeError(f'{event} requires session_paths')
+    expected_paths = set(source.flv_paths)
+    for flv_path in source.flv_paths:
+        if flv_path not in raw_snapshot:
+            raise ValueError(
+                f'{event} current source FLV is missing: {flv_path}'
+            )
+        xml_path = os.path.splitext(flv_path)[0] + '.xml'
+        if xml_path in raw_snapshot:
+            expected_paths.add(xml_path)
+    if not source.flv_paths:
+        raise ValueError(f'{event} requires a current source FLV')
+    if set(session_paths) != expected_paths:
+        raise ValueError(
+            f'{event} session_paths must contain current source FLV/XML paths'
+        )
+    if len(session_paths) != len(expected_paths):
+        raise ValueError(f'{event} contains duplicate session_paths')
+    replacement_started_at = _parse_aware_instant(
+        record.get('started_at'), 'started_at', event
+    )
+    source_started_at = _parse_aware_instant(
+        source.started_at, 'started_at', event
+    )
+    if replacement_started_at != source_started_at:
+        raise ValueError(f'{event} must preserve the source started_at')
+    quiet_since = _parse_aware_instant(
+        record.get('quiet_since'), 'quiet_since', event
+    )
+    if quiet_since < replacement_started_at:
+        raise ValueError(f'{event} quiet_since cannot precede started_at')
+
+    session_record = {
+        'state': state.value,
+        'room_id': source.room_id,
+        'session_id': replacement_id,
+        'session_paths': tuple(session_paths),
+        'snapshot': dict(raw_snapshot),
+        'quiet_since': record.get('quiet_since'),
+        'started_at': record.get('started_at'),
+    }
+    updated = _reduce_session_state(replay, session_record)
+    manifests[source_index] = replace(
+        source, replacement_manifest_id=replacement_id
+    )
+    pending = tuple(
+        item for item in replay.pending_resettles
+        if item.source_manifest_id != source_id
+    )
+    return replace(
+        updated,
+        manifests=tuple(manifests),
+        pending_resettles=pending,
     )
 
 
@@ -528,6 +738,8 @@ _CONTROL_REDUCERS = {
     'session_state': _reduce_session_state,
     'session_manifest_ready': _reduce_manifest_ready,
     'session_manifest_completed': _reduce_manifest_completed,
+    'session_manifest_changed': _reduce_manifest_changed,
+    'session_resettle_started': _reduce_resettle_started,
 }
 
 
@@ -550,6 +762,13 @@ def _validate_append_record(record):
         return
     if event == 'session_manifest_completed':
         _validate_manifest_id(record, event)
+        return
+    if event == 'session_manifest_changed':
+        _validate_manifest_id(record, event)
+        return
+    if event == 'session_resettle_started':
+        for name in ('source_manifest_id', 'replacement_manifest_id'):
+            _require_non_empty_string(record, name, event)
         return
     raise ValueError(f'unknown event {event!r}')
 
@@ -642,6 +861,7 @@ class _ReplayState:
     manifests: tuple[JournalManifest, ...]
     session: JournalSessionState
     initialized: bool
+    pending_resettles: tuple[JournalResettleRequest, ...]
 
 
 def _empty_replay():
@@ -658,6 +878,7 @@ def _empty_replay():
             started_at=None,
         ),
         initialized=False,
+        pending_resettles=(),
     )
 
 
@@ -667,6 +888,7 @@ def _public_replay(replay):
         manifests=replay.manifests,
         session=replay.session,
         initialized=replay.initialized,
+        pending_resettles=replay.pending_resettles,
     )
 
 

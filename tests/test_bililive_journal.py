@@ -16,7 +16,9 @@ from recorder.bililive.journal import (
 )
 from recorder.bililive.models import (
     JournalFileState,
+    JournalManifest,
     JournalReplay,
+    JournalResettleRequest,
     JournalSessionState,
     RoomState,
     SessionState,
@@ -139,6 +141,53 @@ def test_room_state_and_replayed_models_are_immutable(tmp_path):
 
     with pytest.raises(FrozenInstanceError):
         state.event = 'changed'
+
+
+def test_manifest_and_resettle_collections_are_defensively_frozen():
+    flv_paths = ['/video.flv']
+    changed_paths = ['/video.flv']
+    manifest = JournalManifest(
+        manifest_id='session-1',
+        room_id=123,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:00:00+00:00',
+        flv_paths=flv_paths,
+        snapshot={'/video.flv': (100, 200)},
+        changed_paths=changed_paths,
+    )
+    request = JournalResettleRequest(
+        source_manifest_id='session-1',
+        settled_at=manifest.settled_at,
+        detected_at='2026-07-27T12:05:00+00:00',
+        reason='changed',
+        changed_paths=changed_paths,
+    )
+    pending = [request]
+    replay = JournalReplay(
+        files={},
+        manifests=[manifest],
+        session=JournalSessionState(
+            state=SessionState.WAITING,
+            room_id=123,
+            session_id=None,
+            session_paths=(),
+            snapshot={},
+            quiet_since=None,
+            started_at=None,
+        ),
+        initialized=True,
+        pending_resettles=pending,
+    )
+
+    flv_paths.append('/late.flv')
+    changed_paths.append('/late.flv')
+    pending.clear()
+
+    assert manifest.flv_paths == ('/video.flv',)
+    assert manifest.changed_paths == ('/video.flv',)
+    assert request.changed_paths == ('/video.flv',)
+    assert replay.manifests == (manifest,)
+    assert replay.pending_resettles == (request,)
 
 
 def test_upload_attempt_and_resolution_events_replace_only_attempt_state(tmp_path):
@@ -1311,6 +1360,203 @@ def test_manifest_snapshot_replays_as_copied_read_only_mapping(tmp_path):
     }
     with pytest.raises(TypeError):
         frozen['/other.flv'] = (1, 2)
+
+
+def test_manifest_change_is_durable_idempotent_and_preserves_identity(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    original_snapshot = {
+        '/recording/video.flv': (100, 200),
+        '/recording/video.xml': (10, 20),
+    }
+    journal.append(
+        'session_manifest_ready',
+        manifest_id='session-1',
+        room_id=123,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:00:00+00:00',
+        flv_paths=('/recording/video.flv',),
+        snapshot=original_snapshot,
+    )
+    changed = {
+        'manifest_id': 'session-1',
+        'detected_at': '2026-07-27T12:05:00+00:00',
+        'reason': 'frozen source identity changed',
+        'changed_paths': ('/recording/video.flv',),
+    }
+
+    journal.append('session_manifest_changed', **changed)
+    journal.append('session_manifest_changed', **changed)
+
+    replay = journal.replay()
+    manifest = replay.manifests[0]
+    assert manifest.invalidated is True
+    assert manifest.invalidated_at == changed['detected_at']
+    assert manifest.invalidation_reason == changed['reason']
+    assert manifest.changed_paths == changed['changed_paths']
+    assert manifest.replacement_manifest_id is None
+    assert manifest.flv_paths == ('/recording/video.flv',)
+    assert dict(manifest.snapshot) == original_snapshot
+    assert len(replay.pending_resettles) == 1
+    request = replay.pending_resettles[0]
+    assert request.source_manifest_id == 'session-1'
+    assert request.settled_at == '2026-07-27T12:00:00+00:00'
+    with pytest.raises(FrozenInstanceError):
+        request.reason = 'changed'
+
+    with pytest.raises(ValueError, match='conflicting invalidation'):
+        journal.append(
+            'session_manifest_changed',
+            **dict(changed, reason='different reason'),
+        )
+
+
+def test_pending_resettles_sort_by_source_manifest_settlement(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    for manifest_id, settled_at, path in (
+        ('later', '2026-07-27T13:00:00+00:00', '/later.flv'),
+        ('earlier', '2026-07-27T12:00:00+00:00', '/earlier.flv'),
+    ):
+        journal.append(
+            'session_manifest_ready',
+            manifest_id=manifest_id,
+            room_id=123,
+            started_at='2026-07-27T08:00:00+00:00',
+            settled_at=settled_at,
+            flv_paths=(path,),
+            snapshot={path: (100, 200)},
+        )
+        journal.append(
+            'session_manifest_changed',
+            manifest_id=manifest_id,
+            detected_at='2026-07-27T14:00:00+00:00',
+            reason='changed',
+            changed_paths=(path,),
+        )
+
+    assert [
+        item.source_manifest_id
+        for item in journal.replay().pending_resettles
+    ] == ['earlier', 'later']
+
+
+def test_resettle_started_atomically_claims_request_and_session(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('initialized')
+    journal.append(
+        'session_state',
+        room_id=123,
+        state='waiting',
+        session_id=None,
+        session_paths=(),
+        snapshot={'/recording/video.flv': (100, 200)},
+        quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_manifest_ready',
+        manifest_id='session-1',
+        room_id=123,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:00:00+00:00',
+        flv_paths=('/recording/video.flv',),
+        snapshot={'/recording/video.flv': (100, 200)},
+    )
+    journal.append(
+        'session_manifest_changed',
+        manifest_id='session-1',
+        detected_at='2026-07-27T12:05:00+00:00',
+        reason='changed',
+        changed_paths=('/recording/video.flv',),
+    )
+    full_snapshot = {
+        '/recording/video.flv': (101, 201),
+        '/recording/video.xml': (11, 21),
+        '/recording/unrelated.flv': (900, 900),
+    }
+    started = {
+        'source_manifest_id': 'session-1',
+        'replacement_manifest_id': 'replacement-1',
+        'room_id': 123,
+        'state': 'settling',
+        'session_paths': (
+            '/recording/video.flv', '/recording/video.xml'
+        ),
+        'snapshot': full_snapshot,
+        'quiet_since': '2026-07-27T12:10:00+00:00',
+        'started_at': '2026-07-27T08:00:00+00:00',
+    }
+
+    with pytest.raises(ValueError, match='quiet_since'):
+        journal.append(
+            'session_resettle_started',
+            **dict(started, quiet_since='2026-07-27T07:59:00+00:00'),
+        )
+
+    journal.append('session_resettle_started', **started)
+
+    replay = journal.replay()
+    assert replay.pending_resettles == ()
+    assert replay.manifests[0].replacement_manifest_id == 'replacement-1'
+    assert replay.session.state is SessionState.SETTLING
+    assert replay.session.session_id == 'replacement-1'
+    assert replay.session.session_paths == started['session_paths']
+    assert dict(replay.session.snapshot) == full_snapshot
+    assert replay.session.quiet_since == started['quiet_since']
+    assert replay.session.started_at == started['started_at']
+
+    with pytest.raises(ValueError, match='already claimed'):
+        journal.append(
+            'session_resettle_started',
+            **dict(started, replacement_manifest_id='replacement-2'),
+        )
+
+
+def test_resettle_start_without_current_source_flv_fails_closed(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('initialized')
+    journal.append(
+        'session_state',
+        room_id=123,
+        state='waiting',
+        session_id=None,
+        session_paths=(),
+        snapshot={},
+        quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_manifest_ready',
+        manifest_id='session-1',
+        room_id=123,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:00:00+00:00',
+        flv_paths=('/recording/video.flv',),
+        snapshot={'/recording/video.flv': (100, 200)},
+    )
+    journal.append(
+        'session_manifest_changed',
+        manifest_id='session-1',
+        detected_at='2026-07-27T12:05:00+00:00',
+        reason='source disappeared',
+        changed_paths=('/recording/video.flv',),
+    )
+
+    with pytest.raises(ValueError, match='current source FLV'):
+        journal.append(
+            'session_resettle_started',
+            source_manifest_id='session-1',
+            replacement_manifest_id='replacement-1',
+            room_id=123,
+            state='settling',
+            session_paths=('/recording/video.xml',),
+            snapshot={'/recording/video.xml': (11, 21)},
+            quiet_since='2026-07-27T12:10:00+00:00',
+            started_at='2026-07-27T08:00:00+00:00',
+        )
+
+    replay = journal.replay()
+    assert replay.session.state is SessionState.WAITING
+    assert len(replay.pending_resettles) == 1
 
 
 def test_duplicate_manifest_id_rejects_snapshot_conflict(tmp_path):

@@ -67,6 +67,7 @@ class JournalFileState:
     caption_uploaded: bool = False
     playlist_inserted: bool = False
     youtube_processed: bool = False
+    description_updated: bool = False
     description_fingerprint: str | None = None
     upload_started_at: str | None = None
     retry_at: str | None = None
@@ -88,8 +89,15 @@ class JournalManifest:
     flv_paths: tuple[str, ...]
     snapshot: Mapping[str, tuple[int, int]]
     completed: bool = False
+    invalidated: bool = False
+    invalidated_at: str | None = None
+    invalidation_reason: str | None = None
+    changed_paths: tuple[str, ...] = ()
+    replacement_manifest_id: str | None = None
 
     def __post_init__(self):
+        object.__setattr__(self, 'flv_paths', tuple(self.flv_paths))
+        object.__setattr__(self, 'changed_paths', tuple(self.changed_paths))
         object.__setattr__(
             self,
             'snapshot',
@@ -111,9 +119,22 @@ class JournalSessionState:
     started_at: str | None
 
     def __post_init__(self):
+        object.__setattr__(self, 'session_paths', tuple(self.session_paths))
         object.__setattr__(
             self, 'snapshot', MappingProxyType(dict(self.snapshot))
         )
+
+
+@dataclass(frozen=True)
+class JournalResettleRequest:
+    source_manifest_id: str
+    settled_at: str
+    detected_at: str
+    reason: str
+    changed_paths: tuple[str, ...]
+
+    def __post_init__(self):
+        object.__setattr__(self, 'changed_paths', tuple(self.changed_paths))
 
 
 @dataclass(frozen=True)
@@ -122,6 +143,11 @@ class JournalReplay:
     manifests: tuple[JournalManifest, ...]
     session: JournalSessionState
     initialized: bool
+    pending_resettles: tuple[JournalResettleRequest, ...] = ()
 
     def __post_init__(self):
         object.__setattr__(self, 'files', MappingProxyType(dict(self.files)))
+        object.__setattr__(self, 'manifests', tuple(self.manifests))
+        object.__setattr__(
+            self, 'pending_resettles', tuple(self.pending_resettles)
+        )

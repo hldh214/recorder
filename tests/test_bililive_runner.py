@@ -54,6 +54,10 @@ class FailIfCalledPublisher:
         raise AssertionError(f'publisher must not be called: {kwargs}')
 
 
+class SimulatedProcessCrash(BaseException):
+    pass
+
+
 def publish_result(status=PublishStatus.COMPLETE, **overrides):
     values = {
         'status': status,
@@ -200,6 +204,106 @@ def test_runner_resumes_caption_without_reupload(tmp_path):
     assert checkpoint.video_uploaded is True
     assert checkpoint.description_fingerprint == 'old-description'
     assert journal.events.count(('journal', 'upload_started')) == upload_started_count
+
+
+@pytest.mark.parametrize(
+    ('completed_stages', 'expected_caption'),
+    [
+        (('video_uploaded',), False),
+        (
+            ('video_uploaded', 'description_updated', 'caption_uploaded'),
+            True,
+        ),
+    ],
+)
+def test_crash_between_remote_stages_keeps_video_checkpoint_and_never_reuploads(
+    tmp_path, completed_stages, expected_caption
+):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    classified = ready_media(tmp_path)
+    append_ready(journal, classified)
+
+    class CrashingPublisher:
+        def publish_video(self, **kwargs):
+            kwargs['before_video_upload'](
+                'Generated title', 'description-fingerprint'
+            )
+            callback = kwargs['on_stage_completed']
+            for stage in completed_stages:
+                fields = {}
+                if stage == 'video_uploaded':
+                    fields['video_id'] = 'yt123'
+                elif stage == 'description_updated':
+                    fields['description_fingerprint'] = (
+                        'description-fingerprint'
+                    )
+                callback(stage, **fields)
+            raise SimulatedProcessCrash()
+
+    first_runner = BililivePublishRunner(
+        journal=journal,
+        publisher=CrashingPublisher(),
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW,
+    )
+
+    with pytest.raises(SimulatedProcessCrash):
+        first_runner.publish_one(classified, caption_provider=None)
+
+    after_crash = journal.replay().files['fp1']
+    assert after_crash.video_id == 'yt123'
+    assert after_crash.description_updated is (
+        'description_updated' in completed_stages
+    )
+    assert after_crash.caption_uploaded is expected_caption
+
+    resumed_publisher = FakePublisher([publish_result()])
+    resumed_runner = BililivePublishRunner(
+        journal=journal,
+        publisher=resumed_publisher,
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW,
+    )
+    resumed_runner.publish_one(classified, caption_provider=None)
+
+    assert resumed_publisher.calls[0]['checkpoint'].video_id == 'yt123'
+    assert resumed_publisher.calls[0]['before_video_upload'] is None
+    assert journal_events(journal.path).count('upload_started') == 1
+    assert journal.replay().files['fp1'].description_updated is True
+
+
+def test_exception_after_video_checkpoint_is_retryable_not_ambiguous(tmp_path):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    classified = ready_media(tmp_path)
+    append_ready(journal, classified)
+
+    class FailAfterVideoCheckpoint:
+        def publish_video(self, **kwargs):
+            kwargs['before_video_upload'](
+                'Generated title', 'description-fingerprint'
+            )
+            kwargs['on_stage_completed'](
+                'video_uploaded', video_id='yt123'
+            )
+            raise RuntimeError('caption stage crashed')
+
+    runner = BililivePublishRunner(
+        journal=journal,
+        publisher=FailAfterVideoCheckpoint(),
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW,
+    )
+
+    result = runner.publish_one(classified, caption_provider=None)
+
+    assert result.status == 'retry_scheduled'
+    state = journal.replay().files['fp1']
+    assert state.video_id == 'yt123'
+    assert state.ambiguous is False
+    assert state.stage == 'publisher'
 
 
 def test_unknown_remote_upload_is_ambiguous_without_retry(tmp_path):
@@ -406,9 +510,83 @@ def test_run_pending_returns_to_settling_before_probe_when_manifest_changes(tmp_
 
     result = runner.run_pending_once(journal.replay())
 
-    assert result.status == 'settling'
+    assert result.status == 'resettle_pending'
     assert probe_calls == []
-    assert journal.replay().manifests[0].completed is False
+    replay = journal.replay()
+    assert replay.manifests[0].completed is False
+    assert replay.manifests[0].invalidated is True
+    assert replay.manifests[0].replacement_manifest_id is None
+    assert len(replay.pending_resettles) == 1
+
+    second = runner.run_pending_once(replay)
+
+    assert second is None
+    assert journal_events(journal.path).count('session_manifest_changed') == 1
+
+
+def test_changed_manifest_does_not_block_unrelated_due_manifest(tmp_path):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    changed = ready_media(
+        tmp_path, 'changed.flv', 'changed', NOW - timedelta(hours=2)
+    )
+    due = ready_media(tmp_path, 'due.flv', 'due', NOW - timedelta(hours=1))
+    append_manifest(
+        journal, 'changed-session', changed, NOW - timedelta(hours=1)
+    )
+    append_manifest(journal, 'due-session', due, NOW)
+    changed.media.path.write_bytes(b'changed-after-freeze')
+    publisher = FakePublisher([publish_result(video_id='yt-due')])
+    runner = BililivePublishRunner(
+        journal=journal,
+        publisher=publisher,
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW,
+        caption_provider=None,
+    )
+
+    result = runner.run_pending_once(journal.replay())
+
+    assert result.fingerprint == 'due'
+    assert publisher.calls[0]['video_path'] == due.media.path
+    replay = journal.replay()
+    assert replay.manifests[0].invalidated is True
+    assert [
+        item.source_manifest_id for item in replay.pending_resettles
+    ] == ['changed-session']
+
+
+def test_probe_retryable_manifest_does_not_block_unrelated_due_manifest(tmp_path):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    deferred = ready_media(
+        tmp_path, 'deferred.flv', 'deferred', NOW - timedelta(hours=2)
+    )
+    due = ready_media(tmp_path, 'due.flv', 'due', NOW - timedelta(hours=1))
+    append_unclassified_manifest(
+        journal, 'deferred-session', deferred, NOW - timedelta(hours=1)
+    )
+    append_manifest(journal, 'due-session', due, NOW)
+
+    def probe(path):
+        if str(path) == str(deferred.media.path):
+            raise MediaProbeRetryableError('storage busy')
+        raise AssertionError(f'unexpected probe: {path}')
+
+    publisher = FakePublisher([publish_result(video_id='yt-due')])
+    runner = BililivePublishRunner(
+        journal=journal,
+        publisher=publisher,
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW,
+        probe=probe,
+        caption_provider=None,
+    )
+
+    result = runner.run_pending_once(journal.replay())
+
+    assert result.fingerprint == 'due'
+    assert publisher.calls[0]['video_path'] == due.media.path
 
 
 def test_run_pending_retries_only_declared_probe_failures(tmp_path):
@@ -487,6 +665,40 @@ def test_run_pending_does_not_let_future_caption_retry_starve_later_video(tmp_pa
     assert publisher.calls[0]['video_path'] == new.media.path
 
 
+def test_due_candidates_are_ordered_by_manifest_settlement_before_stage(tmp_path):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    old = ready_media(tmp_path, 'old.flv', 'old', NOW - timedelta(hours=2))
+    new = ready_media(tmp_path, 'new.flv', 'new', NOW - timedelta(hours=3))
+    append_manifest(journal, 'old-session', old, NOW - timedelta(hours=1))
+    journal.append('video_uploaded', fingerprint='old', video_id='yt-old')
+    journal.append(
+        'caption_status', fingerprint='old', caption_status='missing'
+    )
+    journal.append(
+        'stage_retry_scheduled',
+        fingerprint='old',
+        stage='caption',
+        status='retryable',
+        retry_at=(NOW - timedelta(seconds=1)).isoformat(),
+        attempt=1,
+    )
+    append_manifest(journal, 'new-session', new, NOW)
+    publisher = FakePublisher([publish_result(video_id='yt-old')])
+    runner = BililivePublishRunner(
+        journal=journal,
+        publisher=publisher,
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW,
+        caption_provider=None,
+    )
+
+    result = runner.run_pending_once(journal.replay())
+
+    assert result.fingerprint == 'old'
+    assert publisher.calls[0]['video_path'] == old.media.path
+
+
 def test_publish_session_accepts_classifier_mapping_and_runs_strictly_in_order(
     tmp_path,
 ):
@@ -562,12 +774,13 @@ def test_later_valid_xml_backfills_caption_without_reupload(tmp_path):
             description_fingerprint='with-highlights',
         ),
     ])
+    current_time = [NOW]
     runner = BililivePublishRunner(
         journal=journal,
         publisher=publisher,
         room_id=ROOM_ID,
         state_dir=tmp_path / 'state',
-        clock=lambda: NOW,
+        clock=lambda: current_time[0],
     )
 
     first = runner.publish_one(
@@ -576,6 +789,7 @@ def test_later_valid_xml_backfills_caption_without_reupload(tmp_path):
             path=None, status='missing'
         ),
     )
+    current_time[0] = NOW + timedelta(minutes=5, seconds=1)
     caption_path = tmp_path / 'state' / 'generated.vtt'
     caption_path.parent.mkdir(parents=True, exist_ok=True)
     caption_path.write_text('WEBVTT\n\n')
@@ -587,7 +801,8 @@ def test_later_valid_xml_backfills_caption_without_reupload(tmp_path):
         ),
     )
 
-    assert first.status == 'caption_pending'
+    assert first.status == 'retry_scheduled'
+    assert first.retry_at == NOW + timedelta(minutes=5)
     assert second.status == 'complete'
     assert publisher.calls[1]['checkpoint'].video_id == 'yt123'
     assert publisher.calls[1]['checkpoint'].description_fingerprint == (
@@ -830,8 +1045,11 @@ def test_frozen_xml_change_prevents_caption_or_api_work(tmp_path):
 
     result = runner.run_pending_once(journal.replay())
 
-    assert result.status == 'settling'
+    assert result.status == 'resettle_pending'
     assert caption_calls == []
+    assert journal.replay().manifests[0].changed_paths == (
+        str(classified.media.xml_path),
+    )
 
 
 def test_new_backfill_xml_must_remain_stable_during_caption_generation(tmp_path):
@@ -855,8 +1073,11 @@ def test_new_backfill_xml_must_remain_stable_during_caption_generation(tmp_path)
 
     result = runner.run_pending_once(journal.replay())
 
-    assert result.status == 'settling'
+    assert result.status == 'resettle_pending'
     assert 'XML identity changed' in result.message
+    assert journal.replay().manifests[0].changed_paths == (
+        str(classified.media.xml_path),
+    )
 
 
 def test_success_journals_each_completed_remote_stage_separately(tmp_path):
@@ -930,11 +1151,44 @@ def test_missing_caption_keeps_manifest_open_without_blocking_video_stages(tmp_p
 
     result = runner.run_pending_once(journal.replay())
 
-    assert result.status == 'caption_pending'
+    assert result.status == 'retry_scheduled'
+    assert result.retry_at == NOW + timedelta(minutes=5)
     state = journal.replay().files['fp1']
     assert state.video_id == 'yt123'
     assert state.youtube_processed is True
+    assert state.stage == 'caption'
     assert journal.replay().manifests[0].completed is False
+
+
+def test_repeated_invalid_xml_retry_does_not_spam_caption_status(tmp_path):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    classified = ready_media(tmp_path)
+    append_ready(journal, classified)
+    publisher = FakePublisher([
+        publish_result(caption_status='invalid'),
+        publish_result(caption_status='invalid'),
+    ])
+    current_time = [NOW]
+    runner = BililivePublishRunner(
+        journal=journal,
+        publisher=publisher,
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: current_time[0],
+    )
+
+    invalid_caption = lambda *args: BililiveCaptionArtifact(
+        path=None, status='invalid', error_message='malformed XML'
+    )
+    first = runner.publish_one(classified, caption_provider=invalid_caption)
+    current_time[0] = first.retry_at + timedelta(seconds=1)
+    runner.publish_one(classified, caption_provider=invalid_caption)
+
+    assert journal_events(journal.path).count('caption_status') == 1
+    state = journal.replay().files['fp1']
+    assert state.stage == 'caption'
+    assert state.attempt == 2
+    assert state.error_message == 'malformed XML'
 
 
 def test_run_pending_accepts_public_immutable_replay_type_annotation():
