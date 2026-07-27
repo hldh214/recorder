@@ -757,6 +757,18 @@ def test_youtube_upload_strict_mode_reraises_non_quota_403(monkeypatch):
     assert raised.value is exception
 
 
+def test_youtube_upload_non_strict_mode_returns_false_for_non_quota_403(monkeypatch):
+    monkeypatch.setattr('recorder.destination.youtube.googleapiclient.errors.HttpError', FakeHttpError)
+    monkeypatch.setattr(
+        'recorder.destination.youtube.googleapiclient.http.MediaFileUpload',
+        lambda *args, **kwargs: object(),
+    )
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = UploadYoutubeApi(FailingUploadRequest(FakeHttpError(403, 'forbidden')))
+
+    assert youtube.upload('/recording.flv', 'title', raise_errors=False) is False
+
+
 @pytest.mark.parametrize('reason', ['quotaExceeded', 'dailyLimitExceeded'])
 def test_youtube_upload_strict_mode_returns_false_for_quota_403(monkeypatch, reason):
     monkeypatch.setattr('recorder.destination.youtube.googleapiclient.errors.HttpError', FakeHttpError)
