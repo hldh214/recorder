@@ -1,3 +1,4 @@
+import json
 import os
 import pathlib
 import pickle
@@ -21,6 +22,7 @@ UPLOAD_LOG_PATTERN = re.compile(r'uploaded:\s+(?P<path>.+?)\s+->\s+(?P<video_id>
 CAPTION_UPLOAD_SUCCESS = 'uploaded'
 CAPTION_UPLOAD_FAILED = 'failed'
 CAPTION_UPLOAD_QUOTA_EXCEEDED = 'quota_exceeded'
+YOUTUBE_QUOTA_REASONS = frozenset(('quotaExceeded', 'dailyLimitExceeded'))
 YOUTUBE_DURATION_PATTERN = re.compile(
     r'^PT(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+(?:\.\d+)?)S)?$'
 )
@@ -184,11 +186,51 @@ def _youtube_duration_seconds(duration):
     return hours * 3600 + minutes * 60 + seconds
 
 
-def _http_error_reason(exception):
-    try:
-        return exception.error_details[0].get('reason')
-    except (AttributeError, IndexError, KeyError, TypeError):
-        return None
+def _http_error_reasons(exception):
+    reasons = set()
+
+    def collect(value, accept_string=False):
+        if isinstance(value, dict):
+            reason = value.get('reason')
+            if isinstance(reason, str):
+                reasons.add(reason)
+            for key in ('error', 'errors', 'detail', 'details'):
+                if key in value:
+                    collect(value[key], accept_string=True)
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                collect(item, accept_string=accept_string)
+        elif accept_string and isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except (TypeError, ValueError):
+                reasons.add(value)
+            else:
+                if parsed == value:
+                    reasons.add(value)
+                else:
+                    collect(parsed, accept_string=True)
+
+    collect(getattr(exception, 'error_details', None), accept_string=True)
+
+    content = getattr(exception, 'content', None)
+    if isinstance(content, bytes):
+        try:
+            content = content.decode('utf8')
+        except UnicodeDecodeError:
+            content = None
+    if isinstance(content, str):
+        try:
+            content = json.loads(content)
+        except (TypeError, ValueError):
+            pass
+    collect(content, accept_string=True)
+
+    return reasons
+
+
+def _is_quota_error(exception):
+    return bool(_http_error_reasons(exception) & YOUTUBE_QUOTA_REASONS)
 
 
 def _resolve_path_from_base(path):
@@ -381,8 +423,7 @@ class Youtube:
                         exception.resp.status, exception.content
                     )
                 elif exception.resp.status == 403:
-                    reason = _http_error_reason(exception)
-                    if raise_errors and reason not in ('quotaExceeded', 'dailyLimitExceeded'):
+                    if raise_errors and not _is_quota_error(exception):
                         raise
                     return False
                 else:
@@ -566,9 +607,7 @@ class Youtube:
                 media_body=googleapiclient.http.MediaFileUpload(caption_path)
             ).execute()
         except googleapiclient.errors.HttpError as exception:
-            reason = _http_error_reason(exception)
-
-            if reason == 'quotaExceeded':
+            if _is_quota_error(exception):
                 print(
                     f'quota_exceeded: {caption_path} -> {video_id} (YouTube API quota exceeded)',
                     file=sys.stderr

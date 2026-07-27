@@ -1,3 +1,4 @@
+import json
 import runpy
 import sys
 
@@ -123,6 +124,19 @@ class FailingUploadRequest:
         raise self.exception
 
 
+class SequenceUploadRequest:
+    def __init__(self, outcomes):
+        self.outcomes = list(outcomes)
+        self.calls = 0
+
+    def next_chunk(self):
+        self.calls += 1
+        outcome = self.outcomes.pop(0)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+
 class UploadVideosEndpoint:
     def __init__(self, request):
         self.request = request
@@ -165,6 +179,14 @@ class FailingMutationYoutubeApi:
 
     def captions(self):
         return self.endpoint
+
+
+def create_http_error(payload, status=403):
+    response = type('Response', (), {'status': status, 'reason': 'Forbidden'})()
+    return youtube_module.googleapiclient.errors.HttpError(
+        response,
+        json.dumps(payload).encode('utf8'),
+    )
 
 
 def create_caption_and_validate_video(tmp_path):
@@ -769,6 +791,52 @@ def test_youtube_upload_non_strict_mode_returns_false_for_non_quota_403(monkeypa
     assert youtube.upload('/recording.flv', 'title', raise_errors=False) is False
 
 
+@pytest.mark.parametrize(
+    'payload',
+    [
+        {
+            'error': {
+                'message': 'Denied',
+                'errors': [
+                    {'reason': 'forbidden'},
+                    {'reason': 'quotaExceeded'},
+                ],
+            }
+        },
+        {
+            'error': {
+                'message': 'Denied',
+                'details': {'reason': 'dailyLimitExceeded'},
+            }
+        },
+        {
+            'error': {
+                'message': 'Denied',
+                'details': 'quotaExceeded',
+            }
+        },
+        {
+            'error': {
+                'message': 'Denied',
+                'details': 'unstructured detail',
+                'errors': [{'reason': 'dailyLimitExceeded'}],
+            }
+        },
+    ],
+)
+def test_youtube_upload_strict_mode_finds_quota_reason_in_real_http_error_shapes(
+    monkeypatch, payload
+):
+    monkeypatch.setattr(
+        'recorder.destination.youtube.googleapiclient.http.MediaFileUpload',
+        lambda *args, **kwargs: object(),
+    )
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = UploadYoutubeApi(FailingUploadRequest(create_http_error(payload)))
+
+    assert youtube.upload('/recording.flv', 'title', raise_errors=True) is False
+
+
 @pytest.mark.parametrize('reason', ['quotaExceeded', 'dailyLimitExceeded'])
 def test_youtube_upload_strict_mode_returns_false_for_quota_403(monkeypatch, reason):
     monkeypatch.setattr('recorder.destination.youtube.googleapiclient.errors.HttpError', FakeHttpError)
@@ -777,6 +845,56 @@ def test_youtube_upload_strict_mode_returns_false_for_quota_403(monkeypatch, rea
     youtube.youtube = UploadYoutubeApi(FailingUploadRequest(FakeHttpError(403, reason)))
 
     assert youtube.upload('/recording.flv', 'title', raise_errors=True) is False
+
+
+def test_youtube_upload_allows_one_retryable_error_when_limit_is_one(monkeypatch):
+    monkeypatch.setattr(
+        'recorder.destination.youtube.googleapiclient.http.MediaFileUpload',
+        lambda *args, **kwargs: object(),
+    )
+    request = SequenceUploadRequest([
+        IOError('first failure'),
+        (None, {'id': 'yt123'}),
+    ])
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = UploadYoutubeApi(request)
+
+    assert youtube.upload('/recording.flv', 'title', max_retryable_errors=1) == 'yt123'
+    assert request.calls == 2
+
+
+def test_youtube_upload_raises_second_retryable_error_when_limit_is_one(monkeypatch):
+    monkeypatch.setattr(
+        'recorder.destination.youtube.googleapiclient.http.MediaFileUpload',
+        lambda *args, **kwargs: object(),
+    )
+    first_exception = IOError('first failure')
+    second_exception = IOError('second failure')
+    request = SequenceUploadRequest([first_exception, second_exception])
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = UploadYoutubeApi(request)
+
+    with pytest.raises(IOError) as raised:
+        youtube.upload('/recording.flv', 'title', max_retryable_errors=1)
+
+    assert raised.value is second_exception
+    assert request.calls == 2
+
+
+def test_youtube_upload_default_retry_limit_remains_unbounded(monkeypatch):
+    monkeypatch.setattr(
+        'recorder.destination.youtube.googleapiclient.http.MediaFileUpload',
+        lambda *args, **kwargs: object(),
+    )
+    request = SequenceUploadRequest([
+        IOError('first failure'),
+        (None, {'id': 'yt123'}),
+    ])
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = UploadYoutubeApi(request)
+
+    assert youtube.upload('/recording.flv', 'title') == 'yt123'
+    assert request.calls == 2
 
 
 def test_youtube_update_only_reraises_errors_in_strict_mode():
@@ -835,11 +953,21 @@ def test_youtube_add_caption_result_only_reraises_errors_in_strict_mode(monkeypa
     assert raised.value is exception
 
 
-def test_youtube_add_caption_result_strict_mode_preserves_quota_sentinel(monkeypatch, capsys):
-    monkeypatch.setattr('recorder.destination.youtube.googleapiclient.errors.HttpError', FakeHttpError)
-    monkeypatch.setattr('recorder.destination.youtube.googleapiclient.http.MediaFileUpload', lambda *args, **kwargs: object())
+@pytest.mark.parametrize('reason', ['quotaExceeded', 'dailyLimitExceeded'])
+def test_youtube_add_caption_result_strict_mode_preserves_quota_sentinel(
+    monkeypatch, capsys, reason
+):
+    monkeypatch.setattr(
+        'recorder.destination.youtube.googleapiclient.http.MediaFileUpload',
+        lambda *args, **kwargs: object(),
+    )
     youtube = Youtube.__new__(Youtube)
-    youtube.youtube = FailingMutationYoutubeApi(FakeHttpError(403, 'quotaExceeded'))
+    youtube.youtube = FailingMutationYoutubeApi(create_http_error({
+        'error': {
+            'message': 'Quota exhausted',
+            'errors': [{'reason': reason}],
+        }
+    }))
 
     assert youtube.add_caption_result('yt123', '/caption.vtt', raise_errors=True) == CAPTION_UPLOAD_QUOTA_EXCEEDED
     assert 'quota_exceeded' in capsys.readouterr().err
