@@ -2702,6 +2702,85 @@ def test_pending_dry_run_matches_live_decision_without_mutation(
 
 
 @pytest.mark.parametrize(
+    'pending_phase',
+    [
+        'pre-rename-exact',
+        'abort-changed',
+        'source-deleted',
+        'quarantine-removed',
+    ],
+)
+def test_pending_reconciliation_propagates_version_to_ordinary_candidates(
+    tmp_path, pending_phase
+):
+    pending = tmp_path / 'pending.flv'
+    ordinary_old = tmp_path / 'ordinary-old.flv'
+    ordinary_new = tmp_path / 'ordinary-new.flv'
+    pending.write_bytes(b'pending old')
+    ordinary_old.write_bytes(b'ordinary old')
+    ordinary_new.write_bytes(b'ordinary new')
+    os.utime(ordinary_old, ns=(1_700_000_000_000_000_000,) * 2)
+    os.utime(ordinary_new, ns=(1_700_000_010_000_000_000,) * 2)
+    journal, fingerprint = baseline_journal(
+        tmp_path / 'state.jsonl', pending
+    )
+    pending_stat = pending.stat()
+    for path in (ordinary_old, ordinary_new):
+        file_stat = path.stat()
+        journal.append(
+            'baseline', fingerprint=baseline_fingerprint(
+                path, file_stat.st_size, file_stat.st_mtime_ns
+            ), file=str(path), source_size=file_stat.st_size,
+            source_mtime_ns=file_stat.st_mtime_ns,
+        )
+    quarantine_dir = tmp_path / '.bililive-cleanup-quarantine'
+    quarantine = quarantine_dir / 'pending'
+    journal.append(
+        'source_delete_intent', fingerprint=fingerprint,
+        original_path=str(pending),
+        quarantine_path='.bililive-cleanup-quarantine/pending',
+        dev=pending_stat.st_dev, ino=pending_stat.st_ino,
+        size=pending_stat.st_size, mtime_ns=pending_stat.st_mtime_ns,
+        reason='disk pressure',
+        expected_journal_version=journal.replay().journal_version,
+    )
+    if pending_phase == 'abort-changed':
+        pending.write_bytes(b'pending new generation')
+    elif pending_phase in {'source-deleted', 'quarantine-removed'}:
+        quarantine_dir.mkdir(mode=0o700)
+        pending.rename(quarantine)
+        journal.append(
+            'source_deleted', fingerprint=fingerprint, path=str(pending),
+            reason='disk pressure',
+        )
+        if pending_phase == 'quarantine-removed':
+            quarantine.unlink()
+
+    dry_result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=Usage(99)
+    ).run((), dry_run=True)
+    live_result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=Usage(99, 99, 84)
+    ).run((), dry_run=False)
+
+    expected_deleted = {
+        'pre-rename-exact': (pending, ordinary_old, ordinary_new),
+        'abort-changed': (ordinary_old, ordinary_new),
+        'source-deleted': (ordinary_old, ordinary_new),
+        'quarantine-removed': (ordinary_old, ordinary_new),
+    }[pending_phase]
+    expected_protected = (
+        (pending,) if pending_phase == 'abort-changed' else ()
+    )
+    assert dry_result.deleted == expected_deleted
+    assert live_result.deleted == expected_deleted
+    assert dry_result.protected == expected_protected
+    assert live_result.protected == expected_protected
+    assert live_result.disk_usage_percent == 84
+    assert not ordinary_old.exists() and not ordinary_new.exists()
+
+
+@pytest.mark.parametrize(
     ('fault_operation', 'phase_event'),
     [
         ('rename_to_quarantine', 'source_deleted'),
