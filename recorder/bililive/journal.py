@@ -166,6 +166,9 @@ def _validate_file_record(record, event, existing, enforce_history=True):
         ):
             raise TypeError(f'{event} requires {alias} to be null or a string')
 
+    if event == 'file_ready' and record.get('start_time') is not None:
+        _parse_aware_instant(record['start_time'], 'start_time', event)
+
     if event == 'upload_started':
         _require_non_empty_string(record, 'title', event)
         _require_non_empty_string(record, 'upload_started_at', event)

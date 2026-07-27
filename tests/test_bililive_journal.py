@@ -1082,6 +1082,42 @@ def test_manifest_timestamps_reject_naive_values(tmp_path):
         )
 
 
+@pytest.mark.parametrize('start_time', ['not-a-time', '2026-07-27T08:00:00'])
+def test_file_ready_start_time_requires_timezone_aware_iso(
+    tmp_path, start_time
+):
+    path = tmp_path / 'state.jsonl'
+
+    with pytest.raises((TypeError, ValueError), match='timezone-aware'):
+        JsonlJournal(path).append(
+            'file_ready',
+            fingerprint='fp1',
+            file='/video.flv',
+            start_time=start_time,
+        )
+
+    assert not path.exists()
+
+
+@pytest.mark.parametrize('start_time', ['invalid', '2026-07-27T08:00:00'])
+def test_file_ready_invalid_start_time_is_corruption_on_replay(
+    tmp_path, start_time
+):
+    path = tmp_path / 'state.jsonl'
+    path.write_text(
+        json.dumps({
+            'event': 'file_ready',
+            'fingerprint': 'fp1',
+            'file': '/video.flv',
+            'start_time': start_time,
+        }) + '\n',
+        encoding='utf8',
+    )
+
+    with pytest.raises(JournalCorruptError, match='line 1'):
+        JsonlJournal(path).replay()
+
+
 def test_two_journal_instances_share_lock_and_append_without_loss(tmp_path):
     path = tmp_path / 'state.jsonl'
     first = JsonlJournal(path)
