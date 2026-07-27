@@ -1,13 +1,30 @@
 import hashlib
+import stat
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
+import httplib2
+
 from recorder.destination.youtube import (
     CAPTION_UPLOAD_QUOTA_EXCEEDED,
     CAPTION_UPLOAD_SUCCESS,
+    YOUTUBE_QUOTA_REASONS,
+    _http_error_reasons,
 )
+
+
+YOUTUBE_RATE_LIMIT_REASONS = frozenset(('rateLimitExceeded', 'userRateLimitExceeded'))
+RETRYABLE_HTTP_STATUSES = frozenset((408, 429, 500, 502, 503, 504))
+RETRYABLE_HTTPLIB2_EXCEPTIONS = (
+    httplib2.FailedToDecompressContent,
+    httplib2.ServerNotFoundError,
+)
+
+
+class _CaptionSourceAliasError(ValueError):
+    pass
 
 
 class PublishStatus(str, Enum):
@@ -63,11 +80,51 @@ def _http_status(exception):
         return None
 
 
-def _is_retryable_error(exception):
+def _classify_error(exception):
+    reasons = _http_error_reasons(exception)
+    if reasons & YOUTUBE_QUOTA_REASONS:
+        return PublishStatus.QUOTA_EXCEEDED
+    if reasons & YOUTUBE_RATE_LIMIT_REASONS:
+        return PublishStatus.RETRYABLE
+
     status = _http_status(exception)
-    if status is not None:
-        return status >= 500 or status in (408, 429)
-    return isinstance(exception, OSError)
+    if status in RETRYABLE_HTTP_STATUSES or (status is not None and status >= 500):
+        return PublishStatus.RETRYABLE
+    if isinstance(exception, (OSError,) + RETRYABLE_HTTPLIB2_EXCEPTIONS):
+        return PublishStatus.RETRYABLE
+    return PublishStatus.FATAL
+
+
+def _upload_outcome_unknown(exception, status):
+    if status is not PublishStatus.RETRYABLE:
+        return False
+    reasons = _http_error_reasons(exception)
+    if reasons & YOUTUBE_RATE_LIMIT_REASONS:
+        return False
+    return _http_status(exception) != 429
+
+
+def _validated_caption_path(video_path, caption_path):
+    candidate = Path(caption_path)
+    try:
+        candidate_stat = candidate.stat()
+    except FileNotFoundError:
+        return None
+    if not stat.S_ISREG(candidate_stat.st_mode):
+        return None
+    if candidate.samefile(video_path):
+        raise _CaptionSourceAliasError('Caption artifact aliases the source video')
+    return candidate
+
+
+def _unlink_temporary_caption(video_path, caption_path):
+    try:
+        caption_path.stat()
+    except FileNotFoundError:
+        return
+    if caption_path.samefile(video_path):
+        raise _CaptionSourceAliasError('Caption artifact aliases the source video')
+    caption_path.unlink()
 
 
 class YoutubePublishService:
@@ -91,7 +148,7 @@ class YoutubePublishService:
         del source_type
         checkpoint = checkpoint or PublishCheckpoint()
         video_id = checkpoint.video_id
-        video_uploaded = checkpoint.video_uploaded
+        video_uploaded = checkpoint.video_uploaded or video_id is not None
         caption_uploaded = checkpoint.caption_uploaded
         playlist_inserted = checkpoint.playlist_inserted
         youtube_processed = checkpoint.youtube_processed
@@ -117,6 +174,17 @@ class YoutubePublishService:
                 error_stage=error_stage,
                 error_message=error_message,
                 remote_outcome_unknown=remote_outcome_unknown,
+            )
+
+        def error_result(exception, stage):
+            status = _classify_error(exception)
+            return result(
+                status,
+                error_stage=stage,
+                error_message=str(exception),
+                remote_outcome_unknown=(
+                    stage == 'video' and _upload_outcome_unknown(exception, status)
+                ),
             )
 
         try:
@@ -169,12 +237,28 @@ class YoutubePublishService:
         if caption is not None:
             caption_status = caption.status
             if caption.status == 'ready' and caption.path is not None:
-                candidate = Path(caption.path)
-                if candidate.is_file():
-                    caption_path = candidate
-                    caption_required = True
-                else:
+                try:
+                    caption_path = _validated_caption_path(path, caption.path)
+                except _CaptionSourceAliasError as exception:
+                    caption_status = 'invalid'
+                    return result(
+                        PublishStatus.FATAL,
+                        error_stage='caption',
+                        error_message=f'Cannot validate caption path {caption.path}: {exception}',
+                    )
+                except Exception as exception:
+                    status = _classify_error(exception)
+                    if status is PublishStatus.FATAL:
+                        caption_status = 'invalid'
+                    return result(
+                        status,
+                        error_stage='caption',
+                        error_message=f'Cannot validate caption path {caption.path}: {exception}',
+                    )
+                if caption_path is None:
                     caption_status = 'missing'
+                else:
+                    caption_required = True
 
         if video_id is None:
             if before_video_upload is not None:
@@ -195,18 +279,7 @@ class YoutubePublishService:
                     raise_errors=True,
                 )
             except Exception as exception:
-                if _is_retryable_error(exception):
-                    return result(
-                        PublishStatus.RETRYABLE,
-                        error_stage='video',
-                        error_message=str(exception),
-                        remote_outcome_unknown=True,
-                    )
-                return result(
-                    PublishStatus.FATAL,
-                    error_stage='video',
-                    error_message=str(exception),
-                )
+                return error_result(exception, 'video')
 
             if not video_id:
                 return result(
@@ -225,8 +298,7 @@ class YoutubePublishService:
                     raise_errors=True,
                 )
             except Exception as exception:
-                status = PublishStatus.RETRYABLE if _is_retryable_error(exception) else PublishStatus.FATAL
-                return result(status, error_stage='description', error_message=str(exception))
+                return error_result(exception, 'description')
             if not updated:
                 return result(
                     PublishStatus.RETRYABLE,
@@ -242,12 +314,7 @@ class YoutubePublishService:
                 try:
                     exists = self.youtube.caption_exists(video_id, self.CAPTION_NAME)
                 except Exception as exception:
-                    status = (
-                        PublishStatus.RETRYABLE
-                        if _is_retryable_error(exception)
-                        else PublishStatus.FATAL
-                    )
-                    return result(status, error_stage='caption', error_message=str(exception))
+                    return error_result(exception, 'caption')
 
                 if exists:
                     caption_uploaded = True
@@ -261,12 +328,7 @@ class YoutubePublishService:
                             raise_errors=True,
                         )
                     except Exception as exception:
-                        status = (
-                            PublishStatus.RETRYABLE
-                            if _is_retryable_error(exception)
-                            else PublishStatus.FATAL
-                        )
-                        return result(status, error_stage='caption', error_message=str(exception))
+                        return error_result(exception, 'caption')
 
                     caption_status = caption_result
                     if caption_result == CAPTION_UPLOAD_QUOTA_EXCEEDED:
@@ -284,9 +346,16 @@ class YoutubePublishService:
                     caption_uploaded = True
                     caption_status = CAPTION_UPLOAD_SUCCESS
 
-            if caption.temporary and caption_path.exists():
+            if caption.temporary:
                 try:
-                    caption_path.unlink()
+                    _unlink_temporary_caption(path, caption_path)
+                except _CaptionSourceAliasError as exception:
+                    caption_status = 'invalid'
+                    return result(
+                        PublishStatus.FATAL,
+                        error_stage='caption',
+                        error_message=str(exception),
+                    )
                 except OSError as exception:
                     return result(
                         PublishStatus.RETRYABLE,
@@ -299,8 +368,7 @@ class YoutubePublishService:
             try:
                 exists = self.youtube.playlist_contains(video_id, playlist_id)
             except Exception as exception:
-                status = PublishStatus.RETRYABLE if _is_retryable_error(exception) else PublishStatus.FATAL
-                return result(status, error_stage='playlist', error_message=str(exception))
+                return error_result(exception, 'playlist')
 
             if exists:
                 playlist_inserted = True
@@ -312,12 +380,7 @@ class YoutubePublishService:
                         raise_errors=True,
                     )
                 except Exception as exception:
-                    status = (
-                        PublishStatus.RETRYABLE
-                        if _is_retryable_error(exception)
-                        else PublishStatus.FATAL
-                    )
-                    return result(status, error_stage='playlist', error_message=str(exception))
+                    return error_result(exception, 'playlist')
                 if not inserted:
                     return result(
                         PublishStatus.RETRYABLE,
@@ -330,8 +393,7 @@ class YoutubePublishService:
             try:
                 processing = self.youtube.get_processing_status(video_id, raise_errors=True)
             except Exception as exception:
-                status = PublishStatus.RETRYABLE if _is_retryable_error(exception) else PublishStatus.FATAL
-                return result(status, error_stage='processing', error_message=str(exception))
+                return error_result(exception, 'processing')
 
             if not isinstance(processing, Mapping):
                 return result(
@@ -342,7 +404,7 @@ class YoutubePublishService:
             upload_status = processing.get('upload_status')
             if upload_status == 'processed':
                 youtube_processed = True
-            elif upload_status in ('failed', 'rejected'):
+            elif upload_status in ('deleted', 'failed', 'rejected'):
                 primary_reason = (
                     'rejection_reason' if upload_status == 'rejected' else 'failure_reason'
                 )

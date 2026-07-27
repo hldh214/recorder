@@ -1,6 +1,10 @@
 import hashlib
+import json
+import os
 import socket
 
+import googleapiclient.errors
+import httplib2
 import pytest
 
 from recorder.destination.youtube import (
@@ -109,6 +113,19 @@ def description_fingerprint(description):
     return hashlib.sha256(description.encode('utf8')).hexdigest()
 
 
+def create_http_error(reason, status=403):
+    response = type('Response', (), {'status': status, 'reason': 'request failed'})()
+    return googleapiclient.errors.HttpError(
+        response,
+        json.dumps({
+            'error': {
+                'message': reason,
+                'errors': [{'reason': reason}],
+            }
+        }).encode('utf8'),
+    )
+
+
 def make_video(tmp_path):
     video = tmp_path / 'recording.flv'
     video.write_bytes(b'original-flv')
@@ -178,6 +195,72 @@ def test_publish_video_completes_all_stages_without_mutating_source(tmp_path):
     assert not caption_path.exists()
 
 
+@pytest.mark.parametrize('alias_kind', ['direct', 'symlink', 'hardlink'])
+def test_ready_caption_aliasing_source_is_fatal_without_source_mutation(tmp_path, alias_kind):
+    video = make_video(tmp_path)
+    if alias_kind == 'direct':
+        caption_path = video
+    else:
+        caption_path = tmp_path / f'{alias_kind}.vtt'
+        if alias_kind == 'symlink':
+            caption_path.symlink_to(video)
+        else:
+            os.link(video, caption_path)
+    before = (video.stat().st_ino, video.stat().st_size, video.read_bytes())
+    callback_calls = []
+    youtube = FakeYoutube()
+
+    result = YoutubePublishService(youtube, source_config()).publish_video(
+        video,
+        'bilibili',
+        '1829181560',
+        '2026-07-27 18:00:00',
+        caption=CaptionArtifact(caption_path),
+        before_video_upload=lambda *args: callback_calls.append(args),
+    )
+
+    assert result.status is PublishStatus.FATAL
+    assert result.error_stage == 'caption'
+    assert callback_calls == []
+    assert youtube.events == []
+    assert youtube.upload_calls == []
+    assert video.exists()
+    assert (video.stat().st_ino, video.stat().st_size, video.read_bytes()) == before
+    assert caption_path.exists()
+
+
+def test_caption_identity_stat_error_is_retryable_before_remote_work(tmp_path, monkeypatch):
+    video = make_video(tmp_path)
+    caption_path = tmp_path / 'recording.vtt'
+    caption_path.write_text('WEBVTT\n\n', encoding='utf8')
+    original_samefile = type(caption_path).samefile
+
+    def fail_caption_samefile(path, other_path):
+        if path == caption_path:
+            raise OSError('caption storage unavailable')
+        return original_samefile(path, other_path)
+
+    monkeypatch.setattr(type(caption_path), 'samefile', fail_caption_samefile)
+    callback_calls = []
+    youtube = FakeYoutube()
+
+    result = YoutubePublishService(youtube, source_config()).publish_video(
+        video,
+        'bilibili',
+        '1829181560',
+        '2026-07-27 18:00:00',
+        caption=CaptionArtifact(caption_path),
+        before_video_upload=lambda *args: callback_calls.append(args),
+    )
+
+    assert result.status is PublishStatus.RETRYABLE
+    assert result.error_stage == 'caption'
+    assert callback_calls == []
+    assert youtube.events == []
+    assert caption_path.exists()
+    assert video.read_bytes() == b'original-flv'
+
+
 def test_publish_video_resumes_from_video_checkpoint_without_reupload(tmp_path):
     video = make_video(tmp_path)
     fingerprint = description_fingerprint('Base description')
@@ -204,6 +287,27 @@ def test_publish_video_resumes_from_video_checkpoint_without_reupload(tmp_path):
     assert result.video_uploaded is True
     assert youtube.upload_calls == []
     assert youtube.update_calls == []
+
+
+def test_video_id_normalizes_video_upload_stage_to_complete(tmp_path):
+    video = make_video(tmp_path)
+    fingerprint = description_fingerprint('Base description')
+    youtube = FakeYoutube()
+
+    result = YoutubePublishService(youtube, source_config(playlist=False)).publish_video(
+        video,
+        'bilibili',
+        '1829181560',
+        '2026-07-27 18:00:00',
+        checkpoint=PublishCheckpoint(
+            video_id='yt123',
+            description_fingerprint=fingerprint,
+        ),
+    )
+
+    assert result.status is PublishStatus.COMPLETE
+    assert result.video_uploaded is True
+    assert youtube.upload_calls == []
 
 
 def test_publish_video_returns_caption_quota_without_losing_video_id(tmp_path):
@@ -374,6 +478,29 @@ def test_terminal_youtube_processing_failure_is_fatal(
     assert result.youtube_processed is False
 
 
+def test_deleted_youtube_video_is_terminal_processing_failure(tmp_path):
+    video = make_video(tmp_path)
+    youtube = FakeYoutube(processing={
+        'upload_status': 'deleted',
+        'failure_reason': 'userRequested',
+        'rejection_reason': None,
+    })
+
+    result = YoutubePublishService(youtube, source_config(playlist=False)).publish_video(
+        video,
+        'bilibili',
+        '1829181560',
+        '2026-07-27 18:00:00',
+    )
+
+    assert result.status is PublishStatus.FATAL
+    assert result.error_stage == 'processing'
+    assert 'deleted' in result.error_message
+    assert 'userRequested' in result.error_message
+    assert result.video_id == 'yt123'
+    assert result.video_uploaded is True
+
+
 def test_checkpoint_callback_completes_immediately_before_upload(tmp_path):
     video = make_video(tmp_path)
     events = []
@@ -492,6 +619,114 @@ def test_statusless_auth_error_is_fatal_with_known_remote_outcome(tmp_path):
     assert result.error_stage == 'video'
     assert result.remote_outcome_unknown is False
     assert 'token refresh denied' in result.error_message
+
+
+def test_statusless_httplib2_transport_failure_is_retryable(tmp_path):
+    video = make_video(tmp_path)
+    youtube = FakeYoutube(upload_result=httplib2.ServerNotFoundError('youtube.test'))
+
+    result = YoutubePublishService(youtube, source_config()).publish_video(
+        video, 'bilibili', '1829181560', '2026-07-27 18:00:00'
+    )
+
+    assert result.status is PublishStatus.RETRYABLE
+    assert result.error_stage == 'video'
+    assert result.remote_outcome_unknown is True
+
+
+def test_statusless_httplib2_configuration_failure_is_fatal(tmp_path):
+    video = make_video(tmp_path)
+    youtube = FakeYoutube(
+        upload_result=httplib2.ProxiesUnavailableError('proxy support unavailable')
+    )
+
+    result = YoutubePublishService(youtube, source_config()).publish_video(
+        video, 'bilibili', '1829181560', '2026-07-27 18:00:00'
+    )
+
+    assert result.status is PublishStatus.FATAL
+    assert result.error_stage == 'video'
+    assert result.remote_outcome_unknown is False
+
+
+def test_quota_during_caption_remote_read_is_quota_exceeded(tmp_path):
+    video = make_video(tmp_path)
+    caption_path = tmp_path / 'recording.vtt'
+    caption_path.write_text('WEBVTT\n\n', encoding='utf8')
+    youtube = FakeYoutube(caption_exists=create_http_error('quotaExceeded'))
+
+    result = YoutubePublishService(youtube, source_config()).publish_video(
+        video,
+        'bilibili',
+        '1829181560',
+        '2026-07-27 18:00:00',
+        caption=CaptionArtifact(caption_path),
+    )
+
+    assert result.status is PublishStatus.QUOTA_EXCEEDED
+    assert result.error_stage == 'caption'
+    assert result.video_id == 'yt123'
+    assert result.video_uploaded is True
+    assert caption_path.exists()
+
+
+@pytest.mark.parametrize(
+    ('failure_stage', 'expected_stage'),
+    [
+        ('update', 'description'),
+        ('caption', 'caption'),
+        ('playlist', 'playlist'),
+        ('processing', 'processing'),
+    ],
+)
+@pytest.mark.parametrize('reason', ['rateLimitExceeded', 'userRateLimitExceeded'])
+def test_rate_limit_errors_are_retryable_at_each_remote_stage(
+    tmp_path, failure_stage, expected_stage, reason
+):
+    video = make_video(tmp_path)
+    caption_path = tmp_path / 'recording.vtt'
+    caption_path.write_text('WEBVTT\n\n', encoding='utf8')
+    error = create_http_error(reason)
+    kwargs = {}
+    checkpoint = None
+    caption = None
+    if failure_stage == 'update':
+        kwargs['update_result'] = error
+        checkpoint = PublishCheckpoint(video_id='yt123', video_uploaded=True)
+    elif failure_stage == 'caption':
+        kwargs['caption_result'] = error
+        caption = CaptionArtifact(caption_path)
+    elif failure_stage == 'playlist':
+        kwargs['playlist_contains'] = error
+    else:
+        kwargs['processing'] = error
+    youtube = FakeYoutube(**kwargs)
+
+    result = YoutubePublishService(youtube, source_config()).publish_video(
+        video,
+        'bilibili',
+        '1829181560',
+        '2026-07-27 18:00:00',
+        caption=caption,
+        checkpoint=checkpoint,
+    )
+
+    assert result.status is PublishStatus.RETRYABLE
+    assert result.error_stage == expected_stage
+    assert result.video_id == 'yt123'
+
+
+def test_quota_during_processing_read_is_quota_exceeded(tmp_path):
+    video = make_video(tmp_path)
+    youtube = FakeYoutube(processing=create_http_error('dailyLimitExceeded'))
+
+    result = YoutubePublishService(youtube, source_config(playlist=False)).publish_video(
+        video, 'bilibili', '1829181560', '2026-07-27 18:00:00'
+    )
+
+    assert result.status is PublishStatus.QUOTA_EXCEEDED
+    assert result.error_stage == 'processing'
+    assert result.video_id == 'yt123'
 
 
 def test_temporary_caption_is_preserved_until_upload_is_confirmed(tmp_path):
