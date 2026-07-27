@@ -981,6 +981,180 @@ def test_changed_frozen_source_is_protected_before_runner_invalidates_manifest(
     assert journal.events == []
 
 
+def test_real_journal_missing_manifest_protects_paired_sources(tmp_path):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    xml_stat = xml.stat()
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'file_ready', fingerprint='fp1', manifest_id='missing-manifest',
+        file=str(video), xml_file=str(xml),
+    )
+    journal.append('video_uploaded', fingerprint='fp1', video_id='yt123')
+    journal.append(
+        'caption_source_frozen', fingerprint='fp1', xml_file=str(xml),
+        caption_source_xml_size=xml_stat.st_size,
+        caption_source_xml_mtime_ns=xml_stat.st_mtime_ns,
+    )
+    journal.append('caption_uploaded', fingerprint='fp1')
+    journal.append('youtube_processed', fingerprint='fp1')
+    state = journal.replay().files['fp1']
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=lambda path: 99
+    ).run([state], dry_run=False)
+
+    assert result.deleted == ()
+    assert set(result.protected) == {video, xml}
+    assert video.exists() and xml.exists()
+
+
+def test_duplicate_manifest_id_protects_paired_sources(tmp_path):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    first = manifest('duplicate', (video,))
+    second = manifest('duplicate', (video,))
+    state = file_state(
+        video, xml, event='youtube_processed', manifest_id='duplicate',
+        youtube_processed=True, caption_uploaded=True, video_id='yt123',
+    )
+    journal, cleanup = cleanup_for(
+        tmp_path, [state], Usage(99), manifests=(first, second)
+    )
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert result.deleted == ()
+    assert set(result.protected) == {video, xml}
+    assert video.exists() and xml.exists()
+    assert journal.events == []
+
+
+def test_mismatched_xml_binding_protects_claimed_and_derived_pairs(tmp_path):
+    video = tmp_path / 'recording.flv'
+    expected_xml = tmp_path / 'recording.xml'
+    unrelated_video = tmp_path / 'unrelated.flv'
+    unrelated_xml = tmp_path / 'unrelated.xml'
+    video.write_bytes(b'video')
+    expected_xml.write_text('<i>expected</i>', encoding='utf8')
+    unrelated_video.write_bytes(b'unrelated video')
+    unrelated_xml.write_text('<i>unrelated</i>', encoding='utf8')
+    unrelated_stat = unrelated_xml.stat()
+    state = replace(
+        file_state(
+            video, unrelated_xml, event='youtube_processed',
+            youtube_processed=True, caption_uploaded=True, video_id='yt123',
+        ),
+        caption_source_xml_size=unrelated_stat.st_size,
+        caption_source_xml_mtime_ns=unrelated_stat.st_mtime_ns,
+    )
+    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99))
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert result.deleted == ()
+    assert set(result.protected) == {
+        video, expected_xml, unrelated_video, unrelated_xml,
+    }
+    assert all(path.exists() for path in result.protected)
+    assert journal.events == []
+
+
+def test_manifest_snapshot_with_unpaired_xml_protects_bound_sources(tmp_path):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    unrelated_xml = tmp_path / 'unrelated.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    unrelated_xml.write_text('<i>unrelated</i>', encoding='utf8')
+    frozen = manifest('session-1', (video,))
+    malicious_snapshot = dict(frozen.snapshot)
+    unrelated_stat = unrelated_xml.stat()
+    malicious_snapshot[str(unrelated_xml)] = (
+        unrelated_stat.st_size, unrelated_stat.st_mtime_ns,
+    )
+    frozen = replace(frozen, snapshot=malicious_snapshot)
+    state = file_state(
+        video, xml, event='youtube_processed', manifest_id='session-1',
+        youtube_processed=True, caption_uploaded=True, video_id='yt123',
+    )
+    journal, cleanup = cleanup_for(
+        tmp_path, [state], Usage(99), manifests=(frozen,)
+    )
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert result.deleted == ()
+    assert set(result.protected) == {video, xml}
+    assert video.exists() and xml.exists() and unrelated_xml.exists()
+    assert journal.events == []
+
+
+def test_lexically_equivalent_file_and_xml_binding_remains_eligible(tmp_path):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    nested = tmp_path / 'nested'
+    nested.mkdir()
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    state = replace(
+        file_state(video, xml, event='baseline'),
+        file=str(nested / '..' / video.name),
+    )
+    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99, 99, 84))
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert result.deleted == (video, xml)
+    assert result.protected == ()
+    assert journal.events == [
+        ('source_deleted', {
+            'fingerprint': 'fp1', 'path': str(video),
+            'reason': 'disk usage at or above 85 percent',
+        }),
+        ('source_deleted', {
+            'fingerprint': 'fp1', 'path': str(xml),
+            'reason': 'disk usage at or above 85 percent',
+        }),
+    ]
+
+
+def test_xml_binding_does_not_follow_symlinked_parent(tmp_path):
+    actual = tmp_path / 'actual'
+    actual.mkdir()
+    alias = tmp_path / 'alias'
+    alias.symlink_to(actual, target_is_directory=True)
+    video = actual / 'recording.flv'
+    xml = actual / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    state = file_state(
+        alias / video.name,
+        xml,
+        event='youtube_processed',
+        youtube_processed=True,
+        caption_uploaded=True,
+        video_id='yt123',
+    )
+    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99))
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert result.deleted == ()
+    assert set(result.protected) == {
+        alias / video.name,
+        alias / xml.name,
+        video,
+        xml,
+    }
+    assert video.exists() and xml.exists()
+    assert journal.events == []
+
+
 @pytest.mark.parametrize('claimed', [False, True])
 def test_invalidated_resettle_protects_old_processed_paths(tmp_path, claimed):
     video = tmp_path / 'recording.flv'

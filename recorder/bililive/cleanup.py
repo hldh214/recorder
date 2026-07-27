@@ -3,6 +3,7 @@ import math
 import os
 import shutil
 import stat
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -83,8 +84,14 @@ class StateAwareCleanup:
             return CleanupResult((), (), usage, False)
 
         replay = self.journal.replay()
+        manifest_groups = {}
+        for item in replay.manifests:
+            if self._non_empty_string(item.manifest_id):
+                manifest_groups.setdefault(item.manifest_id, []).append(item)
         manifest_index = {
-            item.manifest_id: item for item in replay.manifests
+            manifest_id: items[0]
+            for manifest_id, items in manifest_groups.items()
+            if len(items) == 1
         }
         protected_by_control = self._control_protected_paths(
             replay, manifest_index
@@ -95,19 +102,32 @@ class StateAwareCleanup:
 
         for state in states:
             shape_valid = self._state_shape_valid(state)
-            manifest = (
-                manifest_index.get(state.manifest_id)
-                if shape_valid and state.manifest_id is not None
-                else None
+            manifest = None
+            relationship_valid = (
+                shape_valid and self._state_binding_valid(state)
             )
-            if shape_valid and manifest is not None and manifest.invalidated:
+            if shape_valid and state.manifest_id is not None:
+                manifests = manifest_groups.get(state.manifest_id, ())
+                if len(manifests) == 1:
+                    manifest = manifests[0]
+                    relationship_valid = (
+                        relationship_valid
+                        and self._manifest_binding_valid(manifest, state)
+                    )
+                else:
+                    relationship_valid = False
+            if (
+                relationship_valid
+                and manifest is not None
+                and manifest.invalidated
+            ):
                 # An invalidated generation is either protected by its resettle
                 # chain or superseded by a safely completed replacement.
                 continue
             for path, eligible, is_xml, identity_optional in self._state_paths(
-                state, shape_valid
+                state, relationship_valid
             ):
-                if shape_valid and str(path) in state.deleted_paths:
+                if relationship_valid and str(path) in state.deleted_paths:
                     continue
                 fingerprints.setdefault(path, state.fingerprint)
                 safe, file_stat = self._safe_regular_file(path)
@@ -180,7 +200,7 @@ class StateAwareCleanup:
             tuple(deleted), self._ordered(protected), usage, exhausted
         )
 
-    def _state_paths(self, state, shape_valid):
+    def _state_paths(self, state, relationship_valid):
         file_value = (
             state.file if self._non_empty_string(state.file) else None
         )
@@ -190,32 +210,116 @@ class StateAwareCleanup:
             else None
         )
         if file_value is not None:
-            video_path = Path(file_value)
+            video_path = self._lexical_absolute(file_value)
         elif xml_value is not None:
-            video_path = Path(xml_value).with_suffix('.flv')
+            video_path = self._lexical_absolute(xml_value).with_suffix('.flv')
         else:
             return
-        xml_path = (
-            Path(xml_value)
+        derived_xml_path = video_path.with_suffix('.xml')
+        claimed_xml_path = (
+            self._lexical_absolute(xml_value)
             if xml_value is not None
-            else video_path.with_suffix('.xml')
+            else None
         )
-        baseline_or_ignored = shape_valid and (
+        path_binding_valid = (
+            video_path.suffix.lower() == '.flv'
+            and (
+                claimed_xml_path is None
+                or claimed_xml_path == derived_xml_path
+            )
+        )
+        if not relationship_valid or not path_binding_valid:
+            protected_paths = {video_path, derived_xml_path}
+            if claimed_xml_path is not None and not path_binding_valid:
+                protected_paths.add(claimed_xml_path)
+                protected_paths.add(claimed_xml_path.with_suffix('.flv'))
+            for path in sorted(protected_paths, key=str):
+                yield path, False, path.suffix.lower() == '.xml', False
+            return
+
+        xml_path = claimed_xml_path or derived_xml_path
+        eligibility_valid = relationship_valid and path_binding_valid
+        baseline_or_ignored = eligibility_valid and (
             state.event == 'baseline' or state.event in _IGNORED_EVENTS
         )
         video_eligible = self._video_eligible(
-            state, baseline_or_ignored, shape_valid
+            state, baseline_or_ignored, eligibility_valid
         )
         xml_eligible = self._xml_eligible(
-            state, baseline_or_ignored, shape_valid
+            state, baseline_or_ignored, eligibility_valid
         )
         yield (
             video_path, video_eligible, False,
-            baseline_or_ignored and shape_valid,
+            baseline_or_ignored,
         )
-        if xml_value is None and not os.path.lexists(xml_path):
+        if claimed_xml_path is None and not os.path.lexists(xml_path):
             return
         yield xml_path, xml_eligible, True, baseline_or_ignored
+
+    @classmethod
+    def _state_binding_valid(cls, state):
+        video_path = cls._lexical_absolute(state.file)
+        if video_path.suffix.lower() != '.flv':
+            return False
+        if state.xml_file is None:
+            return True
+        return (
+            cls._lexical_absolute(state.xml_file)
+            == video_path.with_suffix('.xml')
+        )
+
+    @classmethod
+    def _manifest_binding_valid(cls, manifest, state):
+        if manifest.manifest_id != state.manifest_id:
+            return False
+        if not isinstance(manifest.flv_paths, (tuple, list)):
+            return False
+
+        flv_paths = []
+        for raw_path in manifest.flv_paths:
+            if not cls._non_empty_string(raw_path):
+                return False
+            path = cls._lexical_absolute(raw_path)
+            if str(path) != raw_path or path.suffix.lower() != '.flv':
+                return False
+            flv_paths.append(path)
+        if len(flv_paths) != len(set(flv_paths)):
+            return False
+
+        video_path = cls._lexical_absolute(state.file)
+        if video_path not in flv_paths:
+            return False
+        if not isinstance(manifest.snapshot, Mapping):
+            return False
+
+        snapshot_paths = set()
+        for raw_path, identity in manifest.snapshot.items():
+            if not cls._non_empty_string(raw_path):
+                return False
+            path = cls._lexical_absolute(raw_path)
+            if str(path) != raw_path or path in snapshot_paths:
+                return False
+            if (
+                not isinstance(identity, (tuple, list))
+                or len(identity) != 2
+                or any(
+                    not cls._non_negative_integer(value)
+                    for value in identity
+                )
+            ):
+                return False
+            snapshot_paths.add(path)
+
+        allowed_paths = set(flv_paths)
+        allowed_paths.update(path.with_suffix('.xml') for path in flv_paths)
+        return (
+            set(flv_paths).issubset(snapshot_paths)
+            and snapshot_paths.issubset(allowed_paths)
+        )
+
+    @staticmethod
+    def _lexical_absolute(value):
+        return Path(os.path.abspath(os.path.normpath(value)))
 
     @classmethod
     def _video_eligible(cls, state, baseline_or_ignored, shape_valid):
@@ -556,7 +660,8 @@ class StateAwareCleanup:
         size = state.caption_source_xml_size
         mtime_ns = state.caption_source_xml_mtime_ns
         if (
-            state.xml_file != str(path)
+            not StateAwareCleanup._non_empty_string(state.xml_file)
+            or StateAwareCleanup._lexical_absolute(state.xml_file) != path
             or isinstance(size, bool)
             or not isinstance(size, int)
             or size < 0
