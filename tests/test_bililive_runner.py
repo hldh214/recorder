@@ -18,7 +18,11 @@ from recorder.bililive.models import (
 from recorder.bililive.monitor import BililiveSessionMonitor
 from recorder.bililive.runner import BililivePublishRunner
 from recorder.danmaku.bilibili.bililive_xml import BililiveCaptionArtifact
-from recorder.publishing.youtube import PublishResult, PublishStatus
+from recorder.publishing.youtube import (
+    PublishResult,
+    PublishStatus,
+    YoutubePublishService,
+)
 
 
 NOW = datetime(2026, 7, 27, 12, 0, tzinfo=timezone.utc)
@@ -1564,6 +1568,155 @@ def test_replacement_reconciles_unresolved_upload_without_reupload(tmp_path):
     assert publisher.calls[0]['before_video_upload'] is None
     assert journal_events(journal.path).count('upload_started') == 1
     assert journal.replay().files['fp1'].video_id == 'yt-reconciled'
+
+
+def test_consecutive_xml_replacements_update_latest_caption_after_replay(
+    tmp_path,
+):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    classified = ready_media(tmp_path)
+    xml_path = classified.media.xml_path
+    xml_path.write_text('<i/>')
+
+    def identity(path):
+        stat_result = path.stat()
+        return stat_result.st_size, stat_result.st_mtime_ns
+
+    video = str(classified.media.path)
+    xml = str(xml_path)
+    started_at = (NOW - timedelta(hours=1)).isoformat()
+    snapshots = [{
+        video: identity(classified.media.path),
+        xml: identity(xml_path),
+    }]
+    journal.append('initialized')
+    journal.append(
+        'session_state', room_id=ROOM_ID, state='waiting', session_id=None,
+        session_paths=(), snapshot=snapshots[0], quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_manifest_ready', manifest_id='manifest-1', room_id=ROOM_ID,
+        started_at=started_at, settled_at=NOW.isoformat(),
+        flv_paths=(video,), snapshot=snapshots[0],
+    )
+    append_ready(journal, classified, 'manifest-1')
+    journal.append('video_uploaded', fingerprint='fp1', video_id='yt123')
+    journal.append(
+        'caption_uploaded', fingerprint='fp1', caption_track_id='track-1'
+    )
+    journal.append('youtube_processed', fingerprint='fp1')
+
+    xml_path.write_text('<i><d>middle</d></i>')
+    snapshots.append({
+        video: identity(classified.media.path), xml: identity(xml_path),
+    })
+    journal.append(
+        'session_manifest_changed', manifest_id='manifest-1',
+        detected_at=(NOW + timedelta(minutes=5)).isoformat(),
+        reason='middle XML', changed_paths=(xml,),
+    )
+    journal.append(
+        'session_state', room_id=ROOM_ID, state='waiting', session_id=None,
+        session_paths=(), snapshot=snapshots[1], quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_resettle_started', source_manifest_id='manifest-1',
+        replacement_manifest_id='manifest-2', room_id=ROOM_ID,
+        state='settling', session_paths=(video, xml), snapshot=snapshots[1],
+        quiet_since=(NOW + timedelta(minutes=10)).isoformat(),
+        started_at=started_at,
+    )
+    journal.append(
+        'session_manifest_ready', manifest_id='manifest-2', room_id=ROOM_ID,
+        started_at=started_at,
+        settled_at=(NOW + timedelta(minutes=40)).isoformat(),
+        flv_paths=(video,), snapshot=snapshots[1],
+    )
+    journal.append(
+        'file_ready', fingerprint='fp1', manifest_id='manifest-2',
+        file=video, xml_file=xml, start_time=classified.media.start_time.isoformat(),
+        duration=classified.media.duration, caption_status='pending',
+    )
+    after_restart = JsonlJournal(journal.path).replay().files['fp1']
+    assert after_restart.caption_refresh_required is True
+    assert after_restart.caption_track_id == 'track-1'
+
+    xml_path.write_text('<i><d>latest</d></i>')
+    snapshots.append({
+        video: identity(classified.media.path), xml: identity(xml_path),
+    })
+    journal.append(
+        'session_manifest_changed', manifest_id='manifest-2',
+        detected_at=(NOW + timedelta(minutes=45)).isoformat(),
+        reason='latest XML', changed_paths=(xml,),
+    )
+    journal.append(
+        'session_state', room_id=ROOM_ID, state='waiting', session_id=None,
+        session_paths=(), snapshot=snapshots[2], quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_resettle_started', source_manifest_id='manifest-2',
+        replacement_manifest_id='manifest-3', room_id=ROOM_ID,
+        state='settling', session_paths=(video, xml), snapshot=snapshots[2],
+        quiet_since=(NOW + timedelta(minutes=50)).isoformat(),
+        started_at=started_at,
+    )
+    journal.append(
+        'session_manifest_ready', manifest_id='manifest-3', room_id=ROOM_ID,
+        started_at=started_at,
+        settled_at=(NOW + timedelta(minutes=80)).isoformat(),
+        flv_paths=(video,), snapshot=snapshots[2],
+    )
+
+    caption_path = tmp_path / 'latest.vtt'
+    caption_path.write_text('WEBVTT\n\nlatest caption\n')
+
+    class TrackAwareYoutube:
+        def __init__(self):
+            self.caption_updates = []
+
+        def matching_caption_track_ids(self, video_id, caption_name):
+            return ('track-1',)
+
+        def update_caption_result(self, track_id, path, **kwargs):
+            self.caption_updates.append((track_id, Path(path).read_text()))
+            return 'uploaded'
+
+        def update(self, *args, **kwargs):
+            return True
+
+    youtube = TrackAwareYoutube()
+    publisher = YoutubePublishService(youtube, {
+        'source': {str(ROOM_ID): {
+            'title': 'Live {datetime}', 'description': 'Base',
+        }},
+    })
+    runner = BililivePublishRunner(
+        journal=journal, publisher=publisher, room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW + timedelta(minutes=81),
+        probe=lambda path: classified.media,
+        classifier=lambda media: {'fp1': ClassifiedMedia(
+            media=media[0], status='ready', reason='ready'
+        )},
+        caption_provider=lambda *args: BililiveCaptionArtifact(
+            path=caption_path, status='ready', temporary=False
+        ),
+    )
+
+    result = runner.run_pending_once(journal.replay())
+
+    assert result.status == 'complete'
+    assert youtube.caption_updates == [(
+        'track-1', 'WEBVTT\n\nlatest caption\n'
+    )]
+    final = JsonlJournal(journal.path).replay().files['fp1']
+    assert final.caption_refresh_required is False
+    assert final.caption_uploaded is True
+    assert final.caption_track_id == 'track-1'
 
 
 def test_ignored_fragment_reclassification_does_not_block_ready_peer(tmp_path):

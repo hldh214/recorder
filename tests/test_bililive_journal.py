@@ -773,6 +773,62 @@ def test_manifest_migration_follows_multiple_exact_replacement_links(tmp_path):
     assert state.caption_track_id == 'track-1'
 
 
+def test_consecutive_xml_migrations_preserve_pending_caption_refresh(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    state = _append_single_file_replacement(
+        journal,
+        old_xml=(10, 1),
+        new_xml=(20, 2),
+        publication_events=(
+            ('video_uploaded', {'video_id': 'yt123'}),
+            ('caption_uploaded', {'caption_track_id': 'track-1'}),
+        ),
+    )
+    assert state.caption_uploaded is False
+    assert state.caption_refresh_required is True
+    assert state.caption_track_id == 'track-1'
+
+    video = '/recording/video.flv'
+    xml = '/recording/video.xml'
+    final_snapshot = {video: (100, 1), xml: (30, 3)}
+    journal.append(
+        'session_manifest_changed', manifest_id='replacement-session',
+        detected_at='2026-07-27T12:45:00+00:00',
+        reason='XML changed again', changed_paths=(xml,),
+    )
+    journal.append(
+        'session_state', room_id=123, state='waiting', session_id=None,
+        session_paths=(), snapshot=final_snapshot, quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_resettle_started',
+        source_manifest_id='replacement-session',
+        replacement_manifest_id='final-session', room_id=123,
+        state='settling', session_paths=(video, xml),
+        snapshot=final_snapshot,
+        quiet_since='2026-07-27T12:50:00+00:00',
+        started_at='2026-07-27T08:00:00+00:00',
+    )
+    journal.append(
+        'session_manifest_ready', manifest_id='final-session', room_id=123,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T13:20:00+00:00', flv_paths=(video,),
+        snapshot=final_snapshot,
+    )
+    journal.append(
+        'file_ready', fingerprint='fp1', manifest_id='final-session',
+        file=video, xml_file=xml, caption_status='pending',
+    )
+
+    replayed = JsonlJournal(journal.path).replay().files['fp1']
+    assert replayed.manifest_id == 'final-session'
+    assert replayed.caption_uploaded is False
+    assert replayed.caption_refresh_required is True
+    assert replayed.caption_track_id == 'track-1'
+    assert replayed.caption_status == 'pending'
+
+
 @pytest.mark.parametrize(
     ('damage', 'message'),
     [

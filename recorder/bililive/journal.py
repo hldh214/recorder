@@ -1168,7 +1168,10 @@ class JsonlJournal:
                 state = _migrate_publication_state(existing, state)
             if caption_changed:
                 remote_caption_evidence = bool(
-                    existing.caption_uploaded
+                    (
+                        existing.caption_uploaded
+                        or existing.caption_refresh_required
+                    )
                     and isinstance(existing.caption_track_id, str)
                     and existing.caption_track_id
                 )
