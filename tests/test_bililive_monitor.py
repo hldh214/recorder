@@ -282,8 +282,21 @@ def test_journaled_offline_baseline_marks_initialized_only_after_file_events(
     assert replay.initialized is True
     assert replay.session.room_id == 123
     assert replay.session.state is SessionState.WAITING
-    assert events[-1] == 'initialized'
-    assert events[:2] == ['baseline', 'baseline']
+    assert events == [
+        'session_state',
+        'baseline',
+        'baseline',
+        'session_state',
+        'initialized',
+    ]
+    ownership = _journal_records(journal.path)[0]
+    assert ownership['room_id'] == 123
+    assert ownership['state'] == SessionState.BASELINING
+    assert ownership['session_id'] is None
+    assert ownership['snapshot'] == {
+        '/recording/a.flv': [100, 1],
+        '/recording/a.xml': [20, 2],
+    }
     assert set(replay.files) == {
         baseline_fingerprint(path, *identity)
         for path, identity in snapshot.items()
@@ -350,6 +363,78 @@ def test_monitor_replays_journal_once_when_machine_is_injected(tmp_path):
     assert journal.replay_calls == 1
 
 
+@pytest.mark.parametrize(
+    ('target_event', 'occurrence', 'after_write'),
+    [
+        ('baseline', 1, False),
+        ('baseline', 2, False),
+        ('session_state', 2, True),
+        ('initialized', 1, False),
+    ],
+    ids=[
+        'after-ownership',
+        'mid-baseline',
+        'after-completion-state',
+        'before-initialized',
+    ],
+)
+def test_offline_baseline_crash_recovery_preserves_room_ownership(
+    tmp_path, target_event, occurrence, after_write
+):
+    class FaultJournal(JsonlJournal):
+        def __init__(self, path):
+            super().__init__(path)
+            self.counts = {}
+
+        def append(self, event, **fields):
+            self.counts[event] = self.counts.get(event, 0) + 1
+            triggered = (
+                event == target_event
+                and self.counts[event] == occurrence
+            )
+            if triggered and not after_write:
+                raise OSError('simulated crash')
+            result = super().append(event, **fields)
+            if triggered:
+                raise OSError('simulated crash')
+            return result
+
+    path = tmp_path / 'state.jsonl'
+    snapshot = {
+        '/recording/a.flv': (100, 1),
+        '/recording/a.xml': (20, 2),
+    }
+    monitor = BililiveSessionMonitor(
+        journal=FaultJournal(path), room_id=123
+    )
+
+    with pytest.raises(OSError, match='simulated crash'):
+        monitor.observe(at(18), RoomState(False, False), snapshot)
+
+    interrupted = JsonlJournal(path).replay()
+    records = _journal_records(path)
+    assert interrupted.initialized is False
+    assert records[0]['event'] == 'session_state'
+    assert records[0]['state'] == SessionState.BASELINING
+    assert records[0]['room_id'] == 123
+    with pytest.raises(ValueError, match='room_id'):
+        BililiveSessionMonitor(journal=JsonlJournal(path), room_id=456)
+
+    recovered = BililiveSessionMonitor(
+        journal=JsonlJournal(path), room_id=123
+    )
+    decision = recovered.observe(
+        at(19), RoomState(False, False), snapshot
+    )
+    replay = JsonlJournal(path).replay()
+
+    assert decision.state is SessionState.WAITING
+    assert replay.initialized is True
+    assert replay.session.state is SessionState.WAITING
+    assert replay.session.room_id == 123
+    assert len(replay.files) == len(snapshot)
+
+
 def test_live_first_run_defers_baselines_until_offline_and_quiet(tmp_path):
     journal = JsonlJournal(tmp_path / 'state.jsonl')
     monitor = BililiveSessionMonitor(
@@ -366,6 +451,7 @@ def test_live_first_run_defers_baselines_until_offline_and_quiet(tmp_path):
     before = journal.replay()
     assert before.initialized is False
     assert before.files == {}
+    assert before.session.room_id == 123
     assert before.session.state is SessionState.SKIP_CURRENT_SESSION
 
     settled = monitor.observe(

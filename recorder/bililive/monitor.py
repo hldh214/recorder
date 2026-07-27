@@ -312,10 +312,6 @@ class SessionMonitorState:
                 self.started_at is not None,
             )):
                 raise ValueError('idle session state contains stale session state')
-            if state is SessionState.BASELINING and self.snapshot:
-                raise ValueError(
-                    'baselining session state contains stale session state'
-                )
             return
 
         raise ValueError(f'unsupported restored session state: {state.value}')
@@ -470,11 +466,14 @@ class BililiveSessionMonitor:
 
     def observe(self, now: datetime, room: RoomState | None, snapshot: Snapshot):
         was_initialized = self.machine.initialized
+        previous_state = self.machine.state
         previous = self.machine.persistent_signature()
         decision = self.machine.observe(now, room, snapshot)
 
         try:
             if not was_initialized and self.machine.initialized:
+                if previous_state is SessionState.BASELINING:
+                    self._append_baselining_ownership(decision)
                 self._append_baselines(decision)
                 self._append_session_state()
                 self.journal.append('initialized')
@@ -516,6 +515,18 @@ class BililiveSessionMonitor:
                     initialized=False, id_factory=id_factory
                 )
             raise
+
+    def _append_baselining_ownership(self, decision):
+        self.journal.append(
+            'session_state',
+            room_id=self.room_id,
+            state=SessionState.BASELINING.value,
+            session_id=None,
+            session_paths=(),
+            snapshot=dict(decision.snapshot),
+            quiet_since=None,
+            started_at=None,
+        )
 
     def _append_baselines(self, decision):
         for path in decision.baseline_paths:
