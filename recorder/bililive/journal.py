@@ -69,6 +69,10 @@ _FILE_EVENT_UPDATES = {
     'video_uploaded': frozenset({'video_id'}),
     'description_updated': frozenset({'description_fingerprint'}),
     'caption_status': frozenset({'caption_status', 'error_message'}),
+    'caption_source_frozen': frozenset({
+        'xml_file', 'caption_source_xml_size',
+        'caption_source_xml_mtime_ns',
+    }),
     'caption_uploaded': frozenset({'caption_status', 'caption_track_id'}),
     'playlist_inserted': frozenset(),
     'youtube_processed': frozenset(),
@@ -210,6 +214,27 @@ def _validate_file_record(record, event, existing, enforce_history=True):
         _require_non_empty_string(record, 'description_fingerprint', event)
     elif event == 'caption_status':
         _require_non_empty_string(record, 'caption_status', event)
+    elif event == 'caption_source_frozen':
+        _require_non_empty_string(record, 'xml_file', event)
+        for name in (
+            'caption_source_xml_size', 'caption_source_xml_mtime_ns'
+        ):
+            value = record.get(name)
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or value < 0
+            ):
+                raise TypeError(
+                    f'{event} requires non-negative integer {name}'
+                )
+        if (
+            existing is not None
+            and existing.xml_file != record['xml_file']
+        ):
+            raise ValueError(
+                'caption_source_frozen XML path does not match file state'
+            )
     elif event == 'stage_retry_scheduled':
         for name in ('stage', 'status', 'retry_at'):
             _require_non_empty_string(record, name, event)
@@ -402,6 +427,8 @@ def _migrate_publication_state(existing, classified):
         stream_title=classified.stream_title,
         start_time=classified.start_time,
         duration=classified.duration,
+        caption_source_xml_size=None,
+        caption_source_xml_mtime_ns=None,
     )
 
 

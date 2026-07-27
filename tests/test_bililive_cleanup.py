@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from recorder.bililive.cleanup import (
     DISK_CLEANUP_THRESHOLD_PERCENT,
     StateAwareCleanup,
 )
+from recorder.bililive.journal import JsonlJournal
 from recorder.bililive.models import (
     JournalFileState,
     JournalManifest,
@@ -29,6 +31,7 @@ def file_state(
     manifest_id=None,
     youtube_processed=False,
     caption_uploaded=False,
+    video_id=None,
 ):
     return JournalFileState(
         fingerprint=fingerprint,
@@ -38,6 +41,7 @@ def file_state(
         xml_file=str(xml) if xml is not None else None,
         youtube_processed=youtube_processed,
         caption_uploaded=caption_uploaded,
+        video_id=video_id,
     )
 
 
@@ -136,7 +140,10 @@ def test_cleanup_deletes_processed_flv_but_retains_invalid_xml(tmp_path):
     xml = tmp_path / 'recording.xml'
     video.write_bytes(b'video')
     xml.write_text('<broken>', encoding='utf8')
-    state = file_state(video, xml, youtube_processed=True)
+    state = file_state(
+        video, xml, event='youtube_processed', youtube_processed=True,
+        video_id='yt123',
+    )
     journal, cleanup = cleanup_for(tmp_path, [state], Usage(86, 84))
 
     result = cleanup.run([state], dry_run=False)
@@ -172,6 +179,142 @@ def test_cleanup_never_deletes_protected_video(tmp_path, event):
     assert result.deleted == ()
     assert result.protected == (video,)
     assert result.exhausted is True
+    assert journal.events == []
+
+
+@pytest.mark.parametrize('event', [
+    'ready',
+    'file_ready',
+    'upload_started',
+    'video_uploaded',
+    'ambiguous',
+    'fatal',
+    'stage_retry_scheduled',
+    'video_upload_rejected',
+    'unknown',
+])
+def test_hard_lifecycle_protection_overrides_inconsistent_completion_flags(
+    tmp_path, event
+):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    state = file_state(
+        video,
+        xml,
+        event=event,
+        youtube_processed=True,
+        caption_uploaded=True,
+    )
+    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99))
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert video.exists() and xml.exists()
+    assert set(result.protected) == {video, xml}
+    assert journal.events == []
+
+
+def test_ambiguous_flag_overrides_apparently_completed_state(tmp_path):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    state = replace(
+        file_state(
+            video,
+            xml,
+            event='youtube_processed',
+            youtube_processed=True,
+            caption_uploaded=True,
+            video_id='yt123',
+        ),
+        ambiguous=True,
+    )
+    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99))
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert set(result.protected) == {video, xml}
+    assert video.exists() and xml.exists()
+    assert journal.events == []
+
+
+def test_valid_journal_sequence_ending_ambiguous_protects_completed_flags(
+    tmp_path,
+):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'file_ready', fingerprint='fp1', file=str(video), xml_file=str(xml)
+    )
+    journal.append('video_uploaded', fingerprint='fp1', video_id='yt123')
+    journal.append('caption_uploaded', fingerprint='fp1')
+    journal.append('youtube_processed', fingerprint='fp1')
+    journal.append(
+        'ambiguous', fingerprint='fp1', stage='caption',
+        message='remote outcome became uncertain',
+    )
+    state = journal.replay().files['fp1']
+    assert state.youtube_processed is True
+    assert state.caption_uploaded is True
+    assert state.ambiguous is True
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=lambda path: 99
+    ).run([state], dry_run=False)
+
+    assert set(result.protected) == {video, xml}
+    assert video.exists() and xml.exists()
+
+
+@pytest.mark.parametrize(
+    'state_changes',
+    [
+        {
+            'event': 'youtube_processed',
+            'youtube_processed': True,
+            'caption_uploaded': True,
+            'video_id': None,
+        },
+        {
+            'event': 'youtube_processed',
+            'youtube_processed': False,
+            'caption_uploaded': True,
+            'video_id': 'yt123',
+        },
+        {
+            'event': 'caption_uploaded',
+            'youtube_processed': False,
+            'caption_uploaded': False,
+            'video_id': 'yt123',
+        },
+    ],
+)
+def test_raw_inconsistent_completion_state_is_fully_protected(
+    tmp_path, state_changes
+):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    xml_stat = xml.stat()
+    state = replace(
+        file_state(video, xml),
+        caption_source_xml_size=xml_stat.st_size,
+        caption_source_xml_mtime_ns=xml_stat.st_mtime_ns,
+        **state_changes,
+    )
+    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99))
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert set(result.protected) == {video, xml}
+    assert video.exists() and xml.exists()
     assert journal.events == []
 
 
@@ -219,7 +362,15 @@ def test_cleanup_deletes_caption_uploaded_xml_independently(tmp_path):
     xml = tmp_path / 'recording.xml'
     video.write_bytes(b'video')
     xml.write_text('<i/>', encoding='utf8')
-    state = file_state(video, xml, caption_uploaded=True)
+    xml_stat = xml.stat()
+    state = replace(
+        file_state(
+            video, xml, event='caption_uploaded', caption_uploaded=True,
+            video_id='yt123',
+        ),
+        caption_source_xml_size=xml_stat.st_size,
+        caption_source_xml_mtime_ns=xml_stat.st_mtime_ns,
+    )
     journal, cleanup = cleanup_for(tmp_path, [state], Usage(90, 84))
 
     result = cleanup.run([state], dry_run=False)
@@ -229,6 +380,82 @@ def test_cleanup_deletes_caption_uploaded_xml_independently(tmp_path):
     assert result.deleted == (xml,)
     assert result.protected == (video,)
     assert journal.events[0][1]['path'] == str(xml)
+
+
+def test_published_caption_without_durable_xml_identity_is_protected(tmp_path):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    state = file_state(
+        video,
+        xml,
+        event='caption_uploaded',
+        caption_uploaded=True,
+        video_id='yt123',
+    )
+    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99))
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert xml.exists()
+    assert set(result.protected) == {video, xml}
+    assert journal.events == []
+
+
+def test_published_caption_uses_durable_identity_when_manifest_lacks_xml(
+    tmp_path,
+):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    xml_stat = xml.stat()
+    state = replace(
+        file_state(
+            video,
+            xml,
+            event='caption_uploaded',
+            caption_uploaded=True,
+            video_id='yt123',
+        ),
+        caption_source_xml_size=xml_stat.st_size,
+        caption_source_xml_mtime_ns=xml_stat.st_mtime_ns,
+    )
+    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99, 84))
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert video.exists()
+    assert not xml.exists()
+    assert result.deleted == (xml,)
+
+
+def test_changed_durable_caption_source_identity_is_protected(tmp_path):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    original = xml.stat()
+    state = replace(
+        file_state(
+            video,
+            xml,
+            event='caption_uploaded',
+            caption_uploaded=True,
+            video_id='yt123',
+        ),
+        caption_source_xml_size=original.st_size,
+        caption_source_xml_mtime_ns=original.st_mtime_ns,
+    )
+    xml.write_text('<i><d p="1">changed</d></i>', encoding='utf8')
+    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99))
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert xml.exists()
+    assert set(result.protected) == {video, xml}
+    assert journal.events == []
 
 
 @pytest.mark.parametrize('active_state', [
@@ -344,6 +571,7 @@ def test_new_ready_state_for_same_path_overrides_old_processed_state(tmp_path):
             fingerprint='old',
             event='youtube_processed',
             youtube_processed=True,
+            video_id='yt-old',
         ),
         file_state(video, fingerprint='new', event='file_ready'),
     ]
@@ -368,6 +596,7 @@ def test_changed_frozen_source_is_protected_before_runner_invalidates_manifest(
         event='youtube_processed',
         manifest_id='session-1',
         youtube_processed=True,
+        video_id='yt-old',
     )
     video.write_bytes(b'changed source')
     journal, cleanup = cleanup_for(
@@ -409,6 +638,7 @@ def test_invalidated_resettle_protects_old_processed_paths(tmp_path, claimed):
         manifest_id='old',
         youtube_processed=True,
         caption_uploaded=True,
+        video_id='yt-old',
     )
     journal, cleanup = cleanup_for(
         tmp_path,
@@ -446,6 +676,7 @@ def test_uncompleted_replacement_protects_old_and_replacement_paths(tmp_path):
             manifest_id='old',
             youtube_processed=True,
             caption_uploaded=True,
+            video_id='yt-old',
         ),
         file_state(
             replacement_video,
@@ -455,6 +686,7 @@ def test_uncompleted_replacement_protects_old_and_replacement_paths(tmp_path):
             manifest_id='replacement',
             youtube_processed=True,
             caption_uploaded=True,
+            video_id='yt-replacement',
         ),
     ]
     journal, cleanup = cleanup_for(
@@ -496,6 +728,7 @@ def test_completed_replacement_releases_chain_for_normal_eligibility(tmp_path):
         manifest_id='replacement',
         youtube_processed=True,
         caption_uploaded=True,
+        video_id='yt-replacement',
     )
     _, cleanup = cleanup_for(
         tmp_path,
@@ -544,6 +777,7 @@ def test_flv_and_xml_deletion_remain_independent_after_unlink_error(
         event='youtube_processed',
         youtube_processed=True,
         caption_uploaded=True,
+        video_id='yt123',
     )
     journal, cleanup = cleanup_for(tmp_path, [state], Usage(99))
     original_unlink = Path.unlink

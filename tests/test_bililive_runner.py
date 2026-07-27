@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from recorder.bililive.cleanup import StateAwareCleanup
 from recorder.bililive.journal import JsonlJournal
 from recorder.bililive.media import MediaProbeRetryableError
 from recorder.bililive.models import (
@@ -803,6 +804,9 @@ def test_later_valid_xml_backfills_caption_without_reupload(tmp_path):
     caption_path = tmp_path / 'state' / 'generated.vtt'
     caption_path.parent.mkdir(parents=True, exist_ok=True)
     caption_path.write_text('WEBVTT\n\n')
+    classified.media.xml_path.write_text(
+        '<i><d p="1">late caption</d></i>', encoding='utf8'
+    )
     second = runner.publish_one(
         classified,
         caption_provider=lambda *args: BililiveCaptionArtifact(
@@ -823,6 +827,176 @@ def test_later_valid_xml_backfills_caption_without_reupload(tmp_path):
     state = journal.replay().files['fp1']
     assert state.caption_uploaded is True
     assert state.description_fingerprint == 'with-highlights'
+
+
+def test_runner_fsyncs_caption_source_identity_before_publisher(tmp_path):
+    events = []
+    journal = RecordingJournal(tmp_path / 'state.jsonl', events)
+    classified = ready_media(tmp_path)
+    classified.media.xml_path.write_text('<i/>', encoding='utf8')
+    append_ready(journal, classified)
+    caption_path = tmp_path / 'caption.vtt'
+    caption_path.write_text('WEBVTT\n\n', encoding='utf8')
+    events.clear()
+    publisher = FakePublisher([
+        publish_result(caption_uploaded=True, caption_status='uploaded')
+    ], events)
+    runner = BililivePublishRunner(
+        journal=journal,
+        publisher=publisher,
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW,
+    )
+
+    runner.publish_one(
+        classified,
+        caption_provider=lambda *args: BililiveCaptionArtifact(
+            path=caption_path
+        ),
+    )
+
+    assert events.index(('journal', 'caption_source_frozen')) < events.index(
+        ('publisher', 'publish_video')
+    )
+    xml_stat = classified.media.xml_path.stat()
+    state = journal.replay().files['fp1']
+    assert state.caption_source_xml_size == xml_stat.st_size
+    assert state.caption_source_xml_mtime_ns == xml_stat.st_mtime_ns
+
+
+def test_caption_identity_checkpoint_failure_prevents_remote_and_cleanup(
+    tmp_path,
+):
+    class FreezeFailJournal(RecordingJournal):
+        def append(self, event, **fields):
+            if event == 'caption_source_frozen':
+                raise SimulatedProcessCrash()
+            return super().append(event, **fields)
+
+    journal = FreezeFailJournal(tmp_path / 'state.jsonl')
+    classified = ready_media(tmp_path)
+    classified.media.xml_path.write_text('<i/>', encoding='utf8')
+    append_ready(journal, classified)
+    caption_path = tmp_path / 'caption.vtt'
+    caption_path.write_text('WEBVTT\n\n', encoding='utf8')
+    runner = BililivePublishRunner(
+        journal=journal,
+        publisher=FailIfCalledPublisher(),
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW,
+    )
+
+    with pytest.raises(SimulatedProcessCrash):
+        runner.publish_one(
+            classified,
+            caption_provider=lambda *args: BililiveCaptionArtifact(
+                path=caption_path
+            ),
+        )
+
+    state = journal.replay().files['fp1']
+    assert state.caption_source_xml_size is None
+    assert state.caption_source_xml_mtime_ns is None
+    cleanup = StateAwareCleanup(
+        journal, tmp_path, disk_usage=lambda path: 99
+    )
+    result = cleanup.run([state], dry_run=True)
+    assert classified.media.xml_path not in result.deleted
+    assert classified.media.xml_path in result.protected
+
+
+def test_late_xml_identity_controls_cleanup_after_caption_upload(tmp_path):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    classified = ready_media(tmp_path)
+    append_manifest(journal, 'session-1', classified)
+    assert str(classified.media.xml_path) not in (
+        journal.replay().manifests[0].snapshot
+    )
+    classified.media.xml_path.write_text(
+        '<i><d p="1">late caption</d></i>', encoding='utf8'
+    )
+    caption_path = tmp_path / 'caption.vtt'
+    caption_path.write_text('WEBVTT\n\n', encoding='utf8')
+    publisher = FakePublisher([
+        publish_result(caption_uploaded=True, caption_status='uploaded')
+    ])
+    runner = BililivePublishRunner(
+        journal=journal,
+        publisher=publisher,
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW,
+        caption_provider=lambda *args: BililiveCaptionArtifact(
+            path=caption_path
+        ),
+    )
+
+    result = runner.run_pending_once(journal.replay())
+
+    assert result.status == 'complete'
+    replay = journal.replay()
+    assert replay.manifests[0].completed is True
+    state = replay.files['fp1']
+    xml_stat = classified.media.xml_path.stat()
+    assert state.caption_source_xml_size == xml_stat.st_size
+    assert state.caption_source_xml_mtime_ns == xml_stat.st_mtime_ns
+    cleanup = StateAwareCleanup(
+        journal, tmp_path, disk_usage=lambda path: 99
+    )
+    unchanged = cleanup.run(replay.files.values(), dry_run=True)
+    assert classified.media.xml_path in unchanged.deleted
+
+    classified.media.xml_path.write_text(
+        '<i><d p="1">changed after upload</d></i>', encoding='utf8'
+    )
+    changed = cleanup.run(journal.replay().files.values(), dry_run=True)
+    assert classified.media.xml_path not in changed.deleted
+    assert classified.media.xml_path in changed.protected
+
+
+def test_runner_never_overwrites_changed_caption_identity_to_reuse_checkpoint(
+    tmp_path,
+):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    classified = ready_media(tmp_path)
+    xml_path = classified.media.xml_path
+    xml_path.write_text('<i><d p="1">original</d></i>', encoding='utf8')
+    append_ready(journal, classified)
+    original = xml_path.stat()
+    journal.append(
+        'caption_source_frozen', fingerprint='fp1', xml_file=str(xml_path),
+        caption_source_xml_size=original.st_size,
+        caption_source_xml_mtime_ns=original.st_mtime_ns,
+    )
+    journal.append('video_uploaded', fingerprint='fp1', video_id='yt123')
+    journal.append('caption_uploaded', fingerprint='fp1')
+    xml_path.write_text(
+        '<i><d p="1">changed after remote caption</d></i>', encoding='utf8'
+    )
+    caption_path = tmp_path / 'caption.vtt'
+    caption_path.write_text('WEBVTT\n\n', encoding='utf8')
+    runner = BililivePublishRunner(
+        journal=journal,
+        publisher=FailIfCalledPublisher(),
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW,
+    )
+
+    result = runner.publish_one(
+        classified,
+        caption_provider=lambda *args: BililiveCaptionArtifact(
+            path=caption_path
+        ),
+    )
+
+    assert result.status == 'settling'
+    assert 'durable XML identity changed' in result.message
+    state = journal.replay().files['fp1']
+    assert state.caption_source_xml_size == original.st_size
+    assert state.caption_source_xml_mtime_ns == original.st_mtime_ns
 
 
 @pytest.mark.parametrize(

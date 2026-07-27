@@ -1682,6 +1682,97 @@ def test_source_deleted_without_path_is_rejected_before_append(tmp_path):
     assert journal.path.read_bytes() == before
 
 
+def test_caption_source_identity_replays_with_bound_xml_path(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'file_ready', fingerprint='fp1', file='/video.flv',
+        xml_file='/video.xml',
+    )
+
+    journal.append(
+        'caption_source_frozen',
+        fingerprint='fp1',
+        xml_file='/video.xml',
+        caption_source_xml_size=123,
+        caption_source_xml_mtime_ns=456,
+    )
+
+    state = JsonlJournal(journal.path).replay().files['fp1']
+    assert state.event == 'caption_source_frozen'
+    assert state.xml_file == '/video.xml'
+    assert state.caption_source_xml_size == 123
+    assert state.caption_source_xml_mtime_ns == 456
+
+
+@pytest.mark.parametrize(
+    ('fields', 'message'),
+    [
+        ({'caption_source_xml_size': 1}, 'mtime'),
+        ({'caption_source_xml_mtime_ns': 1}, 'size'),
+        ({
+            'caption_source_xml_size': -1,
+            'caption_source_xml_mtime_ns': 1,
+        }, 'non-negative'),
+        ({
+            'caption_source_xml_size': True,
+            'caption_source_xml_mtime_ns': 1,
+        }, 'non-negative'),
+    ],
+)
+def test_caption_source_identity_rejects_missing_or_invalid_numbers(
+    tmp_path, fields, message
+):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'file_ready', fingerprint='fp1', file='/video.flv',
+        xml_file='/video.xml',
+    )
+    before = journal.path.read_bytes()
+
+    with pytest.raises((TypeError, ValueError), match=message):
+        journal.append(
+            'caption_source_frozen', fingerprint='fp1',
+            xml_file='/video.xml', **fields,
+        )
+
+    assert journal.path.read_bytes() == before
+
+
+def test_caption_source_identity_rejects_different_xml_binding(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'file_ready', fingerprint='fp1', file='/video.flv',
+        xml_file='/video.xml',
+    )
+    before = journal.path.read_bytes()
+
+    with pytest.raises(ValueError, match='XML path'):
+        journal.append(
+            'caption_source_frozen', fingerprint='fp1',
+            xml_file='/other.xml', caption_source_xml_size=1,
+            caption_source_xml_mtime_ns=2,
+        )
+
+    assert journal.path.read_bytes() == before
+
+
+def test_manifest_migration_clears_caption_source_identity(tmp_path):
+    state = _append_single_file_replacement(
+        JsonlJournal(tmp_path / 'state.jsonl'),
+        publication_events=((
+            'caption_source_frozen', {
+                'xml_file': '/recording/video.xml',
+                'caption_source_xml_size': 10,
+                'caption_source_xml_mtime_ns': 1,
+            },
+        ),),
+    )
+
+    assert state.manifest_id == 'replacement-session'
+    assert state.caption_source_xml_size is None
+    assert state.caption_source_xml_mtime_ns is None
+
+
 @pytest.mark.parametrize(
     'missing_field', ['stage', 'status', 'retry_at', 'attempt']
 )

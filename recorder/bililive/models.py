@@ -62,6 +62,8 @@ class JournalFileState:
     duration: float | None = None
     video_id: str | None = None
     caption_status: str | None = None
+    caption_source_xml_size: int | None = None
+    caption_source_xml_mtime_ns: int | None = None
     reason: str | None = None
     video_upload_rejected: bool = False
     caption_uploaded: bool = False

@@ -16,6 +16,14 @@ _IGNORED_EVENTS = frozenset({
     'ignored_tiny',
     'ignored_invalid_tail',
 })
+_COMPLETION_ELIGIBLE_EVENTS = _IGNORED_EVENTS | frozenset({
+    'baseline',
+    'caption_status',
+    'caption_uploaded',
+    'playlist_inserted',
+    'youtube_processed',
+})
+_TERMINAL_CAPTION_STATUSES = frozenset({'uploaded', 'existing'})
 _ACTIVE_SESSION_STATES = frozenset({
     SessionState.SKIP_CURRENT_SESSION,
     SessionState.RECORDING,
@@ -73,13 +81,20 @@ class StateAwareCleanup:
                 # An invalidated generation is either protected by its resettle
                 # chain or superseded by a safely completed replacement.
                 continue
-            for path, eligible in self._state_paths(state):
+            for path, eligible, is_xml, identity_optional in self._state_paths(
+                state
+            ):
                 if str(path) in state.deleted_paths:
                     continue
                 fingerprints.setdefault(path, state.fingerprint)
                 safe, file_stat = self._safe_regular_file(path)
-                frozen = self._matches_frozen_identity(
-                    path, file_stat, manifest
+                frozen = self._matches_required_identity(
+                    path,
+                    file_stat,
+                    manifest,
+                    state,
+                    is_xml=is_xml,
+                    identity_optional=identity_optional,
                 )
                 allowed = bool(eligible and safe and frozen)
                 assessments.setdefault(path, []).append(allowed)
@@ -146,10 +161,12 @@ class StateAwareCleanup:
         baseline_or_ignored = (
             state.event == 'baseline' or state.event in _IGNORED_EVENTS
         )
+        hard_protected = self._hard_lifecycle_protected(state)
         if state.file is not None:
             yield Path(state.file), (
-                baseline_or_ignored or state.youtube_processed
-            )
+                not hard_protected
+                and (baseline_or_ignored or state.youtube_processed)
+            ), False, baseline_or_ignored
         if state.xml_file is not None:
             xml_path = Path(state.xml_file)
         elif state.file is not None:
@@ -158,7 +175,41 @@ class StateAwareCleanup:
                 return
         else:
             return
-        yield xml_path, baseline_or_ignored or state.caption_uploaded
+        yield xml_path, (
+            not hard_protected
+            and (baseline_or_ignored or state.caption_uploaded)
+        ), True, baseline_or_ignored
+
+    @staticmethod
+    def _hard_lifecycle_protected(state):
+        if state.ambiguous or state.event not in _COMPLETION_ELIGIBLE_EVENTS:
+            return True
+        baseline_or_ignored = (
+            state.event == 'baseline' or state.event in _IGNORED_EVENTS
+        )
+        remote_evidence = any((
+            state.youtube_processed,
+            state.caption_uploaded,
+            state.playlist_inserted,
+            state.description_updated,
+        ))
+        if not baseline_or_ignored and remote_evidence and not state.video_id:
+            return True
+        if state.event == 'youtube_processed' and not state.youtube_processed:
+            return True
+        if state.event == 'caption_uploaded' and not state.caption_uploaded:
+            return True
+        if state.event == 'playlist_inserted' and not state.playlist_inserted:
+            return True
+        if (
+            state.event == 'caption_status'
+            and (
+                state.caption_uploaded
+                != (state.caption_status in _TERMINAL_CAPTION_STATUSES)
+            )
+        ):
+            return True
+        return False
 
     def _control_protected_paths(self, replay, manifest_index):
         protected = set()
@@ -231,13 +282,41 @@ class StateAwareCleanup:
         return True, file_stat
 
     @staticmethod
-    def _matches_frozen_identity(path, file_stat, manifest):
-        if file_stat is None or manifest is None:
+    def _matches_required_identity(
+        path,
+        file_stat,
+        manifest,
+        state,
+        *,
+        is_xml,
+        identity_optional,
+    ):
+        if file_stat is None:
+            return False
+        expected = (
+            manifest.snapshot.get(str(path))
+            if manifest is not None else None
+        )
+        current = (file_stat.st_size, file_stat.st_mtime_ns)
+        if expected is not None:
+            return current == tuple(expected)
+        if identity_optional:
             return True
-        expected = manifest.snapshot.get(str(path))
-        if expected is None:
-            return True
-        return (file_stat.st_size, file_stat.st_mtime_ns) == tuple(expected)
+        if not is_xml:
+            return manifest is None
+        size = state.caption_source_xml_size
+        mtime_ns = state.caption_source_xml_mtime_ns
+        if (
+            state.xml_file != str(path)
+            or isinstance(size, bool)
+            or not isinstance(size, int)
+            or size < 0
+            or isinstance(mtime_ns, bool)
+            or not isinstance(mtime_ns, int)
+            or mtime_ns < 0
+        ):
+            return False
+        return current == (size, mtime_ns)
 
     @staticmethod
     def _stat_identity(file_stat):

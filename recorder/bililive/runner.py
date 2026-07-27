@@ -291,6 +291,63 @@ class BililivePublishRunner:
         if mismatch is not None:
             return RunnerResult('settling', fingerprint, message=mismatch)
 
+        if (
+            caption is not None
+            and caption.status == 'ready'
+            and caption.path is not None
+        ):
+            xml_path = str(media.xml_path)
+            xml_identity = _identity(media.xml_path)
+            expected_xml_identity = expected.get(xml_path)
+            if (
+                xml_identity is None
+                or expected_xml_identity is None
+                or tuple(xml_identity) != tuple(expected_xml_identity)
+            ):
+                self._settling_paths[fingerprint] = (xml_path,)
+                return RunnerResult(
+                    'settling', fingerprint,
+                    message=f'frozen XML identity changed: {xml_path}',
+                )
+            durable_xml_identity = (
+                state.caption_source_xml_size,
+                state.caption_source_xml_mtime_ns,
+            )
+            durable_identity_complete = all(
+                value is not None for value in durable_xml_identity
+            )
+            manifest_has_xml_identity = any(
+                manifest.manifest_id == state.manifest_id
+                and xml_path in manifest.snapshot
+                for manifest in replay.manifests
+            )
+            if (
+                durable_identity_complete
+                and tuple(durable_xml_identity) != tuple(xml_identity)
+            ) or (
+                any(value is not None for value in durable_xml_identity)
+                and not durable_identity_complete
+            ) or (
+                not durable_identity_complete
+                and not manifest_has_xml_identity
+                and (
+                    state.caption_uploaded
+                    or state.caption_refresh_required
+                )
+            ):
+                self._settling_paths[fingerprint] = (xml_path,)
+                return RunnerResult(
+                    'settling', fingerprint,
+                    message=f'durable XML identity changed: {xml_path}',
+                )
+            self.journal.append(
+                'caption_source_frozen',
+                fingerprint=fingerprint,
+                xml_file=xml_path,
+                caption_source_xml_size=xml_identity[0],
+                caption_source_xml_mtime_ns=xml_identity[1],
+            )
+
         state = self.journal.replay().files[fingerprint]
         checkpoint = PublishCheckpoint(
             video_id=state.video_id,
