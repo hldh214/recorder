@@ -224,6 +224,33 @@ def test_inspect_media_records_stable_invalid_results(
     assert inspected.duration is None or error_fragment.startswith('missing ')
 
 
+def test_inspect_media_rejects_boolean_duration(tmp_path):
+    path = tmp_path / '2026-07-27 19:31:02.flv'
+    path.touch()
+
+    inspected = inspect_media(
+        path, runner=lambda *args, **kwargs: _probe_result(duration=True)
+    )
+
+    assert inspected.duration is None
+    assert inspected.probe_error == 'invalid media duration: True'
+
+
+@pytest.mark.parametrize('duration', [float('nan'), float('inf'), -1])
+def test_inspect_media_rejects_non_finite_or_negative_duration(
+    tmp_path, duration
+):
+    path = tmp_path / '2026-07-27 19:31:02.flv'
+    path.touch()
+
+    inspected = inspect_media(
+        path, runner=lambda *args, **kwargs: _probe_result(duration=duration)
+    )
+
+    assert inspected.duration is None
+    assert inspected.probe_error.startswith('invalid media duration:')
+
+
 @pytest.mark.parametrize('fail_probe', [False, True])
 def test_inspect_media_retries_when_file_changes_during_probe(
     tmp_path, fail_probe
@@ -313,3 +340,26 @@ def test_classification_uses_measured_values_not_expected_cut_duration(tmp_path)
     for result in classified.values():
         assert f'size={result.media.size}' in result.reason
         assert f'duration={result.media.duration}' in result.reason
+
+
+def test_classification_rejects_duplicate_fingerprints_before_tail_selection(
+    tmp_path,
+):
+    first = _media_info(
+        tmp_path / 'first.flv', size=10, start=1, duration=120
+    )
+    duplicate = MediaInfo(
+        path=tmp_path / 'different.flv',
+        xml_path=tmp_path / 'different.xml',
+        size=MIN_NON_TAIL_SIZE_BYTES,
+        mtime_ns=2,
+        start_time=datetime.fromtimestamp(2, SHANGHAI),
+        stream_title=None,
+        duration=180,
+        has_video=True,
+        has_audio=True,
+        fingerprint=first.fingerprint,
+    )
+
+    with pytest.raises(ValueError, match='duplicate media fingerprint'):
+        classify_session_files([first, duplicate])

@@ -94,6 +94,8 @@ def _parse_duration(format_info):
     raw_duration = format_info.get('duration')
     if raw_duration is None:
         return None, 'missing media duration'
+    if isinstance(raw_duration, bool):
+        return None, f'invalid media duration: {raw_duration!r}'
     try:
         duration = float(raw_duration)
     except (TypeError, ValueError):
@@ -235,6 +237,13 @@ def _reason(media, decision):
 
 def classify_session_files(media_files):
     media_files = tuple(media_files)
+    fingerprints = set()
+    for media in media_files:
+        if media.fingerprint in fingerprints:
+            raise ValueError(
+                f'duplicate media fingerprint: {media.fingerprint}'
+            )
+        fingerprints.add(media.fingerprint)
     playable = sorted(
         (
             media
