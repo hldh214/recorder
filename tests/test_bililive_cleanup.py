@@ -1,5 +1,6 @@
 from dataclasses import replace
 from datetime import datetime, timezone
+import os
 from pathlib import Path
 
 import pytest
@@ -237,6 +238,20 @@ class PostTransactionRaceJournal(JsonlJournal):
                 started_at='2026-07-27T08:00:00+00:00',
             )
         return version
+
+
+class DirectorySyncGuardJournal(JsonlJournal):
+    def __init__(self, path, phase_event, directories_synced):
+        super().__init__(path)
+        self.phase_event = phase_event
+        self.directories_synced = directories_synced
+
+    def append(self, event, **fields):
+        if event == self.phase_event and not self.directories_synced():
+            raise AssertionError(
+                f'{event} advanced before namespace directories were synced'
+            )
+        return super().append(event, **fields)
 
 
 def baseline_journal(path, video):
@@ -1711,7 +1726,7 @@ def test_raw_tombstone_does_not_hide_conflicting_active_aliases(tmp_path):
 
 
 def test_pending_old_quarantine_reconciles_after_source_path_is_recreated(
-    tmp_path, monkeypatch,
+    tmp_path,
 ):
     video = tmp_path / 'recording.flv'
     video.write_bytes(b'old generation')
@@ -1744,24 +1759,18 @@ def test_pending_old_quarantine_reconciles_after_source_path_is_recreated(
         'baseline', fingerprint=new_fingerprint, file=str(video),
         source_size=new_stat.st_size, source_mtime_ns=new_stat.st_mtime_ns,
     )
-    monkeypatch.setattr(
-        RootDirectory, 'lstat',
-        lambda *args: (_ for _ in ()).throw(
-            AssertionError('tombstoned source path must not be inspected')
-        ),
-    )
-
     result = StateAwareCleanup(
         journal, tmp_path, disk_usage=Usage(1)
     ).run((), dry_run=False)
 
     assert video.read_bytes() == b'new generation'
     assert not quarantine.exists()
+    assert result.protected == (video,)
     assert journal.replay().pending_deletions == ()
     assert result.deleted == ()
 
 
-def test_mismatched_old_quarantine_only_protects_quarantine_not_recreated_path(
+def test_mismatched_old_quarantine_protects_quarantine_and_recreated_path(
     tmp_path,
 ):
     video = tmp_path / 'recording.flv'
@@ -1793,9 +1802,10 @@ def test_mismatched_old_quarantine_only_protects_quarantine_not_recreated_path(
         journal, tmp_path, disk_usage=Usage(99, 84)
     ).run((), dry_run=False)
 
-    assert result.deleted == (video,)
+    assert result.deleted == ()
     assert quarantine in result.protected
-    assert video not in result.protected
+    assert video in result.protected
+    assert video.read_bytes() == b'new generation'
     assert quarantine.read_bytes() == b'unrelated quarantine entry'
 
 
@@ -2572,6 +2582,203 @@ def test_recovery_move_is_discovered_after_abort_append_crash(tmp_path):
 
 
 @pytest.mark.parametrize(
+    'pending_case',
+    [
+        'pre-rename-exact',
+        'changed-original',
+        'correct-quarantine',
+        'mismatched-quarantine-rollback',
+        'mismatched-quarantine-recovery',
+        'source-deleted-new-original',
+        'quarantine-missing',
+        'recovery-present',
+    ],
+)
+def test_pending_dry_run_matches_live_decision_without_mutation(
+    tmp_path, monkeypatch, pending_case
+):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'old')
+    journal, fingerprint = baseline_journal(tmp_path / 'state.jsonl', video)
+    old_stat = video.stat()
+    quarantine_dir = tmp_path / '.bililive-cleanup-quarantine'
+    quarantine = quarantine_dir / 'pending'
+    journal.append(
+        'source_delete_intent', fingerprint=fingerprint,
+        original_path=str(video),
+        quarantine_path='.bililive-cleanup-quarantine/pending',
+        dev=old_stat.st_dev, ino=old_stat.st_ino, size=old_stat.st_size,
+        mtime_ns=old_stat.st_mtime_ns, reason='disk pressure',
+        expected_journal_version=journal.replay().journal_version,
+    )
+    intent = journal.replay().pending_deletions[0]
+    recovery = StateAwareCleanup._intent_recovery_path(intent)
+
+    if pending_case in {
+        'correct-quarantine',
+        'mismatched-quarantine-rollback',
+        'mismatched-quarantine-recovery',
+        'source-deleted-new-original',
+        'recovery-present',
+    }:
+        quarantine_dir.mkdir(mode=0o700)
+        video.rename(quarantine)
+    if pending_case in {
+        'mismatched-quarantine-rollback',
+        'mismatched-quarantine-recovery',
+        'recovery-present',
+    }:
+        quarantine.write_bytes(b'mismatched bytes')
+    if pending_case in {
+        'changed-original',
+        'mismatched-quarantine-recovery',
+        'source-deleted-new-original',
+        'recovery-present',
+    }:
+        video.write_bytes(b'new generation')
+    if pending_case == 'source-deleted-new-original':
+        journal.append(
+            'source_deleted', fingerprint=fingerprint, path=str(video),
+            reason='disk pressure',
+        )
+    if pending_case == 'quarantine-missing':
+        video.unlink()
+    if pending_case == 'recovery-present':
+        quarantine.rename(recovery)
+
+    expected_deleted = (
+        (video,)
+        if pending_case in {'pre-rename-exact', 'correct-quarantine'}
+        else ()
+    )
+    expected_protected = {
+        'pre-rename-exact': (),
+        'changed-original': (video,),
+        'correct-quarantine': (),
+        'mismatched-quarantine-rollback': (video,),
+        'mismatched-quarantine-recovery': (video, recovery),
+        'source-deleted-new-original': (video,),
+        'quarantine-missing': (),
+        'recovery-present': (video, recovery),
+    }[pending_case]
+
+    def tree_snapshot():
+        return tuple(
+            (
+                str(path.relative_to(tmp_path)), path.is_dir(),
+                None if path.is_dir() else path.read_bytes(),
+            )
+            for path in sorted(tmp_path.rglob('*'))
+        )
+
+    before = tree_snapshot()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError('dry-run attempted a filesystem or journal write')
+
+    with monkeypatch.context() as dry_patch:
+        dry_patch.setattr(journal, 'append', forbidden)
+        dry_patch.setattr(cleanup_fs_module.os, 'fsync', forbidden)
+        for method in (
+            'sync_intent_directories', 'rename_to_quarantine',
+            'unlink_quarantine', 'move_quarantine_to_original',
+            'move_quarantine_to_recovery',
+        ):
+            dry_patch.setattr(RootDirectory, method, forbidden)
+        dry_result = StateAwareCleanup(
+            journal, tmp_path, disk_usage=Usage(1)
+        ).run((), dry_run=True)
+
+    assert tree_snapshot() == before
+    assert dry_result.deleted == expected_deleted
+    assert dry_result.protected == tuple(sorted(expected_protected))
+
+    live_result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=Usage(1)
+    ).run((), dry_run=False)
+
+    assert live_result.deleted == expected_deleted
+    assert live_result.protected == tuple(sorted(expected_protected))
+
+
+@pytest.mark.parametrize(
+    ('fault_operation', 'phase_event'),
+    [
+        ('rename_to_quarantine', 'source_deleted'),
+        ('unlink_quarantine', 'quarantine_removed'),
+        ('move_quarantine_to_recovery', 'source_delete_aborted'),
+    ],
+)
+def test_reconciliation_resyncs_mutated_directories_before_phase_append(
+    tmp_path, monkeypatch, fault_operation, phase_event
+):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'old')
+    journal, fingerprint = baseline_journal(tmp_path / 'state.jsonl', video)
+    old_stat = video.stat()
+    quarantine_dir = tmp_path / '.bililive-cleanup-quarantine'
+    quarantine_dir.mkdir(mode=0o700)
+    quarantine = quarantine_dir / 'pending'
+    journal.append(
+        'source_delete_intent', fingerprint=fingerprint,
+        original_path=str(video),
+        quarantine_path='.bililive-cleanup-quarantine/pending',
+        dev=old_stat.st_dev, ino=old_stat.st_ino, size=old_stat.st_size,
+        mtime_ns=old_stat.st_mtime_ns, reason='disk pressure',
+        expected_journal_version=journal.replay().journal_version,
+    )
+    if fault_operation == 'move_quarantine_to_recovery':
+        video.rename(quarantine)
+        quarantine.write_bytes(b'mismatched bytes')
+        video.write_bytes(b'new generation')
+
+    original_operation = getattr(RootDirectory, fault_operation)
+
+    def mutate_then_report_fsync_failure(root_directory, *args, **kwargs):
+        original_operation(root_directory, *args, **kwargs)
+        raise OSError(f'{fault_operation} fsync failed')
+
+    with monkeypatch.context() as fault_patch:
+        fault_patch.setattr(
+            RootDirectory, fault_operation,
+            mutate_then_report_fsync_failure,
+        )
+        StateAwareCleanup(
+            journal, tmp_path, disk_usage=Usage(1)
+        ).run((), dry_run=False)
+
+    assert len(journal.replay().pending_deletions) == 1
+    synced_directory_inodes = set()
+    source_parent_inode = tmp_path.stat().st_ino
+    quarantine_inode = quarantine_dir.stat().st_ino
+    real_fsync = cleanup_fs_module.os.fsync
+
+    def track_directory_fsync(file_descriptor):
+        file_stat = os.fstat(file_descriptor)
+        if file_stat.st_ino in (source_parent_inode, quarantine_inode):
+            synced_directory_inodes.add(file_stat.st_ino)
+        return real_fsync(file_descriptor)
+
+    def required_directories_synced():
+        return synced_directory_inodes == {
+            source_parent_inode, quarantine_inode,
+        }
+
+    with monkeypatch.context() as retry_patch:
+        retry_patch.setattr(
+            cleanup_fs_module.os, 'fsync', track_directory_fsync
+        )
+        guarded = DirectorySyncGuardJournal(
+            journal.path, phase_event, required_directories_synced
+        )
+        StateAwareCleanup(
+            guarded, tmp_path, disk_usage=Usage(1)
+        ).run((), dry_run=False)
+
+    assert guarded.replay().pending_deletions == ()
+
+
+@pytest.mark.parametrize(
     ('fault', 'fail_event', 'fsync_call'),
     [
         ('intent-append', 'source_delete_intent', None),
@@ -2884,7 +3091,10 @@ def test_cleanup_reconciles_every_quarantine_crash_window_below_threshold(
         JsonlJournal(journal_path), tmp_path, disk_usage=lambda path: 1
     ).run((), dry_run=True)
 
-    assert dry_result.deleted == (video,)
+    expected_dry_deleted = (
+        (video,) if expected_phase in {'intent', 'renamed'} else ()
+    )
+    assert dry_result.deleted == expected_dry_deleted
     assert journal_path.read_bytes() == before_dry_journal
     assert video.exists() is before_dry_video
     assert quarantine.exists() is before_dry_quarantine

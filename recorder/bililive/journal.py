@@ -1526,13 +1526,22 @@ class JsonlJournal:
             and record.get('manifest_id', existing.manifest_id)
             == existing.manifest_id
         )
-        if event in _INITIAL_FILE_EVENTS and same_generation:
+        controlled_identity_migration = bool(
+            existing is not None
+            and existing.manifest_id is not None
+            and record.get('manifest_id', existing.manifest_id)
+            != existing.manifest_id
+        )
+        if (
+            event in _INITIAL_FILE_EVENTS
+            and existing is not None
+            and not controlled_identity_migration
+        ):
             for field_name in ('source_size', 'source_mtime_ns'):
                 old_value = getattr(existing, field_name)
                 new_value = record.get(field_name, old_value)
                 if (
                     old_value is not None
-                    and new_value is not None
                     and new_value != old_value
                 ):
                     raise ValueError(

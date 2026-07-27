@@ -124,20 +124,28 @@ class RootDirectory:
         except FileNotFoundError:
             return None
 
-    def ensure_quarantine(self):
+    def _open_quarantine(self, create):
         if self.quarantine_fd is not None:
             return self.quarantine_fd
-        try:
-            os.mkdir(QUARANTINE_DIRECTORY, mode=0o700, dir_fd=self.fd)
-            os.fsync(self.fd)
-        except FileExistsError:
-            pass
+        if create:
+            try:
+                os.mkdir(QUARANTINE_DIRECTORY, mode=0o700, dir_fd=self.fd)
+                os.fsync(self.fd)
+            except FileExistsError:
+                pass
         flags = (
             os.O_RDONLY
             | getattr(os, 'O_DIRECTORY', 0)
             | getattr(os, 'O_NOFOLLOW', 0)
         )
-        quarantine_fd = os.open(QUARANTINE_DIRECTORY, flags, dir_fd=self.fd)
+        try:
+            quarantine_fd = os.open(
+                QUARANTINE_DIRECTORY, flags, dir_fd=self.fd
+            )
+        except FileNotFoundError:
+            if not create:
+                return None
+            raise
         quarantine_stat = os.fstat(quarantine_fd)
         if (
             not stat.S_ISDIR(quarantine_stat.st_mode)
@@ -150,6 +158,9 @@ class RootDirectory:
         self.quarantine_fd = quarantine_fd
         return quarantine_fd
 
+    def ensure_quarantine(self):
+        return self._open_quarantine(create=True)
+
     @staticmethod
     def _validate_source_stat(file_stat, expected):
         if (
@@ -159,17 +170,36 @@ class RootDirectory:
         ):
             raise UnsafeCleanupPathError('cleanup source identity changed')
 
-    def quarantine_stat(self, quarantine_path):
+    def quarantine_stat(self, quarantine_path, create=True):
         parts = Path(quarantine_path).parts
         if len(parts) != 2 or parts[0] != QUARANTINE_DIRECTORY:
             raise UnsafeCleanupPathError('invalid quarantine path')
-        quarantine_fd = self.ensure_quarantine()
+        quarantine_fd = self._open_quarantine(create=create)
+        if quarantine_fd is None:
+            return None
         try:
             return os.stat(
                 parts[1], dir_fd=quarantine_fd, follow_symlinks=False
             )
         except FileNotFoundError:
             return None
+
+    def sync_intent_directories(self, original_path, recovery_path=None):
+        quarantine_fd = self.ensure_quarantine()
+        synced = set()
+
+        def sync_parent(path):
+            with self.parent(path) as (parent_fd, _):
+                parent_stat = os.fstat(parent_fd)
+                identity = (parent_stat.st_dev, parent_stat.st_ino)
+                if identity not in synced:
+                    os.fsync(parent_fd)
+                    synced.add(identity)
+
+        sync_parent(original_path)
+        if recovery_path is not None:
+            sync_parent(recovery_path)
+        os.fsync(quarantine_fd)
 
     def rename_to_quarantine(self, original_path, quarantine_path, expected):
         quarantine_parts = Path(quarantine_path).parts

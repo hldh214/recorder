@@ -1,4 +1,3 @@
-import errno
 import hashlib
 import logging
 import math
@@ -92,6 +91,16 @@ class _Candidate:
     identity: tuple[int, int, int, int]
 
 
+@dataclass(frozen=True)
+class _PendingDecision:
+    action: str
+    deleted: bool = False
+    reconciled: bool = False
+    aborted: bool = False
+    protected_paths: tuple[Path, ...] = ()
+    recovery_path: Path | None = None
+
+
 class StateAwareCleanup:
     def __init__(self, journal, root, disk_usage=filesystem_usage_percent):
         self.journal = journal
@@ -106,17 +115,17 @@ class StateAwareCleanup:
         reconciliation_protected = set()
         reconciliation_failed = False
         control_graph_valid = self._control_graph_valid(replay)
-        dry_pending = (
-            tuple(Path(intent.original_path) for intent in replay.pending_deletions)
-            if dry_run and control_graph_valid else ()
-        )
-        if replay.pending_deletions and not dry_run and control_graph_valid:
+        if replay.pending_deletions and control_graph_valid:
             with RootDirectory(self.root) as root_directory:
                 for index, intent in enumerate(replay.pending_deletions):
                     try:
-                        reconciled, protected, deleted, aborted = (
-                            self._reconcile_intent(root_directory, intent)
+                        decision = self._pending_decision_for_intent(
+                            root_directory, intent, dry_run=dry_run
                         )
+                        if not dry_run:
+                            self._apply_pending_decision(
+                                root_directory, intent, decision
+                            )
                     except Exception:
                         reconciliation_failed = True
                         reconciliation_protected.update(
@@ -124,16 +133,15 @@ class StateAwareCleanup:
                             for item in replay.pending_deletions[index:]
                         )
                         break
-                    if reconciled:
+                    if decision.reconciled:
                         reconciled_intents.append(intent)
-                    if aborted:
+                    if decision.aborted:
                         aborted_intents.append(intent)
-                    if deleted:
+                    if decision.deleted:
                         reconciled_deleted.append(Path(intent.original_path))
-                    if protected:
-                        reconciliation_protected.add(
-                            self._intent_protected_path(intent)
-                        )
+                    reconciliation_protected.update(
+                        decision.protected_paths
+                    )
             replay = self._replay_after_reconciliation(
                 replay, reconciled_intents, aborted_intents
             )
@@ -168,7 +176,7 @@ class StateAwareCleanup:
             )
         if usage < DISK_CLEANUP_THRESHOLD_PERCENT:
             return CleanupResult(
-                tuple(reconciled_deleted) + dry_pending,
+                tuple(reconciled_deleted),
                 self._ordered(
                     reconciliation_protected | protected_by_control
                 ),
@@ -247,7 +255,7 @@ class StateAwareCleanup:
         candidates = []
         for path, path_assessments in assessments.items():
             if (
-                path in protected_by_control
+                path in protected
                 or not all(path_assessments)
                 or len(owners[path]) != 1
             ):
@@ -267,7 +275,8 @@ class StateAwareCleanup:
 
         if dry_run:
             planned = tuple(dict.fromkeys(
-                dry_pending + tuple(item.path for item in candidates)
+                tuple(reconciled_deleted)
+                + tuple(item.path for item in candidates)
             ))
             exhausted = not planned
             if exhausted:
@@ -355,10 +364,10 @@ class StateAwareCleanup:
                 candidate.path, quarantine_path, identity
             )
         except UnsafeCleanupPathError:
-            _, _, _, aborted = self._reconcile_intent(
+            decision = self._reconcile_intent(
                 root_directory, intent
             )
-            if aborted:
+            if decision.aborted:
                 raise RuntimeError('source deletion aborted')
             raise
         transaction_version = self._record_source_deleted(
@@ -423,11 +432,6 @@ class StateAwareCleanup:
     def _intent_identity(intent):
         return (intent.dev, intent.ino, intent.size, intent.mtime_ns)
 
-    def _intent_protected_path(self, intent):
-        if intent.source_deleted:
-            return self.root / intent.quarantine_path
-        return Path(intent.original_path)
-
     @staticmethod
     def _intent_recovery_path(intent):
         token = hashlib.sha256(
@@ -438,88 +442,191 @@ class StateAwareCleanup:
             f'{original.name}.bililive-recovery-{token}.bin'
         )
 
-    def _reconcile_intent(self, root_directory, intent):
+    @staticmethod
+    def _regular_single_link(file_stat):
+        return bool(
+            file_stat is not None
+            and stat.S_ISREG(file_stat.st_mode)
+            and file_stat.st_nlink == 1
+        )
+
+    def _pending_decision_for_intent(
+        self, root_directory, intent, dry_run
+    ):
         identity = self._intent_identity(intent)
         quarantine_stat = root_directory.quarantine_stat(
-            intent.quarantine_path
+            intent.quarantine_path, create=not dry_run
         )
-        quarantine_matches = (
-            quarantine_stat is not None
-            and quarantine_stat.st_nlink == 1
-            and self._stat_identity(quarantine_stat) == identity
-        )
-        if intent.source_deleted:
-            if quarantine_matches:
-                root_directory.unlink_quarantine(
-                    intent.quarantine_path, identity
-                )
-            elif quarantine_stat is not None:
-                return False, True, False, False
-            self._record_quarantine_removed(intent)
-            return True, False, False, False
-
         original_stat = root_directory.lstat(intent.original_path)
-        original_matches = (
-            original_stat is not None
-            and original_stat.st_nlink == 1
-            and self._stat_identity(original_stat) == identity
-        )
         recovery_path = self._intent_recovery_path(intent)
         recovery_stat = root_directory.lstat(recovery_path)
-        recovery_exists = recovery_stat is not None
-        if recovery_exists and (
-            not stat.S_ISREG(recovery_stat.st_mode)
-            or recovery_stat.st_nlink != 1
+        return self._pending_decision(
+            intent, identity, original_stat, quarantine_stat,
+            recovery_path, recovery_stat,
+        )
+
+    def _pending_decision(
+        self, intent, identity, original_stat, quarantine_stat,
+        recovery_path, recovery_stat,
+    ):
+        original_path = Path(intent.original_path)
+        quarantine_path = self.root / intent.quarantine_path
+        quarantine_matches = (
+            self._regular_single_link(quarantine_stat)
+            and self._stat_identity(quarantine_stat) == identity
+        )
+        original_matches = (
+            self._regular_single_link(original_stat)
+            and self._stat_identity(original_stat) == identity
+        )
+        recovery_safe = (
+            recovery_stat is None
+            or self._regular_single_link(recovery_stat)
+        )
+        existing_original = (original_path,) if original_stat is not None else ()
+        existing_recovery = (recovery_path,) if recovery_stat is not None else ()
+
+        if not recovery_safe:
+            return _PendingDecision(
+                'protect', protected_paths=existing_original + existing_recovery
+            )
+        if intent.source_deleted:
+            if quarantine_matches:
+                return _PendingDecision(
+                    'remove-quarantine', reconciled=True,
+                    protected_paths=existing_original + existing_recovery,
+                )
+            if quarantine_stat is not None:
+                return _PendingDecision(
+                    'protect', protected_paths=(quarantine_path,)
+                    + existing_original + existing_recovery,
+                )
+            return _PendingDecision(
+                'finish-source-deleted', reconciled=True,
+                protected_paths=existing_original + existing_recovery,
+            )
+
+        if quarantine_stat is not None and not self._regular_single_link(
+            quarantine_stat
         ):
-            raise UnsafeCleanupPathError('unsafe cleanup recovery file')
+            return _PendingDecision(
+                'protect', protected_paths=(quarantine_path,)
+                + existing_original + existing_recovery,
+            )
+        if recovery_stat is not None and quarantine_stat is not None:
+            return _PendingDecision(
+                'protect', protected_paths=(quarantine_path,)
+                + existing_original + existing_recovery,
+            )
         if quarantine_matches:
+            return _PendingDecision(
+                'delete-quarantined', deleted=original_stat is None,
+                reconciled=True, protected_paths=existing_original,
+            )
+        if quarantine_stat is not None:
+            if original_stat is None:
+                return _PendingDecision(
+                    'rollback-abort', aborted=True,
+                    protected_paths=(original_path,),
+                )
+            return _PendingDecision(
+                'recover-abort', aborted=True,
+                protected_paths=existing_original + (recovery_path,),
+                recovery_path=recovery_path,
+            )
+        if recovery_stat is not None:
+            return _PendingDecision(
+                'finish-recovery-abort', aborted=True,
+                protected_paths=existing_original + existing_recovery,
+                recovery_path=recovery_path,
+            )
+        if original_matches:
+            return _PendingDecision(
+                'delete-original', deleted=True, reconciled=True
+            )
+        return _PendingDecision(
+            'abort-changed', aborted=True,
+            protected_paths=existing_original,
+        )
+
+    def _reconcile_intent(self, root_directory, intent):
+        decision = self._pending_decision_for_intent(
+            root_directory, intent, dry_run=False
+        )
+        self._apply_pending_decision(root_directory, intent, decision)
+        return decision
+
+    def _apply_pending_decision(self, root_directory, intent, decision):
+        identity = self._intent_identity(intent)
+        action = decision.action
+        if action == 'protect':
+            return
+        if action == 'remove-quarantine':
+            root_directory.unlink_quarantine(
+                intent.quarantine_path, identity
+            )
+            root_directory.sync_intent_directories(intent.original_path)
+            self._record_quarantine_removed(intent)
+            return
+        if action == 'finish-source-deleted':
+            root_directory.sync_intent_directories(intent.original_path)
+            self._record_quarantine_removed(intent)
+            return
+        if action == 'delete-quarantined':
+            root_directory.sync_intent_directories(intent.original_path)
             self._record_source_deleted(intent)
             root_directory.unlink_quarantine(intent.quarantine_path, identity)
+            root_directory.sync_intent_directories(intent.original_path)
             self._record_quarantine_removed(intent)
-            return True, False, original_stat is None, False
-        if quarantine_stat is not None:
-            recorded_recovery_path = None
-            try:
-                root_directory.move_quarantine_to_original(
-                    intent.quarantine_path, intent.original_path
-                )
-            except OSError as exception:
-                error_number = exception.errno
-                if error_number is None and isinstance(
-                    exception.__cause__, OSError
-                ):
-                    error_number = exception.__cause__.errno
-                if error_number != errno.EEXIST:
-                    raise
-                recovery_name = recovery_path.name
-                root_directory.move_quarantine_to_recovery(
-                    intent.quarantine_path, intent.original_path,
-                    recovery_name,
-                )
-                recorded_recovery_path = str(recovery_path)
+            return
+        if action == 'rollback-abort':
+            root_directory.move_quarantine_to_original(
+                intent.quarantine_path, intent.original_path
+            )
+            root_directory.sync_intent_directories(intent.original_path)
+            self._record_delete_aborted(
+                intent, 'quarantine identity mismatch', None
+            )
+            return
+        if action == 'recover-abort':
+            root_directory.move_quarantine_to_recovery(
+                intent.quarantine_path, intent.original_path,
+                decision.recovery_path.name,
+            )
+            root_directory.sync_intent_directories(
+                intent.original_path, decision.recovery_path
+            )
             self._record_delete_aborted(
                 intent, 'quarantine identity mismatch',
-                recorded_recovery_path,
+                str(decision.recovery_path),
             )
-            return False, False, False, True
-        if recovery_exists:
+            return
+        if action == 'finish-recovery-abort':
+            root_directory.sync_intent_directories(
+                intent.original_path, decision.recovery_path
+            )
             self._record_delete_aborted(
-                intent, 'quarantine identity mismatch', str(recovery_path)
+                intent, 'quarantine identity mismatch',
+                str(decision.recovery_path),
             )
-            return False, False, False, True
-        if original_matches:
+            return
+        if action == 'delete-original':
             root_directory.rename_to_quarantine(
                 intent.original_path, intent.quarantine_path, identity
             )
-        else:
+            root_directory.sync_intent_directories(intent.original_path)
+            self._record_source_deleted(intent)
+            root_directory.unlink_quarantine(intent.quarantine_path, identity)
+            root_directory.sync_intent_directories(intent.original_path)
+            self._record_quarantine_removed(intent)
+            return
+        if action == 'abort-changed':
+            root_directory.sync_intent_directories(intent.original_path)
             self._record_delete_aborted(
                 intent, 'source identity changed before quarantine', None
             )
-            return False, False, False, True
-        self._record_source_deleted(intent)
-        root_directory.unlink_quarantine(intent.quarantine_path, identity)
-        self._record_quarantine_removed(intent)
-        return True, False, True, False
+            return
+        raise RuntimeError(f'unknown pending cleanup action {action!r}')
 
     def _record_delete_aborted(self, intent, reason, recovery_path):
         self.journal.append(

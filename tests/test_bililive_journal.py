@@ -198,6 +198,105 @@ def test_same_manifest_classification_cannot_overwrite_source_identity(
     assert journal.path.read_bytes() == before
 
 
+@pytest.mark.parametrize(
+    'identity_update',
+    [
+        {'source_size': None, 'source_mtime_ns': 200},
+        {'source_size': 100, 'source_mtime_ns': None},
+        {'source_size': None, 'source_mtime_ns': None},
+    ],
+)
+def test_same_generation_known_source_identity_cannot_be_cleared(
+    tmp_path, identity_update
+):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'ignored_tiny', fingerprint='fp', manifest_id='manifest-1',
+        file='/video.flv', reason='tiny', source_size=100,
+        source_mtime_ns=200,
+    )
+    before = journal.path.read_bytes()
+
+    with pytest.raises(ValueError, match='source identity'):
+        journal.append(
+            'ignored_tiny', fingerprint='fp', manifest_id='manifest-1',
+            file='/video.flv', reason='tiny', **identity_update,
+        )
+
+    assert journal.path.read_bytes() == before
+
+
+def test_raw_replay_rejects_known_identity_clear_before_new_value(tmp_path):
+    path = tmp_path / 'state.jsonl'
+    records = [
+        {
+            'event': 'ignored_tiny', 'fingerprint': 'fp',
+            'manifest_id': 'manifest-1', 'file': '/video.flv',
+            'reason': 'tiny', 'source_size': 100,
+            'source_mtime_ns': 200,
+        },
+        {
+            'event': 'ignored_tiny', 'fingerprint': 'fp',
+            'manifest_id': 'manifest-1', 'file': '/video.flv',
+            'reason': 'tiny', 'source_size': None,
+            'source_mtime_ns': None,
+        },
+        {
+            'event': 'ignored_tiny', 'fingerprint': 'fp',
+            'manifest_id': 'manifest-1', 'file': '/video.flv',
+            'reason': 'tiny', 'source_size': 101,
+            'source_mtime_ns': 201,
+        },
+    ]
+    path.write_text(
+        ''.join(json.dumps(record) + '\n' for record in records),
+        encoding='utf8',
+    )
+
+    with pytest.raises(JournalCorruptError, match='source identity'):
+        JsonlJournal(path).replay()
+
+
+def test_unbound_known_identity_cannot_clear_while_binding_manifest(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'ignored_tiny', fingerprint='fp', file='/video.flv', reason='tiny',
+        source_size=100, source_mtime_ns=200,
+    )
+    before = journal.path.read_bytes()
+
+    with pytest.raises(ValueError, match='source identity'):
+        journal.append(
+            'file_ready', fingerprint='fp', manifest_id='unvalidated',
+            file='/video.flv', source_size=None, source_mtime_ns=None,
+        )
+
+    assert journal.path.read_bytes() == before
+
+
+def test_raw_unbound_identity_clear_during_manifest_bind_is_corrupt(tmp_path):
+    path = tmp_path / 'state.jsonl'
+    records = [
+        {
+            'event': 'ignored_tiny', 'fingerprint': 'fp',
+            'file': '/video.flv', 'reason': 'tiny',
+            'source_size': 100, 'source_mtime_ns': 200,
+        },
+        {
+            'event': 'file_ready', 'fingerprint': 'fp',
+            'manifest_id': 'unvalidated', 'file': '/video.flv',
+            'source_size': None, 'source_mtime_ns': None,
+        },
+    ]
+    path.write_text(
+        ''.join(json.dumps(record) + '\n' for record in records),
+        encoding='utf8',
+    )
+
+    with pytest.raises(JournalCorruptError, match='source identity'):
+        JsonlJournal(path).replay()
+
+
 def test_delete_abort_clears_lease_and_replays_idempotently(tmp_path):
     journal = JsonlJournal(tmp_path / 'state.jsonl')
     journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
@@ -2316,6 +2415,64 @@ def test_manifest_migration_clears_caption_source_identity(tmp_path):
     assert state.manifest_id == 'replacement-session'
     assert state.caption_source_xml_size is None
     assert state.caption_source_xml_mtime_ns is None
+
+
+def test_manifest_migration_may_clear_then_reset_source_identity(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    video = '/recording/video.flv'
+    xml = '/recording/video.xml'
+    snapshot = {video: (100, 1), xml: (10, 1)}
+    journal.append(
+        'session_state', room_id=123, state='waiting', session_id=None,
+        session_paths=(), snapshot=snapshot, quiet_since=None,
+        started_at=None,
+    )
+    journal.append(
+        'session_manifest_ready', manifest_id='old-session', room_id=123,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:00:00+00:00', flv_paths=(video,),
+        snapshot=snapshot,
+    )
+    journal.append(
+        'file_ready', fingerprint='fp1', manifest_id='old-session',
+        file=video, xml_file=xml, source_size=100, source_mtime_ns=1,
+    )
+    journal.append(
+        'session_manifest_changed', manifest_id='old-session',
+        detected_at='2026-07-27T12:05:00+00:00', reason='replacement',
+        changed_paths=(xml,),
+    )
+    journal.append(
+        'session_resettle_started', source_manifest_id='old-session',
+        replacement_manifest_id='replacement-session', room_id=123,
+        state='settling', session_paths=(video, xml), snapshot=snapshot,
+        quiet_since='2026-07-27T12:10:00+00:00',
+        started_at='2026-07-27T08:00:00+00:00',
+    )
+    journal.append(
+        'session_manifest_ready', manifest_id='replacement-session',
+        room_id=123, started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:40:00+00:00', flv_paths=(video,),
+        snapshot=snapshot,
+    )
+
+    journal.append(
+        'file_ready', fingerprint='fp1',
+        manifest_id='replacement-session', file=video, xml_file=xml,
+        source_size=None, source_mtime_ns=None,
+    )
+    cleared = journal.replay().files['fp1']
+    assert cleared.source_size is None
+    assert cleared.source_mtime_ns is None
+
+    journal.append(
+        'file_ready', fingerprint='fp1',
+        manifest_id='replacement-session', file=video, xml_file=xml,
+        source_size=100, source_mtime_ns=1,
+    )
+    reset = journal.replay().files['fp1']
+    assert reset.source_size == 100
+    assert reset.source_mtime_ns == 1
 
 
 @pytest.mark.parametrize(
