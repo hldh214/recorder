@@ -16,6 +16,7 @@ from recorder.bililive.journal import (
     baseline_fingerprint,
 )
 from recorder.bililive.models import (
+    JournalDeleteAbort,
     JournalDeleteIntent,
     JournalFileState,
     JournalManifest,
@@ -42,9 +43,185 @@ def append_delete_intent(journal, **overrides):
         'quarantine_path': '.bililive-cleanup-quarantine/delete-1',
         'reason': 'disk pressure',
         **DELETE_IDENTITY,
+        'expected_journal_version': journal.replay().journal_version,
     }
     fields.update(overrides)
     journal.append('source_delete_intent', **fields)
+
+
+def test_replay_exposes_immutable_verified_byte_version(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    assert journal.replay().journal_version == 0
+    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
+
+    replay = journal.replay()
+
+    assert replay.journal_version == len(journal.path.read_bytes())
+    with pytest.raises(FrozenInstanceError):
+        replay.journal_version = 0
+
+
+def test_delete_intent_requires_current_journal_version_cas(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
+    stale_version = journal.replay().journal_version
+    journal.append('initialized')
+    before = journal.path.read_bytes()
+
+    with pytest.raises(ValueError, match='journal version'):
+        append_delete_intent(
+            journal, expected_journal_version=stale_version
+        )
+
+    assert journal.path.read_bytes() == before
+
+
+def test_predelete_intent_leases_path_against_session_claim(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
+    append_delete_intent(journal)
+    before = journal.path.read_bytes()
+
+    with pytest.raises(ValueError, match='deletion lease'):
+        journal.append(
+            'session_state', room_id=123, state='recording',
+            session_id='session-1', session_paths=('/video.flv',),
+            snapshot={'/video.flv': (30, 40)},
+            quiet_since='2026-07-27T12:00:00+00:00',
+            started_at='2026-07-27T08:00:00+00:00',
+        )
+
+    assert journal.path.read_bytes() == before
+
+
+def test_predelete_lease_rejects_waiting_session_transition_to_recording(
+    tmp_path,
+):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
+    session_fields = {
+        'room_id': 123, 'session_id': 'session-1',
+        'session_paths': ('/video.flv',),
+        'snapshot': {'/video.flv': (30, 40)},
+        'quiet_since': '2026-07-27T12:00:00+00:00',
+        'started_at': '2026-07-27T08:00:00+00:00',
+    }
+    journal.append('session_state', state='waiting', **session_fields)
+    append_delete_intent(journal)
+    before = journal.path.read_bytes()
+
+    with pytest.raises(ValueError, match='deletion lease'):
+        journal.append('session_state', state='recording', **session_fields)
+
+    assert journal.path.read_bytes() == before
+
+
+def test_predelete_lease_rejects_manifest_changed_path(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
+    journal.append(
+        'session_manifest_ready', manifest_id='manifest-1', room_id=123,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:00:00+00:00',
+        flv_paths=('/video.flv',), snapshot={'/video.flv': (30, 40)},
+    )
+    append_delete_intent(journal)
+    before = journal.path.read_bytes()
+
+    with pytest.raises(ValueError, match='deletion lease'):
+        journal.append(
+            'session_manifest_changed', manifest_id='manifest-1',
+            detected_at='2026-07-27T12:05:00+00:00',
+            reason='frozen source identity changed',
+            changed_paths=('/video.flv',),
+        )
+
+    assert journal.path.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    ('event', 'fields'),
+    [
+        ('session_manifest_ready', {
+            'manifest_id': 'manifest-1', 'room_id': 123,
+            'started_at': '2026-07-27T08:00:00+00:00',
+            'settled_at': '2026-07-27T12:00:00+00:00',
+            'flv_paths': ('/video.flv',),
+            'snapshot': {'/video.flv': (30, 40)},
+        }),
+        ('session_resettle_started', {
+            'source_manifest_id': 'old',
+            'replacement_manifest_id': 'replacement', 'room_id': 123,
+            'state': 'settling', 'session_paths': ('/video.flv',),
+            'snapshot': {'/video.flv': (30, 40)},
+            'quiet_since': '2026-07-27T12:00:00+00:00',
+            'started_at': '2026-07-27T08:00:00+00:00',
+        }),
+        ('baseline', {
+            'fingerprint': 'other', 'file': '/video.flv',
+            'source_size': 30, 'source_mtime_ns': 40,
+        }),
+    ],
+)
+def test_predelete_lease_rejects_other_new_control_claims(
+    tmp_path, event, fields
+):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
+    append_delete_intent(journal)
+    before = journal.path.read_bytes()
+
+    with pytest.raises(ValueError, match='deletion lease'):
+        journal.append(event, **fields)
+
+    assert journal.path.read_bytes() == before
+
+
+def test_same_manifest_classification_cannot_overwrite_source_identity(
+    tmp_path,
+):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'ignored_tiny', fingerprint='fp', manifest_id='manifest-1',
+        file='/video.flv', reason='tiny', source_size=100,
+        source_mtime_ns=200,
+    )
+    before = journal.path.read_bytes()
+
+    with pytest.raises(ValueError, match='source identity'):
+        journal.append(
+            'ignored_tiny', fingerprint='fp', manifest_id='manifest-1',
+            file='/video.flv', reason='tiny', source_size=101,
+            source_mtime_ns=201,
+        )
+
+    assert journal.path.read_bytes() == before
+
+
+def test_delete_abort_clears_lease_and_replays_idempotently(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
+    append_delete_intent(journal)
+    fields = {
+        'fingerprint': 'baseline:1', 'original_path': '/video.flv',
+        'quarantine_path': '.bililive-cleanup-quarantine/delete-1',
+        'reason': 'source identity changed',
+        'recovery_path': '/video.flv.bililive-recovery.bin',
+    }
+
+    journal.append('source_delete_aborted', **fields)
+    journal.append('source_delete_aborted', **fields)
+
+    replay = journal.replay()
+    assert replay.pending_deletions == ()
+    assert replay.deletion_aborts == (JournalDeleteAbort(**fields),)
+    journal.append(
+        'session_state', room_id=123, state='recording',
+        session_id='new', session_paths=('/video.flv',),
+        snapshot={'/video.flv': (31, 41)},
+        quiet_since='2026-07-27T12:00:00+00:00',
+        started_at='2026-07-27T08:00:00+00:00',
+    )
 
 
 def test_delete_intent_replays_each_durable_phase_immutably(tmp_path):

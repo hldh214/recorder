@@ -609,6 +609,8 @@ class BililiveSessionMonitor:
                 'baseline',
                 fingerprint=baseline_fingerprint(path, *identity),
                 file=path,
+                source_size=identity[0],
+                source_mtime_ns=identity[1],
             )
 
     def _append_session_state(self):

@@ -1,3 +1,5 @@
+import errno
+import hashlib
 import logging
 import math
 import os
@@ -24,6 +26,7 @@ from recorder.bililive.journal import (
 from recorder.bililive.cleanup_fs import (
     QUARANTINE_DIRECTORY,
     RootDirectory,
+    UnsafeCleanupPathError,
 )
 
 
@@ -99,15 +102,20 @@ class StateAwareCleanup:
         replay = self.journal.replay()
         reconciled_deleted = []
         reconciled_intents = []
+        aborted_intents = []
         reconciliation_protected = set()
         reconciliation_failed = False
         control_graph_valid = self._control_graph_valid(replay)
+        dry_pending = (
+            tuple(Path(intent.original_path) for intent in replay.pending_deletions)
+            if dry_run and control_graph_valid else ()
+        )
         if replay.pending_deletions and not dry_run and control_graph_valid:
             with RootDirectory(self.root) as root_directory:
                 for index, intent in enumerate(replay.pending_deletions):
                     try:
-                        reconciled, protected, deleted = self._reconcile_intent(
-                            root_directory, intent
+                        reconciled, protected, deleted, aborted = (
+                            self._reconcile_intent(root_directory, intent)
                         )
                     except Exception:
                         reconciliation_failed = True
@@ -118,6 +126,8 @@ class StateAwareCleanup:
                         break
                     if reconciled:
                         reconciled_intents.append(intent)
+                    if aborted:
+                        aborted_intents.append(intent)
                     if deleted:
                         reconciled_deleted.append(Path(intent.original_path))
                     if protected:
@@ -125,7 +135,7 @@ class StateAwareCleanup:
                             self._intent_protected_path(intent)
                         )
             replay = self._replay_after_reconciliation(
-                replay, reconciled_intents
+                replay, reconciled_intents, aborted_intents
             )
 
         protected_by_control = (
@@ -158,7 +168,7 @@ class StateAwareCleanup:
             )
         if usage < DISK_CLEANUP_THRESHOLD_PERCENT:
             return CleanupResult(
-                tuple(reconciled_deleted),
+                tuple(reconciled_deleted) + dry_pending,
                 self._ordered(
                     reconciliation_protected | protected_by_control
                 ),
@@ -256,7 +266,9 @@ class StateAwareCleanup:
         candidates.sort(key=lambda item: (item.mtime_ns, str(item.path)))
 
         if dry_run:
-            planned = tuple(item.path for item in candidates)
+            planned = tuple(dict.fromkeys(
+                dry_pending + tuple(item.path for item in candidates)
+            ))
             exhausted = not planned
             if exhausted:
                 self._log_exhausted(usage)
@@ -265,11 +277,19 @@ class StateAwareCleanup:
             )
 
         deleted = list(reconciled_deleted)
+        authorized_version = replay.journal_version
         with RootDirectory(self.root) as root_directory:
             for index, candidate in enumerate(candidates):
                 if usage < DISK_CLEANUP_THRESHOLD_PERCENT:
                     break
                 try:
+                    fresh_replay = self.journal.replay()
+                    if fresh_replay.journal_version != authorized_version:
+                        protected.update(
+                            item.path for item in candidates[index:]
+                        )
+                        usage = self.disk_usage(self.root)
+                        break
                     current_stat = root_directory.lstat(candidate.path)
                     if (
                         current_stat is None
@@ -279,7 +299,10 @@ class StateAwareCleanup:
                     ):
                         protected.add(candidate.path)
                         continue
-                    self._quarantine_candidate(root_directory, candidate)
+                    transaction_version = self._quarantine_candidate(
+                        root_directory, candidate,
+                        fresh_replay.journal_version,
+                    )
                 except Exception:
                     protected.update(
                         item.path for item in candidates[index:]
@@ -288,6 +311,7 @@ class StateAwareCleanup:
                     break
                 deleted.append(candidate.path)
                 usage = self.disk_usage(self.root)
+                authorized_version = transaction_version
 
         exhausted = usage >= DISK_CLEANUP_THRESHOLD_PERCENT
         if exhausted:
@@ -296,13 +320,15 @@ class StateAwareCleanup:
             tuple(deleted), self._ordered(protected), usage, exhausted
         )
 
-    def _quarantine_candidate(self, root_directory, candidate):
+    def _quarantine_candidate(
+        self, root_directory, candidate, expected_journal_version
+    ):
         quarantine_path = (
             f'{QUARANTINE_DIRECTORY}/{uuid.uuid4().hex}'
         )
         identity = candidate.identity
         root_directory.ensure_quarantine()
-        self.journal.append(
+        transaction_version = self.journal.append(
             'source_delete_intent',
             fingerprint=candidate.fingerprint,
             original_path=str(candidate.path),
@@ -312,6 +338,7 @@ class StateAwareCleanup:
             size=identity[2],
             mtime_ns=identity[3],
             reason=_DELETE_REASON,
+            expected_journal_version=expected_journal_version,
         )
         intent = JournalDeleteIntent(
             fingerprint=candidate.fingerprint,
@@ -323,35 +350,55 @@ class StateAwareCleanup:
             mtime_ns=identity[3],
             reason=_DELETE_REASON,
         )
-        root_directory.rename_to_quarantine(
-            candidate.path, quarantine_path, identity
+        try:
+            root_directory.rename_to_quarantine(
+                candidate.path, quarantine_path, identity
+            )
+        except UnsafeCleanupPathError:
+            _, _, _, aborted = self._reconcile_intent(
+                root_directory, intent
+            )
+            if aborted:
+                raise RuntimeError('source deletion aborted')
+            raise
+        transaction_version = self._record_source_deleted(
+            intent, transaction_version
         )
-        self._record_source_deleted(intent)
         root_directory.unlink_quarantine(quarantine_path, identity)
-        self._record_quarantine_removed(intent)
+        return self._record_quarantine_removed(intent, transaction_version)
 
-    def _record_source_deleted(self, intent):
-        self.journal.append(
+    def _record_source_deleted(self, intent, expected_version=None):
+        fields = {}
+        if expected_version is not None:
+            fields['expected_journal_version'] = expected_version
+        return self.journal.append(
             'source_deleted',
             fingerprint=intent.fingerprint,
             path=intent.original_path,
             reason=intent.reason,
+            **fields,
         )
 
-    def _record_quarantine_removed(self, intent):
-        self.journal.append(
+    def _record_quarantine_removed(self, intent, expected_version=None):
+        fields = {}
+        if expected_version is not None:
+            fields['expected_journal_version'] = expected_version
+        return self.journal.append(
             'quarantine_removed',
             fingerprint=intent.fingerprint,
             original_path=intent.original_path,
             quarantine_path=intent.quarantine_path,
+            **fields,
         )
 
     @staticmethod
-    def _replay_after_reconciliation(replay, reconciled_intents):
-        if not reconciled_intents:
+    def _replay_after_reconciliation(
+        replay, reconciled_intents, aborted_intents=()
+    ):
+        if not reconciled_intents and not aborted_intents:
             return replay
         files = dict(replay.files)
-        for intent in reconciled_intents:
+        for intent in tuple(reconciled_intents) + tuple(aborted_intents):
             state = files[intent.fingerprint]
             original_path = canonical_source_path(intent.original_path)
             deleted_paths = tuple(
@@ -368,6 +415,7 @@ class StateAwareCleanup:
             pending_deletions=tuple(
                 intent for intent in replay.pending_deletions
                 if intent not in reconciled_intents
+                and intent not in aborted_intents
             ),
         )
 
@@ -379,6 +427,16 @@ class StateAwareCleanup:
         if intent.source_deleted:
             return self.root / intent.quarantine_path
         return Path(intent.original_path)
+
+    @staticmethod
+    def _intent_recovery_path(intent):
+        token = hashlib.sha256(
+            intent.quarantine_path.encode('utf8')
+        ).hexdigest()[:32]
+        original = Path(intent.original_path)
+        return original.parent / (
+            f'{original.name}.bililive-recovery-{token}.bin'
+        )
 
     def _reconcile_intent(self, root_directory, intent):
         identity = self._intent_identity(intent)
@@ -396,9 +454,9 @@ class StateAwareCleanup:
                     intent.quarantine_path, identity
                 )
             elif quarantine_stat is not None:
-                return False, True, False
+                return False, True, False, False
             self._record_quarantine_removed(intent)
-            return True, False, False
+            return True, False, False, False
 
         original_stat = root_directory.lstat(intent.original_path)
         original_matches = (
@@ -406,16 +464,70 @@ class StateAwareCleanup:
             and original_stat.st_nlink == 1
             and self._stat_identity(original_stat) == identity
         )
-        if original_matches and quarantine_stat is None:
+        recovery_path = self._intent_recovery_path(intent)
+        recovery_stat = root_directory.lstat(recovery_path)
+        recovery_exists = recovery_stat is not None
+        if recovery_exists and (
+            not stat.S_ISREG(recovery_stat.st_mode)
+            or recovery_stat.st_nlink != 1
+        ):
+            raise UnsafeCleanupPathError('unsafe cleanup recovery file')
+        if quarantine_matches:
+            self._record_source_deleted(intent)
+            root_directory.unlink_quarantine(intent.quarantine_path, identity)
+            self._record_quarantine_removed(intent)
+            return True, False, original_stat is None, False
+        if quarantine_stat is not None:
+            recorded_recovery_path = None
+            try:
+                root_directory.move_quarantine_to_original(
+                    intent.quarantine_path, intent.original_path
+                )
+            except OSError as exception:
+                error_number = exception.errno
+                if error_number is None and isinstance(
+                    exception.__cause__, OSError
+                ):
+                    error_number = exception.__cause__.errno
+                if error_number != errno.EEXIST:
+                    raise
+                recovery_name = recovery_path.name
+                root_directory.move_quarantine_to_recovery(
+                    intent.quarantine_path, intent.original_path,
+                    recovery_name,
+                )
+                recorded_recovery_path = str(recovery_path)
+            self._record_delete_aborted(
+                intent, 'quarantine identity mismatch',
+                recorded_recovery_path,
+            )
+            return False, False, False, True
+        if recovery_exists:
+            self._record_delete_aborted(
+                intent, 'quarantine identity mismatch', str(recovery_path)
+            )
+            return False, False, False, True
+        if original_matches:
             root_directory.rename_to_quarantine(
                 intent.original_path, intent.quarantine_path, identity
             )
-        elif original_stat is not None or not quarantine_matches:
-            return False, True, False
+        else:
+            self._record_delete_aborted(
+                intent, 'source identity changed before quarantine', None
+            )
+            return False, False, False, True
         self._record_source_deleted(intent)
         root_directory.unlink_quarantine(intent.quarantine_path, identity)
         self._record_quarantine_removed(intent)
-        return True, False, True
+        return True, False, True, False
+
+    def _record_delete_aborted(self, intent, reason, recovery_path):
+        self.journal.append(
+            'source_delete_aborted', fingerprint=intent.fingerprint,
+            original_path=intent.original_path,
+            quarantine_path=intent.quarantine_path, reason=reason,
+            recovery_path=recovery_path,
+        )
 
     def _state_paths(self, state, relationship_valid):
         file_value = (

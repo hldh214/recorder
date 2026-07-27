@@ -210,3 +210,25 @@ class RootDirectory:
         self._validate_source_stat(quarantined_stat, expected)
         os.unlink(parts[1], dir_fd=quarantine_fd)
         os.fsync(quarantine_fd)
+
+    def move_quarantine_to_original(self, quarantine_path, original_path):
+        quarantine_fd = self.ensure_quarantine()
+        quarantine_name = Path(quarantine_path).name
+        with self.parent(original_path) as (parent_fd, original_name):
+            _rename_noreplace(
+                quarantine_fd, quarantine_name, parent_fd, original_name
+            )
+            os.fsync(quarantine_fd)
+            os.fsync(parent_fd)
+
+    def move_quarantine_to_recovery(
+        self, quarantine_path, original_path, recovery_name
+    ):
+        quarantine_fd = self.ensure_quarantine()
+        quarantine_name = Path(quarantine_path).name
+        with self.parent(original_path) as (parent_fd, _):
+            _rename_noreplace(
+                quarantine_fd, quarantine_name, parent_fd, recovery_name
+            )
+            os.fsync(quarantine_fd)
+            os.fsync(parent_fd)

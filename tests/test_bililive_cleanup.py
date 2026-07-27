@@ -139,6 +139,7 @@ class FakeJournal:
 
     def append(self, event, **fields):
         self.events.append((event, fields))
+        return self.current_replay.journal_version
 
 
 class FailOnceEventJournal(FakeJournal):
@@ -148,10 +149,11 @@ class FailOnceEventJournal(FakeJournal):
         self.failed = False
 
     def append(self, event, **fields):
-        super().append(event, **fields)
+        version = super().append(event, **fields)
         if event == self.fail_event and not self.failed:
             self.failed = True
             raise OSError(f'{event} fsync failed')
+        return version
 
 
 class Usage:
@@ -179,9 +181,10 @@ class CrashJournal(JsonlJournal):
     def append(self, event, **fields):
         if event == self.before:
             raise SimulatedCleanupCrash(f'before {event}')
-        super().append(event, **fields)
+        version = super().append(event, **fields)
         if event == self.after:
             raise SimulatedCleanupCrash(f'after {event}')
+        return version
 
 
 class CountingJournal(JsonlJournal):
@@ -192,6 +195,48 @@ class CountingJournal(JsonlJournal):
     def replay(self):
         self.replay_calls += 1
         return super().replay()
+
+
+class SessionRaceJournal(JsonlJournal):
+    def __init__(self, path, video, identity):
+        super().__init__(path)
+        self.video = str(video)
+        self.identity = identity
+        self.injected = False
+
+    def append(self, event, **fields):
+        if event == 'source_delete_intent' and not self.injected:
+            self.injected = True
+            super().append(
+                'session_state', room_id=1829181560, state='recording',
+                session_id='racing-session', session_paths=(self.video,),
+                snapshot={self.video: self.identity},
+                quiet_since='2026-07-27T12:00:00+00:00',
+                started_at='2026-07-27T08:00:00+00:00',
+            )
+        return super().append(event, **fields)
+
+
+class PostTransactionRaceJournal(JsonlJournal):
+    def __init__(self, path, video, identity):
+        super().__init__(path)
+        self.video = str(video)
+        self.identity = identity
+        self.injected = False
+
+    def append(self, event, **fields):
+        version = super().append(event, **fields)
+        if event == 'quarantine_removed' and not self.injected:
+            self.injected = True
+            super().append(
+                'session_state', room_id=1829181560, state='recording',
+                session_id='post-transaction-race',
+                session_paths=(self.video,),
+                snapshot={self.video: self.identity},
+                quiet_since='2026-07-27T12:00:00+00:00',
+                started_at='2026-07-27T08:00:00+00:00',
+            )
+        return version
 
 
 def baseline_journal(path, video):
@@ -1680,6 +1725,7 @@ def test_pending_old_quarantine_reconciles_after_source_path_is_recreated(
         quarantine_path='.bililive-cleanup-quarantine/old',
         dev=old_stat.st_dev, ino=old_stat.st_ino, size=old_stat.st_size,
         mtime_ns=old_stat.st_mtime_ns, reason='disk pressure',
+        expected_journal_version=journal.replay().journal_version,
     )
     quarantine_directory = tmp_path / '.bililive-cleanup-quarantine'
     quarantine_directory.mkdir(mode=0o700)
@@ -2328,6 +2374,203 @@ def test_cleanup_stops_after_usage_falls_below_threshold(tmp_path):
     assert result.disk_usage_percent == 84
 
 
+def test_intent_cas_stops_session_state_race_before_rename(tmp_path):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'video')
+    video_stat = video.stat()
+    fingerprint = baseline_fingerprint(
+        video, video_stat.st_size, video_stat.st_mtime_ns
+    )
+    journal = SessionRaceJournal(
+        tmp_path / 'state.jsonl', video,
+        (video_stat.st_size, video_stat.st_mtime_ns),
+    )
+    journal.append(
+        'baseline', fingerprint=fingerprint, file=str(video),
+        source_size=video_stat.st_size,
+        source_mtime_ns=video_stat.st_mtime_ns,
+    )
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=Usage(99, 99)
+    ).run((), dry_run=False)
+
+    replay = journal.replay()
+    assert video.exists()
+    assert replay.pending_deletions == ()
+    assert replay.session.state is SessionState.RECORDING
+    assert result.deleted == ()
+    assert result.disk_usage_percent == 99
+
+
+def test_cleanup_does_not_authorize_next_candidate_after_own_transaction(
+    tmp_path,
+):
+    older = tmp_path / 'older.flv'
+    newer = tmp_path / 'newer.flv'
+    older.write_bytes(b'older')
+    newer.write_bytes(b'newer')
+    import os
+    os.utime(older, ns=(1_700_000_000_000_000_000,) * 2)
+    os.utime(newer, ns=(1_700_000_010_000_000_000,) * 2)
+    newer_stat = newer.stat()
+    journal = PostTransactionRaceJournal(
+        tmp_path / 'state.jsonl', newer,
+        (newer_stat.st_size, newer_stat.st_mtime_ns),
+    )
+    for video in (older, newer):
+        video_stat = video.stat()
+        journal.append(
+            'baseline', fingerprint=baseline_fingerprint(
+                video, video_stat.st_size, video_stat.st_mtime_ns
+            ), file=str(video), source_size=video_stat.st_size,
+            source_mtime_ns=video_stat.st_mtime_ns,
+        )
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=Usage(99, 99)
+    ).run((), dry_run=False)
+
+    assert result.deleted == (older,)
+    assert not older.exists()
+    assert newer.exists()
+    assert journal.replay().session.state is SessionState.RECORDING
+
+
+def test_changed_source_aborts_old_intent_then_new_generation_can_claim(
+    tmp_path,
+):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'old')
+    journal, old_fingerprint = baseline_journal(
+        tmp_path / 'state.jsonl', video
+    )
+    old_stat = video.stat()
+    journal.append(
+        'source_delete_intent', fingerprint=old_fingerprint,
+        original_path=str(video),
+        quarantine_path='.bililive-cleanup-quarantine/old',
+        dev=old_stat.st_dev, ino=old_stat.st_ino, size=old_stat.st_size,
+        mtime_ns=old_stat.st_mtime_ns, reason='disk pressure',
+        expected_journal_version=journal.replay().journal_version,
+    )
+    video.write_bytes(b'new generation')
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=Usage(1)
+    ).run((), dry_run=False)
+
+    replay = journal.replay()
+    assert result.deleted == ()
+    assert replay.pending_deletions == ()
+    assert replay.files[old_fingerprint].deleted_paths == (str(video),)
+    assert len(replay.deletion_aborts) == 1
+    new_stat = video.stat()
+    new_fingerprint = baseline_fingerprint(
+        video, new_stat.st_size, new_stat.st_mtime_ns
+    )
+    journal.append(
+        'baseline', fingerprint=new_fingerprint, file=str(video),
+        source_size=new_stat.st_size, source_mtime_ns=new_stat.st_mtime_ns,
+    )
+    journal.append(
+        'source_delete_intent', fingerprint=new_fingerprint,
+        original_path=str(video),
+        quarantine_path='.bililive-cleanup-quarantine/new',
+        dev=new_stat.st_dev, ino=new_stat.st_ino, size=new_stat.st_size,
+        mtime_ns=new_stat.st_mtime_ns, reason='disk pressure',
+        expected_journal_version=journal.replay().journal_version,
+    )
+
+
+@pytest.mark.parametrize('original_occupied', [False, True])
+def test_mismatched_quarantine_rolls_back_or_preserves_recovery(
+    tmp_path, original_occupied
+):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'old')
+    journal, fingerprint = baseline_journal(tmp_path / 'state.jsonl', video)
+    old_stat = video.stat()
+    quarantine_dir = tmp_path / '.bililive-cleanup-quarantine'
+    quarantine_dir.mkdir(mode=0o700)
+    quarantine = quarantine_dir / 'mismatch'
+    journal.append(
+        'source_delete_intent', fingerprint=fingerprint,
+        original_path=str(video),
+        quarantine_path='.bililive-cleanup-quarantine/mismatch',
+        dev=old_stat.st_dev, ino=old_stat.st_ino, size=old_stat.st_size,
+        mtime_ns=old_stat.st_mtime_ns, reason='disk pressure',
+        expected_journal_version=journal.replay().journal_version,
+    )
+    video.rename(quarantine)
+    quarantine.write_bytes(b'mismatched bytes')
+    if original_occupied:
+        video.write_bytes(b'new generation')
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=Usage(1)
+    ).run((), dry_run=False)
+
+    replay = journal.replay()
+    abort = replay.deletion_aborts[-1]
+    assert result.deleted == ()
+    assert replay.pending_deletions == ()
+    assert not quarantine.exists()
+    if original_occupied:
+        assert video.read_bytes() == b'new generation'
+        recovery = Path(abort.recovery_path)
+        assert recovery.parent == video.parent
+        assert recovery.suffix == '.bin'
+        assert recovery.read_bytes() == b'mismatched bytes'
+    else:
+        assert abort.recovery_path is None
+        assert video.read_bytes() == b'mismatched bytes'
+
+
+def test_recovery_move_is_discovered_after_abort_append_crash(tmp_path):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'old')
+    journal, fingerprint = baseline_journal(tmp_path / 'state.jsonl', video)
+    old_stat = video.stat()
+    quarantine_dir = tmp_path / '.bililive-cleanup-quarantine'
+    quarantine_dir.mkdir(mode=0o700)
+    quarantine = quarantine_dir / 'mismatch'
+    journal.append(
+        'source_delete_intent', fingerprint=fingerprint,
+        original_path=str(video),
+        quarantine_path='.bililive-cleanup-quarantine/mismatch',
+        dev=old_stat.st_dev, ino=old_stat.st_ino, size=old_stat.st_size,
+        mtime_ns=old_stat.st_mtime_ns, reason='disk pressure',
+        expected_journal_version=journal.replay().journal_version,
+    )
+    video.rename(quarantine)
+    quarantine.write_bytes(b'mismatched bytes')
+    video.write_bytes(b'new generation')
+
+    crashing = CrashJournal(
+        journal.path, before='source_delete_aborted'
+    )
+    with pytest.raises(SimulatedCleanupCrash):
+        StateAwareCleanup(
+            crashing, tmp_path, disk_usage=Usage(1)
+        ).run((), dry_run=False)
+
+    assert video.read_bytes() == b'new generation'
+    assert not quarantine.exists()
+    recovery_files = tuple(tmp_path.glob('*.bililive-recovery-*.bin'))
+    assert len(recovery_files) == 1
+    assert recovery_files[0].read_bytes() == b'mismatched bytes'
+
+    StateAwareCleanup(
+        JsonlJournal(journal.path), tmp_path, disk_usage=Usage(1)
+    ).run((), dry_run=False)
+
+    replay = journal.replay()
+    assert replay.pending_deletions == ()
+    assert replay.deletion_aborts[-1].recovery_path == str(recovery_files[0])
+    assert recovery_files[0].read_bytes() == b'mismatched bytes'
+
+
 @pytest.mark.parametrize(
     ('fault', 'fail_event', 'fsync_call'),
     [
@@ -2633,6 +2876,18 @@ def test_cleanup_reconciles_every_quarantine_crash_window_below_threshold(
     else:
         assert not video.exists() and not quarantine.exists()
         assert intent.source_deleted is True
+
+    before_dry_journal = journal_path.read_bytes()
+    before_dry_video = video.exists()
+    before_dry_quarantine = quarantine.exists()
+    dry_result = StateAwareCleanup(
+        JsonlJournal(journal_path), tmp_path, disk_usage=lambda path: 1
+    ).run((), dry_run=True)
+
+    assert dry_result.deleted == (video,)
+    assert journal_path.read_bytes() == before_dry_journal
+    assert video.exists() is before_dry_video
+    assert quarantine.exists() is before_dry_quarantine
 
     recovery_journal = CountingJournal(journal_path)
     recovered = StateAwareCleanup(
