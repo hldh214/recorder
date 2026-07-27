@@ -1,6 +1,8 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from types import MappingProxyType
 
 
@@ -22,6 +24,29 @@ class RoomState:
     @property
     def active(self):
         return self.recording or self.streaming
+
+
+@dataclass(frozen=True)
+class MediaInfo:
+    path: Path
+    xml_path: Path
+    size: int
+    mtime_ns: int
+    start_time: datetime
+    stream_title: str | None
+    duration: float | None
+    has_video: bool
+    has_audio: bool
+    fingerprint: str
+    probe_error: str | None = None
+
+
+@dataclass(frozen=True)
+class ClassifiedMedia:
+    media: MediaInfo
+    status: str
+    reason: str
+    is_tail: bool = False
 
 
 @dataclass(frozen=True)
