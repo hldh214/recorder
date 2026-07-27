@@ -173,11 +173,16 @@ def process_upload_file(config, youtube, video_path):
 
     current_config = config['source'].get(source_name)
     if not current_config:
-        return PublishResult(
+        result = PublishResult(
             PublishStatus.FATAL,
             error_stage='config',
             error_message=f'Source configuration not found: {source_name}',
         )
+        logger.warning(
+            f'YouTube publication failed ({result.status.value}) at '
+            f'{result.error_stage} for {video_path}: {result.error_message}'
+        )
+        return result
 
     room_id = current_config.get('room_id')
     start = filename_datetime

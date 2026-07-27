@@ -69,6 +69,33 @@ def metadata_path_for(video_path):
     return app.pathlib.Path(str(video_path).split('.')[0].replace('upload', 'record') + '.metadata')
 
 
+def test_process_upload_file_logs_missing_source_without_remote_call(tmp_path, monkeypatch, caplog):
+    config = make_config(tmp_path)
+    config['source'].clear()
+    video_path = make_upload_video(tmp_path)
+    publisher_calls = []
+
+    def publisher(*args):
+        publisher_calls.append(args)
+        raise AssertionError('publisher must not be constructed')
+
+    monkeypatch.setattr(app, 'YoutubePublishService', publisher)
+    caplog.set_level(logging.WARNING, logger='recorder')
+
+    result = app.process_upload_file(config, object(), str(video_path))
+
+    assert result.status is PublishStatus.FATAL
+    assert result.error_stage == 'config'
+    assert result.error_message == 'Source configuration not found: alice'
+    assert (
+        f'YouTube publication failed (fatal) at config for {video_path}: '
+        'Source configuration not found: alice'
+    ) in caplog.messages
+    assert video_path.read_bytes() == b'original-video'
+    assert publisher_calls == []
+    assert not (tmp_path / 'videos' / 'validate').exists()
+
+
 def test_process_upload_file_adapts_bilibili_caption_and_moves_source(tmp_path, monkeypatch):
     config = make_config(tmp_path)
     video_path = make_upload_video(tmp_path)
