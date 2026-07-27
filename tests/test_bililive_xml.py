@@ -130,6 +130,52 @@ def test_zero_and_duration_boundaries_are_included_and_final_message_is_flushed(
     assert '\n00:00:11.000 -->' not in vtt
 
 
+def test_zero_messages_produces_header_only_vtt(tmp_path):
+    xml_path = tmp_path / 'recording.xml'
+    xml_path.write_text('<i><gift p="1">ignored</gift></i>', encoding='utf8')
+    output_path = tmp_path / 'recording.vtt'
+
+    artifact = prepare_bililive_xml_caption(xml_path, output_path, START, 10)
+
+    assert artifact.status == 'ready'
+    assert artifact.highlights == ''
+    assert artifact.dropped_out_of_range == 0
+    vtt = output_path.read_text(encoding='utf8')
+    assert vtt.startswith('WEBVTT\n')
+    assert ' --> ' not in vtt
+    assert 'ignored' not in vtt
+
+
+def test_one_message_produces_one_real_cue(tmp_path):
+    xml_path = tmp_path / 'recording.xml'
+    xml_path.write_text('<i><d p="2">only message</d></i>', encoding='utf8')
+    output_path = tmp_path / 'recording.vtt'
+
+    artifact = prepare_bililive_xml_caption(xml_path, output_path, START, 10)
+
+    assert artifact.status == 'ready'
+    assert artifact.highlights == 'Highlights\n00:00 Start\n00:00:00 Top1 (1🔥)'
+    vtt = output_path.read_text(encoding='utf8')
+    assert vtt.count(' --> ') == 1
+    assert vtt.count('only message') == 1
+    assert '\n00:00:11.000 -->' not in vtt
+
+
+def test_zero_duration_emits_message_at_boundary_without_sentinel_cue(tmp_path):
+    xml_path = tmp_path / 'recording.xml'
+    xml_path.write_text('<i><d p="0">boundary</d></i>', encoding='utf8')
+    output_path = tmp_path / 'recording.vtt'
+
+    artifact = prepare_bililive_xml_caption(xml_path, output_path, START, 0)
+
+    assert artifact.status == 'ready'
+    assert artifact.dropped_out_of_range == 0
+    vtt = output_path.read_text(encoding='utf8')
+    assert vtt.count(' --> ') == 1
+    assert vtt.count('boundary') == 1
+    assert '\n00:00:01.000 -->' not in vtt
+
+
 def test_missing_xml_returns_missing_without_output_or_partial(tmp_path):
     output_path = tmp_path / 'state' / 'recording.vtt'
     partial_path = output_path.with_suffix('.vtt.partial')
@@ -182,6 +228,38 @@ def test_output_aliasing_source_is_invalid_without_source_mutation(
     assert artifact.error_message == 'output path must not alias source XML'
     assert xml_path.read_bytes() == source
     assert not output_path.with_suffix(output_path.suffix + '.partial').exists()
+
+
+@pytest.mark.parametrize('alias_kind', ['direct', 'symlink', 'hardlink'])
+def test_partial_output_aliasing_source_is_invalid_without_deleting_files(
+    tmp_path, alias_kind
+):
+    output_path = tmp_path / 'caption.vtt'
+    output_path.write_text('previous final', encoding='utf8')
+    partial_path = output_path.with_suffix('.vtt.partial')
+    source = b'<i><d p="1">first</d></i>'
+    partial_path.write_bytes(source)
+    if alias_kind == 'direct':
+        xml_path = partial_path
+    else:
+        xml_path = tmp_path / f'{alias_kind}.xml'
+        if alias_kind == 'symlink':
+            xml_path.symlink_to(partial_path)
+        else:
+            os.link(partial_path, xml_path)
+
+    artifact = prepare_bililive_xml_caption(
+        xml_path, output_path, START, 10
+    )
+
+    assert artifact.path is None
+    assert artifact.status == 'invalid'
+    assert artifact.error_message == (
+        'temporary output path must not alias source XML'
+    )
+    assert xml_path.read_bytes() == source
+    assert partial_path.read_bytes() == source
+    assert output_path.read_text(encoding='utf8') == 'previous final'
 
 
 def test_malformed_xml_preserves_previous_final_and_removes_partial(tmp_path):

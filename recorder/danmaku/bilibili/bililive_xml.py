@@ -35,6 +35,8 @@ def _parse_duration(duration):
 
 
 def _paths_alias(source_path, output_path):
+    if source_path.resolve() == output_path.resolve():
+        return True
     try:
         return source_path.samefile(output_path)
     except FileNotFoundError:
@@ -91,6 +93,7 @@ def iter_bililive_danmaku(xml_path, start, duration, counters):
         finally:
             element.clear()
             if depth == 2:
+                # BililiveRecorder events are flat, direct children of the root.
                 root.clear()
             depth -= 1
 
@@ -115,18 +118,19 @@ def prepare_bililive_xml_caption(xml_path, output_path, start, duration):
     output_path = Path(output_path)
     partial_path = output_path.with_suffix(output_path.suffix + '.partial')
 
-    if not xml_path.is_file():
-        try:
-            partial_path.unlink(missing_ok=True)
-        except OSError:
-            pass
-        return BililiveCaptionArtifact(path=None, status='missing')
-
     caption_counters = {}
     committed = False
+    partial_owned = False
     try:
         if _paths_alias(xml_path, output_path):
             raise ValueError('output path must not alias source XML')
+        if _paths_alias(xml_path, partial_path):
+            raise ValueError(
+                'temporary output path must not alias source XML'
+            )
+        partial_owned = True
+        if not xml_path.is_file():
+            return BililiveCaptionArtifact(path=None, status='missing')
         output_path.parent.mkdir(parents=True, exist_ok=True)
         partial_path.unlink(missing_ok=True)
         duration = _parse_duration(duration)
@@ -154,7 +158,7 @@ def prepare_bililive_xml_caption(xml_path, output_path, start, duration):
             error_message=str(exception),
         )
     finally:
-        if not committed:
+        if partial_owned and not committed:
             try:
                 partial_path.unlink(missing_ok=True)
             except OSError:
