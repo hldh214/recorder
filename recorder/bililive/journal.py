@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from recorder.bililive.models import (
+    JournalDeleteIntent,
     JournalFileState,
     JournalManifest,
     JournalReplay,
@@ -44,22 +45,28 @@ _IGNORED_FILE_EVENTS = frozenset({
     'ignored_invalid_tail',
 })
 _FILE_EVENT_UPDATES = {
-    'baseline': frozenset({'manifest_id', 'file', 'xml_file'}),
+    'baseline': frozenset({
+        'manifest_id', 'file', 'xml_file', 'source_size', 'source_mtime_ns',
+    }),
     'file_ready': frozenset({
         'manifest_id', 'file', 'xml_file', 'title', 'stream_title',
-        'start_time', 'duration', 'caption_status',
+        'start_time', 'duration', 'source_size', 'source_mtime_ns',
+        'caption_status',
     }),
     'ignored_invalid': frozenset({
         'manifest_id', 'file', 'xml_file', 'title', 'start_time', 'duration',
         'caption_status', 'reason', 'error_stage', 'error_message',
+        'source_size', 'source_mtime_ns',
     }),
     'ignored_tiny': frozenset({
         'manifest_id', 'file', 'xml_file', 'title', 'start_time', 'duration',
         'caption_status', 'reason', 'error_stage', 'error_message',
+        'source_size', 'source_mtime_ns',
     }),
     'ignored_invalid_tail': frozenset({
         'manifest_id', 'file', 'xml_file', 'title', 'start_time', 'duration',
         'caption_status', 'reason', 'error_stage', 'error_message',
+        'source_size', 'source_mtime_ns',
     }),
     'upload_started': frozenset({
         'file', 'xml_file', 'title', 'duration', 'description_fingerprint',
@@ -165,6 +172,21 @@ def _validate_file_record(record, event, existing, enforce_history=True):
         ):
             raise TypeError(f'{event} requires a finite non-negative duration')
 
+    for name in ('source_size', 'source_mtime_ns'):
+        if name in _FILE_EVENT_UPDATES[event] and name in record:
+            value = record[name]
+            if (
+                value is not None
+                and (
+                    isinstance(value, bool)
+                    or not isinstance(value, int)
+                    or value < 0
+                )
+            ):
+                raise TypeError(
+                    f'{event} requires non-negative integer {name}'
+                )
+
     for alias in ('stage', 'message', 'reason'):
         if (
             alias in record
@@ -228,13 +250,27 @@ def _validate_file_record(record, event, existing, enforce_history=True):
                 raise TypeError(
                     f'{event} requires non-negative integer {name}'
                 )
-        if (
-            existing is not None
-            and existing.xml_file != record['xml_file']
-        ):
-            raise ValueError(
-                'caption_source_frozen XML path does not match file state'
+        if existing is not None:
+            requested_identity = (
+                record['xml_file'],
+                record['caption_source_xml_size'],
+                record['caption_source_xml_mtime_ns'],
             )
+            frozen_identity = (
+                existing.xml_file,
+                existing.caption_source_xml_size,
+                existing.caption_source_xml_mtime_ns,
+            )
+            if any(value is not None for value in frozen_identity[1:]):
+                if requested_identity != frozen_identity:
+                    raise ValueError(
+                        'caption source identity is immutable within a '
+                        'generation'
+                    )
+            elif existing.xml_file != record['xml_file']:
+                raise ValueError(
+                    'caption_source_frozen XML path does not match file state'
+                )
     elif event == 'stage_retry_scheduled':
         for name in ('stage', 'status', 'retry_at'):
             _require_non_empty_string(record, name, event)
@@ -427,6 +463,8 @@ def _migrate_publication_state(existing, classified):
         stream_title=classified.stream_title,
         start_time=classified.start_time,
         duration=classified.duration,
+        source_size=classified.source_size,
+        source_mtime_ns=classified.source_mtime_ns,
         caption_source_xml_size=None,
         caption_source_xml_mtime_ns=None,
     )
@@ -916,6 +954,106 @@ def _reduce_resettle_started(replay, record):
     )
 
 
+def _validate_delete_intent_record(record):
+    event = 'source_delete_intent'
+    for name in ('fingerprint', 'original_path', 'quarantine_path', 'reason'):
+        _require_non_empty_string(record, name, event)
+    original_path = record['original_path']
+    if (
+        not os.path.isabs(original_path)
+        or os.path.normpath(original_path) != original_path
+    ):
+        raise ValueError(f'{event} original_path must be normalized absolute')
+    quarantine_path = record['quarantine_path']
+    quarantine_parts = Path(quarantine_path).parts
+    if (
+        os.path.isabs(quarantine_path)
+        or os.path.normpath(quarantine_path) != quarantine_path
+        or len(quarantine_parts) != 2
+        or quarantine_parts[0] != '.bililive-cleanup-quarantine'
+        or quarantine_parts[1] in ('', '.', '..')
+    ):
+        raise ValueError(f'{event} requires a safe quarantine_path')
+    for name in ('dev', 'ino', 'size', 'mtime_ns'):
+        value = record.get(name)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise TypeError(f'{event} requires non-negative integer {name}')
+
+
+def _owned_source_paths(state):
+    owned = {state.file, state.xml_file}
+    if state.file is not None:
+        owned.add(os.path.splitext(state.file)[0] + '.xml')
+    return owned
+
+
+def _reduce_delete_intent(replay, record):
+    _validate_delete_intent_record(record)
+    fingerprint = record['fingerprint']
+    state = replay.files.get(fingerprint)
+    if state is None:
+        raise ValueError('source_delete_intent requires an existing file state')
+    original_path = record['original_path']
+    if original_path not in _owned_source_paths(state):
+        raise ValueError('source_delete_intent path is not owned by fingerprint')
+    if original_path in state.deleted_paths:
+        raise ValueError('source_delete_intent path is already deleted')
+
+    intent = JournalDeleteIntent(
+        fingerprint=fingerprint,
+        original_path=original_path,
+        quarantine_path=record['quarantine_path'],
+        dev=record['dev'],
+        ino=record['ino'],
+        size=record['size'],
+        mtime_ns=record['mtime_ns'],
+        reason=record['reason'],
+    )
+    for existing in replay.pending_deletions:
+        if existing == intent:
+            return replay
+        if existing.quarantine_path == intent.quarantine_path:
+            raise ValueError('source_delete_intent quarantine_path is not unique')
+        if (
+            existing.fingerprint == fingerprint
+            and existing.original_path == original_path
+        ):
+            raise ValueError('source_delete_intent conflicts with pending intent')
+    return replace(
+        replay,
+        pending_deletions=replay.pending_deletions + (intent,),
+    )
+
+
+def _validate_quarantine_removed_record(record):
+    event = 'quarantine_removed'
+    for name in ('fingerprint', 'original_path', 'quarantine_path'):
+        _require_non_empty_string(record, name, event)
+
+
+def _reduce_quarantine_removed(replay, record):
+    _validate_quarantine_removed_record(record)
+    matches = tuple(
+        intent for intent in replay.pending_deletions
+        if (
+            intent.fingerprint == record['fingerprint']
+            and intent.original_path == record['original_path']
+            and intent.quarantine_path == record['quarantine_path']
+        )
+    )
+    if len(matches) != 1:
+        raise ValueError('quarantine_removed requires one pending intent')
+    if not matches[0].source_deleted:
+        raise ValueError('quarantine_removed requires durable source_deleted')
+    return replace(
+        replay,
+        pending_deletions=tuple(
+            intent for intent in replay.pending_deletions
+            if intent is not matches[0]
+        ),
+    )
+
+
 _CONTROL_REDUCERS = {
     'initialized': _reduce_initialized,
     'session_state': _reduce_session_state,
@@ -923,6 +1061,8 @@ _CONTROL_REDUCERS = {
     'session_manifest_completed': _reduce_manifest_completed,
     'session_manifest_changed': _reduce_manifest_changed,
     'session_resettle_started': _reduce_resettle_started,
+    'source_delete_intent': _reduce_delete_intent,
+    'quarantine_removed': _reduce_quarantine_removed,
 }
 
 
@@ -952,6 +1092,12 @@ def _validate_append_record(record):
     if event == 'session_resettle_started':
         for name in ('source_manifest_id', 'replacement_manifest_id'):
             _require_non_empty_string(record, name, event)
+        return
+    if event == 'source_delete_intent':
+        _validate_delete_intent_record(record)
+        return
+    if event == 'quarantine_removed':
+        _validate_quarantine_removed_record(record)
         return
     raise ValueError(f'unknown event {event!r}')
 
@@ -1045,6 +1191,7 @@ class _ReplayState:
     session: JournalSessionState
     initialized: bool
     pending_resettles: tuple[JournalResettleRequest, ...]
+    pending_deletions: tuple[JournalDeleteIntent, ...]
 
 
 def _empty_replay():
@@ -1062,6 +1209,7 @@ def _empty_replay():
         ),
         initialized=False,
         pending_resettles=(),
+        pending_deletions=(),
     )
 
 
@@ -1072,6 +1220,7 @@ def _public_replay(replay):
         session=replay.session,
         initialized=replay.initialized,
         pending_resettles=replay.pending_resettles,
+        pending_deletions=replay.pending_deletions,
     )
 
 
@@ -1172,8 +1321,25 @@ class JsonlJournal:
         existing = replay.files.get(fingerprint)
         _validate_file_record(record, event, existing)
         if (
+            existing is not None
+            and event in _INITIAL_FILE_EVENTS
+            and record.get('manifest_id', existing.manifest_id)
+            == existing.manifest_id
+            and _has_publication_lifecycle(existing)
+        ):
+            raise ValueError(
+                'publication lifecycle cannot be reclassified within the '
+                'same generation'
+            )
+        if (
             event == 'video_uploaded'
             and existing.video_id == record['video_id']
+        ):
+            return replay
+        if (
+            event == 'caption_source_frozen'
+            and existing.caption_source_xml_size is not None
+            and existing.caption_source_xml_mtime_ns is not None
         ):
             return replay
         updates = _file_event_updates(record, event, existing)
@@ -1213,4 +1379,26 @@ class JsonlJournal:
                     state, caption_status=existing.caption_status
                 )
         replay.files[fingerprint] = state
+        if event == 'source_deleted':
+            matching_intents = tuple(
+                intent for intent in replay.pending_deletions
+                if (
+                    intent.fingerprint == fingerprint
+                    and intent.original_path == record['path']
+                )
+            )
+            if len(matching_intents) > 1:
+                raise ValueError('source_deleted has ambiguous pending intents')
+            if matching_intents:
+                intent = matching_intents[0]
+                if intent.reason != record['reason']:
+                    raise ValueError('source_deleted reason conflicts with intent')
+                return replace(
+                    replay,
+                    pending_deletions=tuple(
+                        replace(item, source_deleted=True)
+                        if item is intent else item
+                        for item in replay.pending_deletions
+                    ),
+                )
         return replay

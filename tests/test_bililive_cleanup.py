@@ -4,12 +4,16 @@ from pathlib import Path
 
 import pytest
 
+import recorder.bililive.cleanup_fs as cleanup_fs_module
 from recorder.bililive.cleanup import (
     DISK_CLEANUP_THRESHOLD_PERCENT,
     StateAwareCleanup,
 )
+from recorder.bililive.cleanup_fs import RootDirectory, stat_identity
 from recorder.bililive.journal import JsonlJournal
+from recorder.bililive.journal import baseline_fingerprint
 from recorder.bililive.models import (
+    JournalDeleteIntent,
     JournalFileState,
     JournalManifest,
     JournalReplay,
@@ -26,13 +30,28 @@ def file_state(
     video,
     xml=None,
     *,
-    fingerprint='fp1',
+    fingerprint=None,
     event='file_ready',
     manifest_id=None,
     youtube_processed=False,
     caption_uploaded=False,
     video_id=None,
+    durable_identity=True,
 ):
+    video_path = Path(video)
+    file_stat = (
+        video_path.stat()
+        if durable_identity and video_path.is_file()
+        else None
+    )
+    if fingerprint is None:
+        fingerprint = (
+            baseline_fingerprint(
+                video_path, file_stat.st_size, file_stat.st_mtime_ns
+            )
+            if event == 'baseline' and file_stat is not None
+            else 'fp1'
+        )
     return JournalFileState(
         fingerprint=fingerprint,
         event=event,
@@ -42,6 +61,10 @@ def file_state(
         youtube_processed=youtube_processed,
         caption_uploaded=caption_uploaded,
         video_id=video_id,
+        source_size=file_stat.st_size if file_stat is not None else None,
+        source_mtime_ns=(
+            file_stat.st_mtime_ns if file_stat is not None else None
+        ),
     )
 
 
@@ -50,6 +73,7 @@ def session(state=SessionState.WAITING, paths=()):
         SessionState.SKIP_CURRENT_SESSION,
         SessionState.RECORDING,
         SessionState.SETTLING,
+        SessionState.READY,
     }
     return JournalSessionState(
         state=state,
@@ -129,6 +153,44 @@ class Usage:
         return self.values[0]
 
 
+class SimulatedCleanupCrash(RuntimeError):
+    pass
+
+
+class CrashJournal(JsonlJournal):
+    def __init__(self, path, *, before=None, after=None):
+        super().__init__(path)
+        self.before = before
+        self.after = after
+
+    def append(self, event, **fields):
+        if event == self.before:
+            raise SimulatedCleanupCrash(f'before {event}')
+        super().append(event, **fields)
+        if event == self.after:
+            raise SimulatedCleanupCrash(f'after {event}')
+
+
+class CountingJournal(JsonlJournal):
+    def __init__(self, path):
+        super().__init__(path)
+        self.replay_calls = 0
+
+    def replay(self):
+        self.replay_calls += 1
+        return super().replay()
+
+
+def baseline_journal(path, video):
+    file_stat = video.stat()
+    fingerprint = baseline_fingerprint(
+        video, file_stat.st_size, file_stat.st_mtime_ns
+    )
+    journal = JsonlJournal(path)
+    journal.append('baseline', fingerprint=fingerprint, file=str(video))
+    return journal, fingerprint
+
+
 def cleanup_for(tmp_path, states, usage, **replay_fields):
     journal = FakeJournal(replay(states, **replay_fields))
     cleanup = StateAwareCleanup(journal, tmp_path, usage)
@@ -154,14 +216,11 @@ def test_cleanup_deletes_processed_flv_but_retains_invalid_xml(tmp_path):
     assert result.protected == (xml,)
     assert result.disk_usage_percent == 84
     assert result.exhausted is False
-    assert journal.events == [(
-        'source_deleted',
-        {
-            'fingerprint': 'fp1',
-            'path': str(video),
-            'reason': 'disk usage at or above 85 percent',
-        },
-    )]
+    assert [event for event, _ in journal.events] == [
+        'source_delete_intent', 'source_deleted', 'quarantine_removed'
+    ]
+    assert journal.events[0][1]['original_path'] == str(video)
+    assert journal.events[1][1]['path'] == str(video)
 
 
 @pytest.mark.parametrize('event', [
@@ -273,8 +332,11 @@ def test_valid_journal_sequence_ending_ambiguous_protects_completed_flags(
 
 
 def append_processed_video(journal, video, xml):
+    file_stat = video.stat()
     journal.append(
-        'file_ready', fingerprint='fp1', file=str(video), xml_file=str(xml)
+        'file_ready', fingerprint='fp1', file=str(video), xml_file=str(xml),
+        source_size=file_stat.st_size,
+        source_mtime_ns=file_stat.st_mtime_ns,
     )
     journal.append('video_uploaded', fingerprint='fp1', video_id='yt123')
     journal.append('youtube_processed', fingerprint='fp1')
@@ -369,7 +431,7 @@ def append_processed_video(journal, video, xml):
             ('caption_source_frozen', {}),
             ('caption_uploaded', {}),
             ('caption_source_frozen', {}),
-        ), False),
+        ), True),
         ((
             ('caption_source_frozen', {}),
             ('caption_uploaded', {}),
@@ -467,10 +529,9 @@ def test_real_video_stage_final_events_protect_flv_and_xml(
 
 
 @pytest.mark.parametrize(
-    'event', ['baseline', 'ignored_invalid', 'ignored_tiny',
-              'ignored_invalid_tail']
+    'event', ['ignored_invalid', 'ignored_tiny', 'ignored_invalid_tail']
 )
-def test_real_baseline_and_ignored_final_events_are_cleanup_eligible(
+def test_real_ignored_final_event_only_deletes_identity_bound_video(
     tmp_path, event
 ):
     video = tmp_path / 'recording.flv'
@@ -478,17 +539,46 @@ def test_real_baseline_and_ignored_final_events_are_cleanup_eligible(
     video.write_bytes(b'video')
     xml.write_text('<i/>', encoding='utf8')
     journal = JsonlJournal(tmp_path / 'state.jsonl')
+    video_stat = video.stat()
     fields = {
         'fingerprint': 'fp1', 'file': str(video), 'xml_file': str(xml),
+        'source_size': video_stat.st_size,
+        'source_mtime_ns': video_stat.st_mtime_ns,
     }
-    if event.startswith('ignored_'):
-        fields['reason'] = 'classification policy'
+    fields['reason'] = 'classification policy'
     journal.append(event, **fields)
     state = journal.replay().files['fp1']
 
     result = StateAwareCleanup(
         journal, tmp_path, disk_usage=lambda path: 99
     ).run([state], dry_run=True)
+
+    assert result.deleted == (video,)
+    assert result.protected == (xml,)
+    assert result.exhausted is False
+
+
+def test_real_baseline_event_recomputes_each_source_identity(tmp_path):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    for path in (video, xml):
+        path_stat = path.stat()
+        journal.append(
+            'baseline',
+            fingerprint=baseline_fingerprint(
+                path, path_stat.st_size, path_stat.st_mtime_ns
+            ),
+            file=str(path),
+            source_size=path_stat.st_size,
+            source_mtime_ns=path_stat.st_mtime_ns,
+        )
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=lambda path: 99
+    ).run(journal.replay().files.values(), dry_run=True)
 
     assert set(result.deleted) == {video, xml}
     assert result.protected == ()
@@ -711,20 +801,20 @@ def test_cleanup_deletes_baseline_and_ignored_paths_oldest_first(tmp_path):
             fingerprint='ignored',
             event='ignored_tiny',
         ),
-        file_state(
-            old_video,
-            old_xml,
-            fingerprint='baseline',
-            event='baseline',
-        ),
+        file_state(old_video, event='baseline'),
+        file_state(old_xml, event='baseline'),
     ]
     journal, cleanup = cleanup_for(tmp_path, states, Usage(99, 99, 99, 84))
 
     result = cleanup.run(states, dry_run=False)
 
     assert result.deleted == (old_video, old_xml, new_video)
-    assert [fields['fingerprint'] for _, fields in journal.events] == [
-        'baseline', 'baseline', 'ignored'
+    deleted_events = [
+        fields for event, fields in journal.events
+        if event == 'source_deleted'
+    ]
+    assert [fields['path'] for fields in deleted_events] == [
+        str(old_video), str(old_xml), str(new_video)
     ]
 
 
@@ -750,7 +840,10 @@ def test_cleanup_deletes_caption_uploaded_xml_independently(tmp_path):
     assert not xml.exists()
     assert result.deleted == (xml,)
     assert result.protected == (video,)
-    assert journal.events[0][1]['path'] == str(xml)
+    assert [event for event, _ in journal.events] == [
+        'source_delete_intent', 'source_deleted', 'quarantine_removed'
+    ]
+    assert journal.events[1][1]['path'] == str(xml)
 
 
 def test_published_caption_without_durable_xml_identity_is_protected(tmp_path):
@@ -833,6 +926,7 @@ def test_changed_durable_caption_source_identity_is_protected(tmp_path):
     SessionState.SKIP_CURRENT_SESSION,
     SessionState.RECORDING,
     SessionState.SETTLING,
+    SessionState.READY,
 ])
 def test_current_session_overrides_older_baseline(active_state, tmp_path):
     video = tmp_path / 'recording.flv'
@@ -862,7 +956,7 @@ def test_dry_run_plans_candidates_without_unlinking_or_journaling(tmp_path):
     os.utime(first, ns=(1_700_000_000_000_000_000,) * 2)
     os.utime(second, ns=(1_700_000_010_000_000_000,) * 2)
     states = [
-        file_state(first, fingerprint='first', event='baseline'),
+        file_state(first, event='baseline'),
         file_state(second, fingerprint='second', event='ignored_tiny'),
     ]
     usage = Usage(90)
@@ -953,6 +1047,121 @@ def test_new_ready_state_for_same_path_overrides_old_processed_state(tmp_path):
     assert video.exists()
     assert result.protected == (video,)
     assert journal.events == []
+
+
+def test_cleanup_uses_replay_state_instead_of_stale_supplied_state(tmp_path):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'video')
+    replay_state = file_state(video, event='file_ready')
+    stale_state = replace(
+        replay_state,
+        event='youtube_processed',
+        youtube_processed=True,
+        video_id='yt-stale',
+    )
+    journal, cleanup = cleanup_for(tmp_path, [replay_state], Usage(99))
+
+    result = cleanup.run([stale_state], dry_run=False)
+
+    assert result.deleted == ()
+    assert result.protected == (video,)
+    assert video.exists()
+    assert journal.events == []
+
+
+def test_conflicting_processed_fingerprints_cannot_authorize_same_path(
+    tmp_path,
+):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'video')
+    states = [
+        file_state(
+            video, fingerprint='first', event='youtube_processed',
+            youtube_processed=True, video_id='yt-first',
+        ),
+        file_state(
+            video, fingerprint='second', event='youtube_processed',
+            youtube_processed=True, video_id='yt-second',
+        ),
+    ]
+    journal, cleanup = cleanup_for(tmp_path, states, Usage(99))
+
+    result = cleanup.run(states, dry_run=False)
+
+    assert result.deleted == ()
+    assert result.protected == (video,)
+    assert video.exists()
+    assert journal.events == []
+
+
+def test_changed_baseline_generation_is_protected(tmp_path):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'original')
+    original = video.stat()
+    state = file_state(
+        video,
+        fingerprint=baseline_fingerprint(
+            video, original.st_size, original.st_mtime_ns
+        ),
+        event='baseline',
+    )
+    video.write_bytes(b'changed generation')
+    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99))
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert result.deleted == ()
+    assert result.protected == (video,)
+    assert video.exists()
+    assert journal.events == []
+
+
+@pytest.mark.parametrize('event', ['ignored_tiny', 'youtube_processed'])
+def test_manifestless_nonbaseline_without_durable_identity_is_protected(
+    tmp_path, event
+):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'video')
+    state = file_state(
+        video,
+        event=event,
+        youtube_processed=event == 'youtube_processed',
+        video_id='yt123' if event == 'youtube_processed' else None,
+        durable_identity=False,
+    )
+    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99))
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert result.deleted == ()
+    assert result.protected == (video,)
+    assert video.exists()
+    assert journal.events == []
+
+
+@pytest.mark.parametrize('event', ['ignored_tiny', 'youtube_processed'])
+def test_manifestless_nonbaseline_with_durable_identity_is_eligible(
+    tmp_path, event
+):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'video')
+    file_stat = video.stat()
+    state = replace(
+        file_state(
+            video,
+            event=event,
+            youtube_processed=event == 'youtube_processed',
+            video_id='yt123' if event == 'youtube_processed' else None,
+        ),
+        source_size=file_stat.st_size,
+        source_mtime_ns=file_stat.st_mtime_ns,
+    )
+    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99, 84))
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert result.deleted == (video,)
+    assert not video.exists()
 
 
 def test_changed_frozen_source_is_protected_before_runner_invalidates_manifest(
@@ -1089,8 +1298,276 @@ def test_manifest_snapshot_with_unpaired_xml_protects_bound_sources(tmp_path):
     result = cleanup.run([state], dry_run=False)
 
     assert result.deleted == ()
-    assert set(result.protected) == {video, xml}
+    assert set(result.protected) == {
+        video, xml, unrelated_xml, unrelated_xml.with_suffix('.flv')
+    }
     assert video.exists() and xml.exists() and unrelated_xml.exists()
+    assert journal.events == []
+
+
+@pytest.mark.parametrize(
+    'corruption',
+    [
+        'non_boolean_manifest_flag',
+        'replacement_room_mismatch',
+        'missing_replacement',
+        'replacement_cycle',
+        'missing_pending_source',
+        'duplicate_pending_source',
+        'invalid_manifest_id',
+        'invalid_manifest_timestamp',
+        'pending_noninvalid_source',
+        'invalid_session_room',
+        'unsupported_session_state',
+        'stale_idle_session',
+        'incomplete_active_session',
+    ],
+)
+def test_corrupt_control_graph_globally_protects_sources(
+    tmp_path, corruption
+):
+    video = tmp_path / 'eligible.flv'
+    controlled = tmp_path / 'controlled.flv'
+    video.write_bytes(b'eligible')
+    controlled.write_bytes(b'controlled')
+    state = file_state(video, event='baseline')
+    old = manifest(
+        'old', (controlled,), invalidated=True,
+        replacement_manifest_id='replacement',
+    )
+    replacement = manifest('replacement', (controlled,), completed=True)
+    manifests = (old, replacement)
+    pending = ()
+    current_session = session()
+
+    if corruption == 'non_boolean_manifest_flag':
+        manifests = (replace(replacement, completed=1),)
+    elif corruption == 'replacement_room_mismatch':
+        manifests = (old, replace(replacement, room_id=123))
+    elif corruption == 'missing_replacement':
+        manifests = (old,)
+    elif corruption == 'replacement_cycle':
+        manifests = (
+            old,
+            replace(
+                replacement, completed=False, invalidated=True,
+                invalidated_at=NOW, invalidation_reason='changed again',
+                changed_paths=(str(controlled),),
+                replacement_manifest_id='old',
+            ),
+        )
+    elif corruption == 'missing_pending_source':
+        manifests = (replacement,)
+        pending = (JournalResettleRequest(
+            source_manifest_id='missing', settled_at=NOW,
+            detected_at=NOW, reason='source changed',
+            changed_paths=(str(controlled),),
+        ),)
+    elif corruption == 'duplicate_pending_source':
+        unclaimed = replace(old, replacement_manifest_id=None)
+        request = JournalResettleRequest(
+            source_manifest_id='old', settled_at=NOW,
+            detected_at=NOW, reason='source changed',
+            changed_paths=(str(controlled),),
+        )
+        manifests = (unclaimed,)
+        pending = (request, request)
+    elif corruption == 'invalid_manifest_id':
+        manifests = (replace(replacement, manifest_id=''),)
+    elif corruption == 'invalid_manifest_timestamp':
+        manifests = (replace(replacement, settled_at='not-a-timestamp'),)
+    elif corruption == 'pending_noninvalid_source':
+        manifests = (replace(replacement, completed=False),)
+        pending = (JournalResettleRequest(
+            source_manifest_id='replacement', settled_at=NOW,
+            detected_at=NOW, reason='source changed',
+            changed_paths=(str(controlled),),
+        ),)
+    elif corruption == 'invalid_session_room':
+        manifests = ()
+        current_session = replace(session(), room_id=True)
+    elif corruption == 'unsupported_session_state':
+        manifests = ()
+        current_session = replace(
+            session(), state=SessionState.PUBLISHING
+        )
+    elif corruption == 'stale_idle_session':
+        manifests = ()
+        current_session = replace(
+            session(), session_id='stale', session_paths=(str(video),),
+            quiet_since=NOW, started_at=NOW,
+        )
+    elif corruption == 'incomplete_active_session':
+        manifests = ()
+        current_session = replace(
+            session(SessionState.RECORDING, (video,)), session_id=None
+        )
+
+    journal, cleanup = cleanup_for(
+        tmp_path, [state], Usage(99), manifests=manifests,
+        pending=pending, current_session=current_session,
+    )
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert video.exists()
+    assert video in result.protected
+    assert result.deleted == ()
+    assert journal.events == []
+
+
+def test_corrupt_control_graph_blocks_pending_reconciliation_below_threshold(
+    tmp_path,
+):
+    video = tmp_path / 'pending.flv'
+    video.write_bytes(b'pending')
+    state = file_state(video, event='baseline')
+    file_stat = video.stat()
+    intent = JournalDeleteIntent(
+        fingerprint=state.fingerprint,
+        original_path=str(video),
+        quarantine_path='.bililive-cleanup-quarantine/pending',
+        dev=file_stat.st_dev,
+        ino=file_stat.st_ino,
+        size=file_stat.st_size,
+        mtime_ns=file_stat.st_mtime_ns,
+        reason='disk pressure',
+    )
+    current_replay = replay(
+        (state,), current_session=replace(session(), room_id=True)
+    )
+    current_replay = replace(
+        current_replay, pending_deletions=(intent,)
+    )
+    journal = FakeJournal(current_replay)
+    cleanup = StateAwareCleanup(journal, tmp_path, disk_usage=Usage(1))
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert video.exists()
+    assert result.deleted == ()
+    assert video in result.protected
+    assert journal.events == []
+
+
+def test_pending_reconciliation_requires_unique_replay_path_owner(tmp_path):
+    video = tmp_path / 'pending.flv'
+    video.write_bytes(b'pending')
+    owner = file_state(video, event='baseline')
+    conflicting = file_state(
+        video, fingerprint='other-generation', event='ignored_tiny'
+    )
+    file_stat = video.stat()
+    intent = JournalDeleteIntent(
+        fingerprint=owner.fingerprint,
+        original_path=str(video),
+        quarantine_path='.bililive-cleanup-quarantine/pending',
+        dev=file_stat.st_dev,
+        ino=file_stat.st_ino,
+        size=file_stat.st_size,
+        mtime_ns=file_stat.st_mtime_ns,
+        reason='disk pressure',
+    )
+    current_replay = replace(
+        replay((owner, conflicting)), pending_deletions=(intent,)
+    )
+    journal = FakeJournal(current_replay)
+    cleanup = StateAwareCleanup(journal, tmp_path, disk_usage=Usage(1))
+
+    result = cleanup.run([owner], dry_run=False)
+
+    assert video.exists()
+    assert result.deleted == ()
+    assert video in result.protected
+    assert journal.events == []
+
+
+def test_pending_phase_must_match_source_deleted_tombstone(tmp_path):
+    video = tmp_path / 'pending.flv'
+    video.write_bytes(b'pending')
+    owner = file_state(video, event='baseline')
+    file_stat = video.stat()
+    owner = replace(owner, deleted_paths=(str(video),))
+    intent = JournalDeleteIntent(
+        fingerprint=owner.fingerprint,
+        original_path=str(video),
+        quarantine_path='.bililive-cleanup-quarantine/pending',
+        dev=file_stat.st_dev,
+        ino=file_stat.st_ino,
+        size=file_stat.st_size,
+        mtime_ns=file_stat.st_mtime_ns,
+        reason='disk pressure',
+        source_deleted=False,
+    )
+    current_replay = replace(
+        replay((owner,)), pending_deletions=(intent,)
+    )
+    journal = FakeJournal(current_replay)
+    cleanup = StateAwareCleanup(journal, tmp_path, disk_usage=Usage(1))
+
+    result = cleanup.run([owner], dry_run=False)
+
+    assert video.exists()
+    assert result.deleted == ()
+    assert video in result.protected
+    assert journal.events == []
+
+
+def test_quarantine_rename_never_replaces_existing_entry(tmp_path):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'video')
+    file_stat = video.stat()
+    quarantine = tmp_path / '.bililive-cleanup-quarantine'
+    quarantine.mkdir(mode=0o700)
+    occupied = quarantine / 'occupied'
+    occupied.write_bytes(b'unjournaled')
+
+    with RootDirectory(tmp_path) as root_directory:
+        with pytest.raises(OSError):
+            root_directory.rename_to_quarantine(
+                video,
+                '.bililive-cleanup-quarantine/occupied',
+                stat_identity(file_stat),
+            )
+
+    assert video.read_bytes() == b'video'
+    assert occupied.read_bytes() == b'unjournaled'
+
+
+def test_quarantine_directory_must_belong_to_effective_user(
+    tmp_path, monkeypatch
+):
+    quarantine = tmp_path / '.bililive-cleanup-quarantine'
+    quarantine.mkdir(mode=0o700)
+    actual_uid = quarantine.stat().st_uid
+    monkeypatch.setattr(
+        cleanup_fs_module.os, 'geteuid', lambda: actual_uid + 1
+    )
+
+    with RootDirectory(tmp_path) as root_directory:
+        with pytest.raises(OSError, match='unsafe cleanup quarantine'):
+            root_directory.ensure_quarantine()
+
+
+def test_manifest_bound_baseline_still_requires_exact_baseline_fingerprint(
+    tmp_path,
+):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'video')
+    frozen = manifest('session-1', (video,))
+    state = file_state(
+        video, fingerprint='stale-baseline', event='baseline',
+        manifest_id='session-1',
+    )
+    journal, cleanup = cleanup_for(
+        tmp_path, [state], Usage(99), manifests=(frozen,)
+    )
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert video.exists()
+    assert result.deleted == ()
+    assert video in result.protected
     assert journal.events == []
 
 
@@ -1109,18 +1586,12 @@ def test_lexically_equivalent_file_and_xml_binding_remains_eligible(tmp_path):
 
     result = cleanup.run([state], dry_run=False)
 
-    assert result.deleted == (video, xml)
-    assert result.protected == ()
-    assert journal.events == [
-        ('source_deleted', {
-            'fingerprint': 'fp1', 'path': str(video),
-            'reason': 'disk usage at or above 85 percent',
-        }),
-        ('source_deleted', {
-            'fingerprint': 'fp1', 'path': str(xml),
-            'reason': 'disk usage at or above 85 percent',
-        }),
+    assert result.deleted == (video,)
+    assert result.protected == (xml,)
+    assert [event for event, _ in journal.events] == [
+        'source_delete_intent', 'source_deleted', 'quarantine_removed',
     ]
+    assert journal.events[1][1]['path'] == str(video)
 
 
 def test_xml_binding_does_not_follow_symlinked_parent(tmp_path):
@@ -1297,8 +1768,8 @@ def test_cleanup_stops_after_usage_falls_below_threshold(tmp_path):
     os.utime(old, ns=(1_700_000_000_000_000_000,) * 2)
     os.utime(newer, ns=(1_700_000_010_000_000_000,) * 2)
     states = [
-        file_state(old, fingerprint='old', event='baseline'),
-        file_state(newer, fingerprint='new', event='baseline'),
+        file_state(old, event='baseline'),
+        file_state(newer, event='baseline'),
     ]
     _, cleanup = cleanup_for(tmp_path, states, Usage(90, 84))
 
@@ -1309,7 +1780,7 @@ def test_cleanup_stops_after_usage_falls_below_threshold(tmp_path):
     assert result.disk_usage_percent == 84
 
 
-def test_flv_and_xml_deletion_remain_independent_after_unlink_error(
+def test_cleanup_never_uses_path_unlink(
     tmp_path, monkeypatch
 ):
     video = tmp_path / 'recording.flv'
@@ -1325,17 +1796,139 @@ def test_flv_and_xml_deletion_remain_independent_after_unlink_error(
         video_id='yt123',
     )
     journal, cleanup = cleanup_for(tmp_path, [state], Usage(99))
-    original_unlink = Path.unlink
+    monkeypatch.setattr(
+        Path,
+        'unlink',
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError('Path.unlink must not be used')
+        ),
+    )
 
-    def fail_video(path, *args, **kwargs):
-        if path == video:
-            raise PermissionError('busy')
-        return original_unlink(path, *args, **kwargs)
+    result = cleanup.run([state], dry_run=False)
 
-    monkeypatch.setattr(Path, 'unlink', fail_video)
+    assert result.deleted == (video,)
+    assert not video.exists() and xml.exists()
 
-    with pytest.raises(PermissionError, match='busy'):
-        cleanup.run([state], dry_run=False)
 
-    assert video.exists() and xml.exists()
+def test_cleanup_never_removes_multiply_linked_source(tmp_path):
+    video = tmp_path / 'recording.flv'
+    other_link = tmp_path / 'other-link.flv'
+    video.write_bytes(b'video')
+    other_link.hardlink_to(video)
+    file_stat = video.stat()
+    state = file_state(
+        video,
+        fingerprint=baseline_fingerprint(
+            video, file_stat.st_size, file_stat.st_mtime_ns
+        ),
+        event='baseline',
+    )
+    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99))
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert result.deleted == ()
+    assert result.protected == (video,)
+    assert video.exists() and other_link.exists()
     assert journal.events == []
+
+
+def test_parent_symlink_swap_after_identity_check_cannot_escape_root(
+    tmp_path, monkeypatch
+):
+    source_parent = tmp_path / 'source'
+    source_parent.mkdir()
+    moved_parent = tmp_path / 'moved-source'
+    outside_parent = tmp_path.parent / f'{tmp_path.name}-outside'
+    outside_parent.mkdir()
+    video = source_parent / 'recording.flv'
+    outside_video = outside_parent / video.name
+    video.write_bytes(b'inside')
+    outside_video.write_bytes(b'outside')
+    file_stat = video.stat()
+    state = file_state(
+        video,
+        fingerprint=baseline_fingerprint(
+            video, file_stat.st_size, file_stat.st_mtime_ns
+        ),
+        event='baseline',
+    )
+    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99))
+    original_identity = cleanup._stat_identity
+    identity_calls = 0
+
+    def swap_after_final_identity(stat_result):
+        nonlocal identity_calls
+        identity = original_identity(stat_result)
+        identity_calls += 1
+        if identity_calls == 2:
+            source_parent.rename(moved_parent)
+            source_parent.symlink_to(outside_parent, target_is_directory=True)
+        return identity
+
+    monkeypatch.setattr(cleanup, '_stat_identity', swap_after_final_identity)
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert result.deleted == ()
+    assert video in result.protected
+    assert outside_video.read_bytes() == b'outside'
+    assert (moved_parent / video.name).read_bytes() == b'inside'
+    assert [event for event, _ in journal.events] == [
+        'source_delete_intent'
+    ]
+
+
+@pytest.mark.parametrize(
+    ('before_event', 'after_event', 'expected_phase'),
+    [
+        (None, 'source_delete_intent', 'intent'),
+        ('source_deleted', None, 'renamed'),
+        (None, 'source_deleted', 'deleted-recorded'),
+        ('quarantine_removed', None, 'quarantine-unlinked'),
+    ],
+)
+def test_cleanup_reconciles_every_quarantine_crash_window_below_threshold(
+    tmp_path, before_event, after_event, expected_phase
+):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'video')
+    journal_path = tmp_path / 'state.jsonl'
+    _, fingerprint = baseline_journal(journal_path, video)
+    crashing = CrashJournal(
+        journal_path, before=before_event, after=after_event
+    )
+
+    with pytest.raises(SimulatedCleanupCrash):
+        StateAwareCleanup(
+            crashing, tmp_path, disk_usage=lambda path: 99
+        ).run(crashing.replay().files.values(), dry_run=False)
+
+    replay = JsonlJournal(journal_path).replay()
+    assert len(replay.pending_deletions) == 1
+    intent = replay.pending_deletions[0]
+    quarantine = tmp_path / intent.quarantine_path
+    if expected_phase == 'intent':
+        assert video.exists() and not quarantine.exists()
+        assert intent.source_deleted is False
+    elif expected_phase == 'renamed':
+        assert not video.exists() and quarantine.exists()
+        assert intent.source_deleted is False
+    elif expected_phase == 'deleted-recorded':
+        assert not video.exists() and quarantine.exists()
+        assert intent.source_deleted is True
+    else:
+        assert not video.exists() and not quarantine.exists()
+        assert intent.source_deleted is True
+
+    recovery_journal = CountingJournal(journal_path)
+    recovered = StateAwareCleanup(
+        recovery_journal, tmp_path, disk_usage=lambda path: 1
+    ).run((), dry_run=False)
+
+    replay = JsonlJournal(journal_path).replay()
+    assert replay.pending_deletions == ()
+    assert replay.files[fingerprint].deleted_paths == (str(video),)
+    assert not video.exists() and not quarantine.exists()
+    assert recovery_journal.replay_calls == 1
+    assert recovered.disk_usage_percent == 1

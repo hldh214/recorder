@@ -153,6 +153,23 @@ def append_unclassified_manifest(journal, manifest_id, classified, settled_at=NO
     )
 
 
+def test_runner_classification_persists_source_generation_identity(tmp_path):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    classified = ready_media(tmp_path)
+    runner = BililivePublishRunner(
+        journal=journal,
+        publisher=FailIfCalledPublisher(),
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+    )
+
+    runner._append_classification(classified, 'session-1')
+
+    state = journal.replay().files[classified.media.fingerprint]
+    assert state.source_size == classified.media.size
+    assert state.source_mtime_ns == classified.media.mtime_ns
+
+
 def journal_events(path):
     return [json.loads(line)['event'] for line in path.read_text().splitlines()]
 

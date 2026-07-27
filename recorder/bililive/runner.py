@@ -707,6 +707,8 @@ class BililivePublishRunner:
             'stream_title': media.stream_title,
             'start_time': media.start_time.isoformat(),
             'duration': media.duration,
+            'source_size': media.size,
+            'source_mtime_ns': media.mtime_ns,
             'caption_status': (
                 'pending' if classified.status == 'ready' else 'not_requested'
             ),

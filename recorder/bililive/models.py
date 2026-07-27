@@ -60,6 +60,8 @@ class JournalFileState:
     stream_title: str | None = None
     start_time: str | None = None
     duration: float | None = None
+    source_size: int | None = None
+    source_mtime_ns: int | None = None
     video_id: str | None = None
     caption_status: str | None = None
     caption_source_xml_size: int | None = None
@@ -142,16 +144,33 @@ class JournalResettleRequest:
 
 
 @dataclass(frozen=True)
+class JournalDeleteIntent:
+    fingerprint: str
+    original_path: str
+    quarantine_path: str
+    dev: int
+    ino: int
+    size: int
+    mtime_ns: int
+    reason: str
+    source_deleted: bool = False
+
+
+@dataclass(frozen=True)
 class JournalReplay:
     files: Mapping[str, JournalFileState]
     manifests: tuple[JournalManifest, ...]
     session: JournalSessionState
     initialized: bool
     pending_resettles: tuple[JournalResettleRequest, ...] = ()
+    pending_deletions: tuple[JournalDeleteIntent, ...] = ()
 
     def __post_init__(self):
         object.__setattr__(self, 'files', MappingProxyType(dict(self.files)))
         object.__setattr__(self, 'manifests', tuple(self.manifests))
         object.__setattr__(
             self, 'pending_resettles', tuple(self.pending_resettles)
+        )
+        object.__setattr__(
+            self, 'pending_deletions', tuple(self.pending_deletions)
         )
