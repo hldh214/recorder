@@ -153,7 +153,10 @@ def test_process_upload_file_without_video_id_preserves_upload_artifacts(tmp_pat
     assert metadata_path.exists()
     assert caption_path.exists()
     assert not (tmp_path / 'videos' / 'validate').exists()
-    assert 'YouTube publication failed' not in caplog.text
+    assert (
+        'YouTube publication failed (quota_exceeded) at video: '
+        'YouTube API quota exceeded'
+    ) in caplog.messages
 
 
 @pytest.mark.parametrize('status', [PublishStatus.RETRYABLE, PublishStatus.FATAL])
@@ -191,6 +194,80 @@ def test_process_upload_file_logs_failed_result_without_mutating_artifacts(
     assert not (tmp_path / 'videos' / 'validate').exists()
 
 
+@pytest.mark.parametrize(
+    ('status', 'stage', 'message'),
+    [
+        (PublishStatus.RETRYABLE, 'caption', 'caption transport failed'),
+        (PublishStatus.QUOTA_EXCEEDED, 'caption', 'caption quota exceeded'),
+        (PublishStatus.FATAL, 'playlist', 'playlist rejected'),
+    ],
+)
+def test_process_upload_file_logs_post_upload_failure_and_preserves_move_lifecycle(
+    tmp_path,
+    monkeypatch,
+    caplog,
+    status,
+    stage,
+    message,
+):
+    config = make_config(tmp_path)
+    video_path = make_upload_video(tmp_path)
+    metadata_path = metadata_path_for(video_path)
+    metadata_path.parent.mkdir(parents=True)
+    metadata_path.write_text(json.dumps({'title': 'Stream title'}), encoding='utf8')
+    publish_result = PublishResult(
+        status,
+        video_id='yt123',
+        video_uploaded=True,
+        error_stage=stage,
+        error_message=message,
+    )
+    publisher = SimpleNamespace(publish_video=lambda *args, **kwargs: publish_result)
+    monkeypatch.setattr(app, 'YoutubePublishService', lambda *args: publisher)
+    monkeypatch.setattr(app, 'bilibili_danmaku_mongo', None)
+    monkeypatch.setattr(app.ffmpeg, 'calc_end_time', lambda *args: '2026-07-27 19:00:00')
+    monkeypatch.setattr(app, 'video_name_sep', '__')
+    caplog.set_level(logging.INFO, logger='recorder')
+
+    result = app.process_upload_file(config, object(), str(video_path))
+
+    validate_path = (
+        tmp_path / 'videos' / 'validate' / 'bilibili' / 'alice'
+        / 'yt123__2026-07-27 18:00:00.mp4'
+    )
+    assert result is publish_result
+    assert (
+        f'YouTube publication failed ({status.value}) at {stage}: {message}'
+        in caplog.messages
+    )
+    assert validate_path.read_bytes() == b'original-video'
+    assert not metadata_path.exists()
+
+
+def test_process_upload_file_logs_completed_caption_and_playlist_stages(tmp_path, monkeypatch, caplog):
+    config = make_config(tmp_path)
+    config['source']['alice']['playlist_id'] = 'PL123'
+    video_path = make_upload_video(tmp_path)
+    publish_result = PublishResult(
+        PublishStatus.COMPLETE,
+        video_id='yt123',
+        video_uploaded=True,
+        caption_uploaded=True,
+        playlist_inserted=True,
+        youtube_processed=True,
+    )
+    publisher = SimpleNamespace(publish_video=lambda *args, **kwargs: publish_result)
+    monkeypatch.setattr(app, 'YoutubePublishService', lambda *args: publisher)
+    monkeypatch.setattr(app, 'bilibili_danmaku_mongo', None)
+    monkeypatch.setattr(app.ffmpeg, 'calc_end_time', lambda *args: '2026-07-27 19:00:00')
+    caplog.set_level(logging.INFO, logger='recorder')
+
+    app.process_upload_file(config, object(), str(video_path))
+
+    assert any('caption publication complete' in message for message in caplog.messages)
+    assert any('playlist publication complete' in message for message in caplog.messages)
+
+
 def test_process_upload_file_uses_bilibili_tag_title_fallback(tmp_path, monkeypatch):
     config = make_config(tmp_path)
     video_path = make_upload_video(tmp_path)
@@ -204,20 +281,73 @@ def test_process_upload_file_uses_bilibili_tag_title_fallback(tmp_path, monkeypa
     assert youtube.upload_calls[0][1] == 'Live 2026-07-27 18:00:00: Tagged title'
 
 
-def test_upload_thread_sleeps_for_quota_result_and_poll_interval(monkeypatch):
+@pytest.mark.parametrize(
+    ('result', 'expected_sleeps', 'quota_warning'),
+    [
+        pytest.param(
+            PublishResult(PublishStatus.QUOTA_EXCEEDED, error_stage='video'),
+            [99, 5],
+            True,
+            id='video-quota-without-id',
+        ),
+        pytest.param(
+            PublishResult(
+                PublishStatus.QUOTA_EXCEEDED,
+                video_id='yt123',
+                video_uploaded=True,
+                error_stage='caption',
+            ),
+            [5],
+            False,
+            id='caption-quota-with-id',
+        ),
+        pytest.param(
+            PublishResult(
+                PublishStatus.QUOTA_EXCEEDED,
+                video_id='yt123',
+                video_uploaded=True,
+                error_stage='processing',
+            ),
+            [5],
+            False,
+            id='processing-quota-with-id',
+        ),
+        pytest.param(
+            PublishResult(PublishStatus.RETRYABLE, error_stage='video'),
+            [5, 5],
+            False,
+            id='retryable-video-without-id',
+        ),
+    ],
+)
+def test_upload_thread_applies_stage_specific_sleep(
+    monkeypatch,
+    caplog,
+    result,
+    expected_sleeps,
+    quota_warning,
+):
     sleeps = []
-    quota_result = PublishResult(PublishStatus.QUOTA_EXCEEDED)
+    process_calls = []
     monkeypatch.setattr(app.glob, 'glob', lambda pattern: ['/tmp/video.mp4'])
-    monkeypatch.setattr(app, 'process_upload_file', lambda *args: quota_result)
+
+    def process(*args):
+        process_calls.append(args)
+        return result
+
+    monkeypatch.setattr(app, 'process_upload_file', process)
 
     def sleep(seconds):
         sleeps.append(seconds)
-        if seconds == 5:
+        if len(sleeps) == len(expected_sleeps):
             raise RuntimeError('stop loop')
 
     monkeypatch.setattr(app.time, 'sleep', sleep)
+    caplog.set_level(logging.WARNING, logger='recorder')
 
     with pytest.raises(RuntimeError, match='stop loop'):
         app.upload_thread({'app': {'video_path': '/tmp'}}, object(), interval=5, quota_exceeded_sleep=99)
 
-    assert sleeps == [99, 5]
+    assert len(process_calls) == 1
+    assert sleeps == expected_sleeps
+    assert any('quota exceeded, sleep 99 secs' in message for message in caplog.messages) is quota_warning

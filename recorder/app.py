@@ -185,7 +185,8 @@ def process_upload_file(config, youtube, video_path):
 
     stream_title = None
     if os.path.exists(metadata_path):
-        metadata = json.load(open(metadata_path))
+        with open(metadata_path, encoding='utf8') as metadata_file:
+            metadata = json.load(metadata_file)
         if metadata.get('title'):
             stream_title = metadata['title']
     if source_type == 'bilibili' and not stream_title:
@@ -255,15 +256,23 @@ def process_upload_file(config, youtube, video_path):
         caption=caption,
     )
 
+    if result.status not in (PublishStatus.COMPLETE, PublishStatus.PENDING):
+        logger.warning(
+            f'YouTube publication failed ({result.status.value}) at '
+            f'{result.error_stage}: {result.error_message}'
+        )
+
     if not result.video_id:
-        if result.status in (PublishStatus.RETRYABLE, PublishStatus.FATAL):
-            logger.warning(
-                f'YouTube publication failed ({result.status.value}) at '
-                f'{result.error_stage}: {result.error_message}'
-            )
         return result
 
     logger.info(f'uploaded: {video_path} -> {result.video_id}')
+    if result.caption_uploaded:
+        logger.info(f'caption publication complete: {vtt_caption_path} -> {result.video_id}')
+    if result.playlist_inserted:
+        logger.info(
+            f'playlist publication complete: {result.video_id} -> '
+            f'{current_config.get("playlist_id")}'
+        )
     if os.path.exists(metadata_path):
         os.unlink(metadata_path)
 
@@ -282,9 +291,21 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
 
         for video_path in videos:
             result = process_upload_file(config, youtube, video_path)
-            if result.status is PublishStatus.QUOTA_EXCEEDED:
+            if (
+                result.status is PublishStatus.QUOTA_EXCEEDED
+                and result.error_stage == 'video'
+                and not result.video_id
+            ):
                 logger.warning(f'quota exceeded, sleep {quota_exceeded_sleep} secs')
                 time.sleep(quota_exceeded_sleep)
+                continue
+            if (
+                result.status is PublishStatus.RETRYABLE
+                and result.error_stage == 'video'
+                and not result.video_id
+            ):
+                time.sleep(interval)
+                continue
 
         time.sleep(interval)
 
