@@ -256,6 +256,11 @@ def process_upload_file(config, youtube, video_path):
     )
 
     if not result.video_id:
+        if result.status in (PublishStatus.RETRYABLE, PublishStatus.FATAL):
+            logger.warning(
+                f'YouTube publication failed ({result.status.value}) at '
+                f'{result.error_stage}: {result.error_message}'
+            )
         return result
 
     logger.info(f'uploaded: {video_path} -> {result.video_id}')

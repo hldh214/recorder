@@ -1,4 +1,5 @@
 import json
+import logging
 from types import SimpleNamespace
 
 import pytest
@@ -127,7 +128,7 @@ def test_process_upload_file_adapts_bilibili_caption_and_moves_source(tmp_path, 
     )]
 
 
-def test_process_upload_file_without_video_id_preserves_upload_artifacts(tmp_path, monkeypatch):
+def test_process_upload_file_without_video_id_preserves_upload_artifacts(tmp_path, monkeypatch, caplog):
     config = make_config(tmp_path)
     video_path = make_upload_video(tmp_path)
     metadata_path = metadata_path_for(video_path)
@@ -142,6 +143,7 @@ def test_process_upload_file_without_video_id_preserves_upload_artifacts(tmp_pat
     monkeypatch.setattr(app, 'bilibili_danmaku_mongo', None)
     monkeypatch.setattr(app.ffmpeg, 'calc_end_time', lambda *args: '2026-07-27 19:00:00')
     monkeypatch.setattr(app.ffmpeg, 'get_bilibili_title', lambda path: None)
+    caplog.set_level(logging.WARNING, logger='recorder')
 
     result = app.process_upload_file(config, FakeYoutube(upload_result=None), str(video_path))
 
@@ -150,6 +152,42 @@ def test_process_upload_file_without_video_id_preserves_upload_artifacts(tmp_pat
     assert video_path.read_bytes() == b'original-video'
     assert metadata_path.exists()
     assert caption_path.exists()
+    assert not (tmp_path / 'videos' / 'validate').exists()
+    assert 'YouTube publication failed' not in caplog.text
+
+
+@pytest.mark.parametrize('status', [PublishStatus.RETRYABLE, PublishStatus.FATAL])
+def test_process_upload_file_logs_failed_result_without_mutating_artifacts(
+    tmp_path,
+    monkeypatch,
+    caplog,
+    status,
+):
+    config = make_config(tmp_path)
+    video_path = make_upload_video(tmp_path)
+    metadata_path = metadata_path_for(video_path)
+    metadata_path.parent.mkdir(parents=True)
+    metadata_path.write_text(json.dumps({'title': 'Stream title'}), encoding='utf8')
+    publish_result = PublishResult(
+        status,
+        error_stage='video',
+        error_message='connection lost',
+    )
+    publisher = SimpleNamespace(publish_video=lambda *args, **kwargs: publish_result)
+    monkeypatch.setattr(app, 'YoutubePublishService', lambda *args: publisher)
+    monkeypatch.setattr(app, 'bilibili_danmaku_mongo', None)
+    monkeypatch.setattr(app.ffmpeg, 'calc_end_time', lambda *args: '2026-07-27 19:00:00')
+    caplog.set_level(logging.WARNING, logger='recorder')
+
+    result = app.process_upload_file(config, object(), str(video_path))
+
+    assert result is publish_result
+    assert (
+        f'YouTube publication failed ({status.value}) at video: connection lost'
+        in caplog.messages
+    )
+    assert video_path.read_bytes() == b'original-video'
+    assert metadata_path.exists()
     assert not (tmp_path / 'videos' / 'validate').exists()
 
 
