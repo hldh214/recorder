@@ -654,6 +654,43 @@ def test_unpublished_ignored_state_can_be_reclassified_in_replacement(
         assert state.reason == 'replacement classification'
 
 
+@pytest.mark.parametrize(
+    ('initial_event', 'publication_events'),
+    [
+        ('file_ready', ()),
+        ('ignored_tiny', ()),
+        ('file_ready', (('video_uploaded', {'video_id': 'yt123'}),)),
+        ('file_ready', (('upload_started', {
+            'file': '/recording/video.flv',
+            'xml_file': '/recording/video.xml',
+            'title': 'title', 'duration': 3600,
+            'description_fingerprint': 'description',
+            'upload_started_at': '2026-07-27T12:01:00+00:00',
+            'attempt': 1,
+        }),)),
+        ('file_ready', (
+            ('video_uploaded', {'video_id': 'yt123'}),
+            ('caption_uploaded', {}),
+        )),
+    ],
+)
+def test_xml_migration_without_durable_remote_caption_uses_normal_caption_path(
+    tmp_path, initial_event, publication_events,
+):
+    state = _append_single_file_replacement(
+        JsonlJournal(tmp_path / 'state.jsonl'),
+        initial_event=initial_event,
+        replacement_event='file_ready',
+        old_xml=(10, 1),
+        new_xml=(20, 2),
+        publication_events=publication_events,
+    )
+
+    assert state.caption_uploaded is False
+    assert state.caption_refresh_required is False
+    assert state.caption_status == 'pending'
+
+
 def test_manifest_migration_follows_multiple_exact_replacement_links(tmp_path):
     journal = JsonlJournal(tmp_path / 'state.jsonl')
     video = '/recording/video.flv'

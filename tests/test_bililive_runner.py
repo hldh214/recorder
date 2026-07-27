@@ -1506,6 +1506,11 @@ def test_replacement_reconciles_unresolved_upload_without_reupload(tmp_path):
         description_fingerprint='description-fingerprint',
         upload_started_at=(NOW + timedelta(minutes=1)).isoformat(), attempt=1,
     )
+    classified.media.xml_path.write_text('<i><d>changed</d></i>')
+    replacement_snapshot = dict(snapshot)
+    replacement_snapshot[str(classified.media.xml_path)] = identity(
+        classified.media.xml_path
+    )
     journal.append(
         'session_manifest_changed', manifest_id='old-session',
         detected_at=(NOW + timedelta(minutes=5)).isoformat(),
@@ -1513,13 +1518,14 @@ def test_replacement_reconciles_unresolved_upload_without_reupload(tmp_path):
     )
     journal.append(
         'session_state', room_id=ROOM_ID, state='waiting', session_id=None,
-        session_paths=(), snapshot=snapshot, quiet_since=None,
+        session_paths=(), snapshot=replacement_snapshot, quiet_since=None,
         started_at=None,
     )
     journal.append(
         'session_resettle_started', source_manifest_id='old-session',
         replacement_manifest_id='replacement-session', room_id=ROOM_ID,
-        state='settling', session_paths=tuple(snapshot), snapshot=snapshot,
+        state='settling', session_paths=tuple(replacement_snapshot),
+        snapshot=replacement_snapshot,
         quiet_since=(NOW + timedelta(minutes=10)).isoformat(),
         started_at=(NOW - timedelta(hours=1)).isoformat(),
     )
@@ -1528,7 +1534,7 @@ def test_replacement_reconciles_unresolved_upload_without_reupload(tmp_path):
         room_id=ROOM_ID,
         started_at=(NOW - timedelta(hours=1)).isoformat(),
         settled_at=(NOW + timedelta(minutes=40)).isoformat(),
-        flv_paths=(str(classified.media.path),), snapshot=snapshot,
+        flv_paths=(str(classified.media.path),), snapshot=replacement_snapshot,
     )
     publisher = FakePublisher([publish_result(video_id='yt-reconciled')])
     recent_calls = []
@@ -1554,6 +1560,7 @@ def test_replacement_reconciles_unresolved_upload_without_reupload(tmp_path):
     assert recent_calls == [True]
     assert len(publisher.calls) == 1
     assert publisher.calls[0]['checkpoint'].video_id == 'yt-reconciled'
+    assert publisher.calls[0]['checkpoint'].caption_refresh_required is False
     assert publisher.calls[0]['before_video_upload'] is None
     assert journal_events(journal.path).count('upload_started') == 1
     assert journal.replay().files['fp1'].video_id == 'yt-reconciled'
@@ -1633,22 +1640,21 @@ def test_ignored_fragment_reclassification_does_not_block_ready_peer(tmp_path):
         flv_paths=(str(ignored_ready.media.path), str(peer.media.path)),
         snapshot=replacement_snapshot,
     )
-    ignored = ClassifiedMedia(
-        media=ignored_ready.media, status='ignored_invalid_tail',
-        reason='still ignored', is_tail=True,
+    reclassified_ready = ClassifiedMedia(
+        media=ignored_ready.media, status='ready', reason='now ready'
     )
     media_by_path = {
         str(ignored_ready.media.path): ignored_ready.media,
         str(peer.media.path): peer.media,
     }
-    publisher = FakePublisher([])
+    publisher = FakePublisher([publish_result(video_id='yt-ignored')])
     runner = BililivePublishRunner(
         journal=journal, publisher=publisher, room_id=ROOM_ID,
         state_dir=tmp_path / 'state',
         clock=lambda: NOW + timedelta(minutes=41),
         probe=lambda path: media_by_path[str(path)],
         classifier=lambda media: {
-            'fp-ignored': ignored,
+            'fp-ignored': reclassified_ready,
             'fp-peer': ClassifiedMedia(
                 media=peer.media, status='ready', reason='ready'
             ),
@@ -1660,12 +1666,14 @@ def test_ignored_fragment_reclassification_does_not_block_ready_peer(tmp_path):
 
     assert result.status == 'complete'
     replay = journal.replay()
-    assert replay.files['fp-ignored'].event == 'ignored_invalid_tail'
+    assert replay.files['fp-ignored'].event == 'youtube_processed'
     assert replay.files['fp-ignored'].manifest_id == 'replacement-session'
+    assert replay.files['fp-ignored'].video_id == 'yt-ignored'
+    assert publisher.calls[0]['checkpoint'].caption_refresh_required is False
     assert replay.files['fp-peer'].video_id == 'yt-peer'
     assert replay.files['fp-peer'].manifest_id == 'replacement-session'
     assert replay.manifests[-1].completed is True
-    assert publisher.calls == []
+    assert len(publisher.calls) == 1
 
 
 def test_multi_segment_replacement_reuses_only_unchanged_video(tmp_path):

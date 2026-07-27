@@ -1167,10 +1167,19 @@ class JsonlJournal:
             if _has_publication_lifecycle(existing):
                 state = _migrate_publication_state(existing, state)
             if caption_changed:
+                remote_caption_evidence = bool(
+                    existing.caption_uploaded
+                    and isinstance(existing.caption_track_id, str)
+                    and existing.caption_track_id
+                )
                 state = replace(
                     state,
                     caption_uploaded=False,
-                    caption_refresh_required=True,
+                    caption_refresh_required=remote_caption_evidence,
+                    caption_track_id=(
+                        existing.caption_track_id
+                        if remote_caption_evidence else None
+                    ),
                     caption_status='pending',
                 )
             else:

@@ -198,6 +198,8 @@ def test_publish_video_completes_all_stages_without_mutating_source(tmp_path):
     assert result.video_uploaded is True
     assert result.caption_uploaded is True
     assert result.caption_track_id == 'track-new'
+    assert len(youtube.caption_calls) == 1
+    assert youtube.caption_update_calls == []
     assert result.playlist_inserted is True
     assert result.youtube_processed is True
     assert result.caption_status == 'uploaded'
@@ -806,7 +808,10 @@ def test_resume_after_video_checkpoint_confirms_initial_description_locally(
     )
 
     assert result.status is PublishStatus.COMPLETE
+    assert result.caption_track_id == 'track-new'
     assert youtube.update_calls == []
+    assert len(youtube.caption_calls) == 1
+    assert youtube.caption_update_calls == []
     assert timeline[:2] == [
         'checkpoint:description_updated',
         'remote:caption_exists',
