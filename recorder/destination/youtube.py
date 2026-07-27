@@ -21,6 +21,9 @@ UPLOAD_LOG_PATTERN = re.compile(r'uploaded:\s+(?P<path>.+?)\s+->\s+(?P<video_id>
 CAPTION_UPLOAD_SUCCESS = 'uploaded'
 CAPTION_UPLOAD_FAILED = 'failed'
 CAPTION_UPLOAD_QUOTA_EXCEEDED = 'quota_exceeded'
+YOUTUBE_DURATION_PATTERN = re.compile(
+    r'^PT(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+(?:\.\d+)?)S)?$'
+)
 
 
 def _split_validate_video_name(filename):
@@ -165,6 +168,27 @@ def _caption_exists(captions, language, caption_name):
             return True
 
     return False
+
+
+def _youtube_duration_seconds(duration):
+    if not isinstance(duration, str):
+        raise ValueError(f'Unsupported YouTube duration: {duration!r}')
+
+    match = YOUTUBE_DURATION_PATTERN.fullmatch(duration)
+    if not match or not any(match.groupdict().values()):
+        raise ValueError(f'Unsupported YouTube duration: {duration!r}')
+
+    hours = int(match.group('hours') or 0)
+    minutes = int(match.group('minutes') or 0)
+    seconds = float(match.group('seconds') or 0)
+    return hours * 3600 + minutes * 60 + seconds
+
+
+def _http_error_reason(exception):
+    try:
+        return exception.error_details[0].get('reason')
+    except (AttributeError, IndexError, KeyError, TypeError):
+        return None
 
 
 def _resolve_path_from_base(path):
@@ -316,7 +340,16 @@ class Youtube:
             api_service_name, api_version, credentials=credentials, cache_discovery=False
         )
 
-    def upload(self, video_path, title, description='', chunk_size=googleapiclient.http.DEFAULT_CHUNK_SIZE):
+    def upload(
+        self,
+        video_path,
+        title,
+        description='',
+        chunk_size=googleapiclient.http.DEFAULT_CHUNK_SIZE,
+        *,
+        max_retryable_errors=None,
+        raise_errors=False,
+    ):
         body = {
             'snippet': {
                 'title': title, 'description': description
@@ -335,23 +368,33 @@ class Youtube:
         last_progress = 0  # last known iteration, start at 0
         status = None
         response = None
+        retryable_errors = 0
         while True:
             error = None
+            retryable_exception = None
             try:
                 status, response = insert_request.next_chunk()
             except googleapiclient.errors.HttpError as exception:
                 if exception.resp.status in self.RETRYABLE_STATUS_CODES:
+                    retryable_exception = exception
                     error = 'A retryable HTTP error {0} occurred:\n{1}'.format(
                         exception.resp.status, exception.content
                     )
                 elif exception.resp.status == 403:
+                    reason = _http_error_reason(exception)
+                    if raise_errors and reason not in ('quotaExceeded', 'dailyLimitExceeded'):
+                        raise
                     return False
                 else:
                     raise
             except self.RETRYABLE_EXCEPTIONS as exception:
+                retryable_exception = exception
                 error = 'A retryable error occurred: {}'.format(exception)
 
             if error is not None:
+                retryable_errors += 1
+                if max_retryable_errors is not None and retryable_errors > max_retryable_errors:
+                    raise retryable_exception
                 print(error)
                 continue
 
@@ -369,7 +412,7 @@ class Youtube:
                     progress_bar.close()
                 return response['id']
 
-    def update(self, video_id, title, description, category_id=None):
+    def update(self, video_id, title, description, category_id=None, *, raise_errors=False):
         try:
             self.youtube.videos().update(
                 part='snippet',
@@ -383,30 +426,46 @@ class Youtube:
                 }
             ).execute()
         except (OSError, googleapiclient.errors.Error):
+            if raise_errors:
+                raise
             traceback.print_exc()
             return False
 
         return True
 
-    def check_processed(self, video_id):
+    def get_processing_status(self, video_id, *, raise_errors=False):
         try:
             response = self.youtube.videos().list(
                 part='status', id=video_id
             ).execute()
         except (OSError, googleapiclient.errors.Error):
+            if raise_errors:
+                raise
             traceback.print_exc()
             return False
 
-        if not response['items']:
+        if not response.get('items'):
+            return {
+                'upload_status': 'missing',
+                'failure_reason': None,
+                'rejection_reason': None,
+            }
+
+        status = response['items'][0].get('status', {})
+        return {
+            'upload_status': status.get('uploadStatus'),
+            'failure_reason': status.get('failureReason'),
+            'rejection_reason': status.get('rejectionReason'),
+        }
+
+    def check_processed(self, video_id, *, raise_errors=False):
+        status = self.get_processing_status(video_id, raise_errors=raise_errors)
+        if not status:
             return False
 
-        item = response['items'][0]
+        return status['upload_status'] == 'processed'
 
-        upload_status = item['status']['uploadStatus']
-
-        return upload_status == 'processed'
-
-    def insert_into_playlist(self, video_id, playlist_id):
+    def insert_into_playlist(self, video_id, playlist_id, *, raise_errors=False):
         try:
             self.youtube.playlistItems().insert(
                 part='snippet',
@@ -421,6 +480,8 @@ class Youtube:
                 }
             ).execute()
         except (OSError, googleapiclient.errors.Error):
+            if raise_errors:
+                raise
             traceback.print_exc()
             return False
 
@@ -433,7 +494,65 @@ class Youtube:
 
         return response.get('items', [])
 
-    def add_caption_result(self, video_id, caption_path, caption_name='via_recorder'):
+    def caption_exists(self, video_id, caption_name='via_recorder_vtt'):
+        return _caption_exists(
+            self.list_captions(video_id), self.DEFAULT_CAPTION_LANGUAGE, caption_name
+        )
+
+    def playlist_contains(self, video_id, playlist_id):
+        response = self.youtube.playlistItems().list(
+            part='contentDetails',
+            playlistId=playlist_id,
+            videoId=video_id,
+            maxResults=1,
+        ).execute()
+        return bool(response.get('items', []))
+
+    def list_recent_uploads(self, max_results=50):
+        channels_response = self.youtube.channels().list(
+            part='contentDetails', mine=True
+        ).execute()
+        channels = channels_response.get('items', [])
+        if not channels:
+            return []
+
+        uploads_playlist_id = (
+            channels[0].get('contentDetails', {}).get('relatedPlaylists', {}).get('uploads')
+        )
+        if not uploads_playlist_id:
+            return []
+
+        uploads_response = self.youtube.playlistItems().list(
+            part='snippet,contentDetails',
+            playlistId=uploads_playlist_id,
+            maxResults=max_results,
+        ).execute()
+        uploads = uploads_response.get('items', [])
+        if not uploads:
+            return []
+
+        video_ids = [item['contentDetails']['videoId'] for item in uploads]
+        videos_response = self.youtube.videos().list(
+            part='contentDetails', id=','.join(video_ids), maxResults=50
+        ).execute()
+        durations = {
+            item['id']: _youtube_duration_seconds(item['contentDetails']['duration'])
+            for item in videos_response.get('items', [])
+        }
+
+        return [
+            {
+                'video_id': item['contentDetails']['videoId'],
+                'title': item['snippet']['title'],
+                'published_at': item['snippet']['publishedAt'],
+                'duration_seconds': durations.get(item['contentDetails']['videoId']),
+            }
+            for item in uploads
+        ]
+
+    def add_caption_result(
+        self, video_id, caption_path, caption_name='via_recorder', *, raise_errors=False
+    ):
         try:
             self.youtube.captions().insert(
                 part='snippet',
@@ -447,10 +566,7 @@ class Youtube:
                 media_body=googleapiclient.http.MediaFileUpload(caption_path)
             ).execute()
         except googleapiclient.errors.HttpError as exception:
-            try:
-                reason = exception.error_details[0].get('reason')
-            except (AttributeError, IndexError, KeyError, TypeError):
-                reason = None
+            reason = _http_error_reason(exception)
 
             if reason == 'quotaExceeded':
                 print(
@@ -459,9 +575,13 @@ class Youtube:
                 )
                 return CAPTION_UPLOAD_QUOTA_EXCEEDED
 
+            if raise_errors:
+                raise
             traceback.print_exc()
             return CAPTION_UPLOAD_FAILED
         except (OSError, googleapiclient.errors.Error):
+            if raise_errors:
+                raise
             traceback.print_exc()
             return CAPTION_UPLOAD_FAILED
 

@@ -1,6 +1,9 @@
 import runpy
 import sys
 
+import pytest
+
+import recorder.destination.youtube as youtube_module
 from recorder.destination.youtube import (
     CAPTION_UPLOAD_QUOTA_EXCEEDED,
     find_missing_caption_uploads,
@@ -63,6 +66,105 @@ class QuotaExceededCaptionsApi:
 class QuotaExceededYoutubeApi:
     def captions(self):
         return QuotaExceededCaptionsApi()
+
+
+class FakeRequest:
+    def __init__(self, response=None, exception=None):
+        self.response = response
+        self.exception = exception
+
+    def execute(self):
+        if self.exception:
+            raise self.exception
+        return self.response
+
+
+class RecordingListEndpoint:
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.calls = []
+
+    def list(self, **kwargs):
+        self.calls.append(kwargs)
+        return FakeRequest(response=self.responses.pop(0))
+
+
+class QueryYoutubeApi:
+    def __init__(self, channels=None, playlist_items=None, videos=None):
+        self.channels_endpoint = RecordingListEndpoint(channels or [])
+        self.playlist_items_endpoint = RecordingListEndpoint(playlist_items or [])
+        self.videos_endpoint = RecordingListEndpoint(videos or [])
+
+    def channels(self):
+        return self.channels_endpoint
+
+    def playlistItems(self):
+        return self.playlist_items_endpoint
+
+    def videos(self):
+        return self.videos_endpoint
+
+
+class FakeHttpError(Exception):
+    def __init__(self, status, reason=None):
+        super().__init__(f'HTTP {status}: {reason}')
+        self.resp = type('Response', (), {'status': status})()
+        self.content = b'fake error'
+        self.error_details = [{'reason': reason}] if reason else []
+
+
+class FailingUploadRequest:
+    def __init__(self, exception):
+        self.exception = exception
+        self.calls = 0
+
+    def next_chunk(self):
+        self.calls += 1
+        raise self.exception
+
+
+class UploadVideosEndpoint:
+    def __init__(self, request):
+        self.request = request
+
+    def insert(self, **kwargs):
+        return self.request
+
+
+class UploadYoutubeApi:
+    def __init__(self, request):
+        self.videos_endpoint = UploadVideosEndpoint(request)
+
+    def videos(self):
+        return self.videos_endpoint
+
+
+class FailingMutationEndpoint:
+    def __init__(self, exception):
+        self.exception = exception
+
+    def update(self, **kwargs):
+        return FakeRequest(exception=self.exception)
+
+    def insert(self, **kwargs):
+        return FakeRequest(exception=self.exception)
+
+    def list(self, **kwargs):
+        return FakeRequest(exception=self.exception)
+
+
+class FailingMutationYoutubeApi:
+    def __init__(self, exception):
+        self.endpoint = FailingMutationEndpoint(exception)
+
+    def videos(self):
+        return self.endpoint
+
+    def playlistItems(self):
+        return self.endpoint
+
+    def captions(self):
+        return self.endpoint
 
 
 def create_caption_and_validate_video(tmp_path):
@@ -444,3 +546,288 @@ def test_upload_missing_captions_command_returns_none(monkeypatch, tmp_path):
     )
 
     assert result is None
+
+
+def test_youtube_caption_exists_matches_language_and_name():
+    youtube = Youtube.__new__(Youtube)
+    list_captions_calls = []
+
+    def list_captions(video_id):
+        list_captions_calls.append(video_id)
+        return [
+            {'snippet': {'language': 'en', 'name': 'via_recorder_vtt'}},
+            {'snippet': {'language': 'zh-Hans', 'name': 'other'}},
+            {'snippet': {'language': 'zh-Hans', 'name': 'via_recorder_vtt'}},
+        ]
+
+    youtube.list_captions = list_captions
+
+    assert youtube.caption_exists('yt123') is True
+    assert list_captions_calls == ['yt123']
+
+
+def test_youtube_caption_exists_requires_both_language_and_name():
+    youtube = Youtube.__new__(Youtube)
+    youtube.list_captions = lambda video_id: [
+        {'snippet': {'language': 'en', 'name': 'custom'}},
+        {'snippet': {'language': 'zh-Hans', 'name': 'other'}},
+    ]
+
+    assert youtube.caption_exists('yt123', caption_name='custom') is False
+
+
+def test_youtube_playlist_contains_queries_video_membership():
+    api = QueryYoutubeApi(playlist_items=[{'items': [{'contentDetails': {'videoId': 'yt123'}}]}])
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = api
+
+    assert youtube.playlist_contains('yt123', 'PL123') is True
+    assert api.playlist_items_endpoint.calls == [{
+        'part': 'contentDetails',
+        'playlistId': 'PL123',
+        'videoId': 'yt123',
+        'maxResults': 1,
+    }]
+
+
+def test_youtube_playlist_contains_returns_false_for_no_items():
+    api = QueryYoutubeApi(playlist_items=[{'items': []}])
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = api
+
+    assert youtube.playlist_contains('yt123', 'PL123') is False
+
+
+def test_youtube_list_recent_uploads_joins_batched_video_durations():
+    api = QueryYoutubeApi(
+        channels=[{'items': [{'contentDetails': {'relatedPlaylists': {'uploads': 'UU123'}}}]}],
+        playlist_items=[{'items': [
+            {
+                'snippet': {'title': 'First', 'publishedAt': '2026-07-27T01:00:00Z'},
+                'contentDetails': {'videoId': 'yt1'},
+            },
+            {
+                'snippet': {'title': 'Second', 'publishedAt': '2026-07-26T01:00:00Z'},
+                'contentDetails': {'videoId': 'yt2'},
+            },
+        ]}],
+        videos=[{'items': [
+            {'id': 'yt2', 'contentDetails': {'duration': 'PT3H2M1.5S'}},
+            {'id': 'yt1', 'contentDetails': {'duration': 'PT45S'}},
+        ]}],
+    )
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = api
+
+    assert youtube.list_recent_uploads(max_results=2) == [
+        {
+            'video_id': 'yt1',
+            'title': 'First',
+            'published_at': '2026-07-27T01:00:00Z',
+            'duration_seconds': 45,
+        },
+        {
+            'video_id': 'yt2',
+            'title': 'Second',
+            'published_at': '2026-07-26T01:00:00Z',
+            'duration_seconds': 10921.5,
+        },
+    ]
+    assert api.channels_endpoint.calls == [{'part': 'contentDetails', 'mine': True}]
+    assert api.playlist_items_endpoint.calls == [{
+        'part': 'snippet,contentDetails',
+        'playlistId': 'UU123',
+        'maxResults': 2,
+    }]
+    assert api.videos_endpoint.calls == [{
+        'part': 'contentDetails',
+        'id': 'yt1,yt2',
+        'maxResults': 50,
+    }]
+
+
+@pytest.mark.parametrize(
+    ('channels_response', 'playlist_response', 'expected_playlist_calls'),
+    [
+        ({'items': []}, None, []),
+        ({'items': [{'contentDetails': {'relatedPlaylists': {}}}]}, None, []),
+        (
+            {'items': [{'contentDetails': {'relatedPlaylists': {'uploads': 'UU123'}}}]},
+            {'items': []},
+            [{'part': 'snippet,contentDetails', 'playlistId': 'UU123', 'maxResults': 50}],
+        ),
+    ],
+)
+def test_youtube_list_recent_uploads_returns_empty_without_video_query(
+    channels_response, playlist_response, expected_playlist_calls
+):
+    api = QueryYoutubeApi(
+        channels=[channels_response],
+        playlist_items=[] if playlist_response is None else [playlist_response],
+    )
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = api
+
+    assert youtube.list_recent_uploads() == []
+    assert api.playlist_items_endpoint.calls == expected_playlist_calls
+    assert api.videos_endpoint.calls == []
+
+
+def test_youtube_get_processing_status_normalizes_status_fields():
+    api = QueryYoutubeApi(videos=[{'items': [{
+        'status': {
+            'uploadStatus': 'rejected',
+            'failureReason': 'processingFailed',
+            'rejectionReason': 'duplicate',
+        }
+    }]}])
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = api
+
+    assert youtube.get_processing_status('yt123') == {
+        'upload_status': 'rejected',
+        'failure_reason': 'processingFailed',
+        'rejection_reason': 'duplicate',
+    }
+    assert api.videos_endpoint.calls == [{'part': 'status', 'id': 'yt123'}]
+
+
+def test_youtube_get_processing_status_normalizes_missing_video():
+    api = QueryYoutubeApi(videos=[{'items': []}])
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = api
+
+    assert youtube.get_processing_status('yt123') == {
+        'upload_status': 'missing',
+        'failure_reason': None,
+        'rejection_reason': None,
+    }
+
+
+@pytest.mark.parametrize(
+    ('duration', 'seconds'),
+    [
+        ('PT0S', 0),
+        ('PT45S', 45),
+        ('PT2M', 120),
+        ('PT3H2M1.5S', 10921.5),
+    ],
+)
+def test_youtube_duration_seconds_parses_supported_durations(duration, seconds):
+    assert youtube_module._youtube_duration_seconds(duration) == seconds
+
+
+@pytest.mark.parametrize('duration', ['P1D', 'PT', 'PT1Mgarbage', '1:30', None])
+def test_youtube_duration_seconds_rejects_unsupported_values(duration):
+    with pytest.raises(ValueError):
+        youtube_module._youtube_duration_seconds(duration)
+
+
+@pytest.mark.parametrize('exception', [IOError('disk failed'), FakeHttpError(500, 'backendError')])
+def test_youtube_upload_can_bound_retryable_errors(monkeypatch, exception):
+    monkeypatch.setattr('recorder.destination.youtube.googleapiclient.errors.HttpError', FakeHttpError)
+    monkeypatch.setattr('recorder.destination.youtube.googleapiclient.http.MediaFileUpload', lambda *args, **kwargs: object())
+    request = FailingUploadRequest(exception)
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = UploadYoutubeApi(request)
+
+    with pytest.raises(type(exception)) as raised:
+        youtube.upload(
+            '/recording.flv',
+            'title',
+            'description',
+            max_retryable_errors=0,
+            raise_errors=True,
+        )
+
+    assert raised.value is exception
+    assert request.calls == 1
+
+
+def test_youtube_upload_strict_mode_reraises_non_quota_403(monkeypatch):
+    monkeypatch.setattr('recorder.destination.youtube.googleapiclient.errors.HttpError', FakeHttpError)
+    monkeypatch.setattr('recorder.destination.youtube.googleapiclient.http.MediaFileUpload', lambda *args, **kwargs: object())
+    exception = FakeHttpError(403, 'forbidden')
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = UploadYoutubeApi(FailingUploadRequest(exception))
+
+    with pytest.raises(FakeHttpError) as raised:
+        youtube.upload('/recording.flv', 'title', raise_errors=True)
+
+    assert raised.value is exception
+
+
+@pytest.mark.parametrize('reason', ['quotaExceeded', 'dailyLimitExceeded'])
+def test_youtube_upload_strict_mode_returns_false_for_quota_403(monkeypatch, reason):
+    monkeypatch.setattr('recorder.destination.youtube.googleapiclient.errors.HttpError', FakeHttpError)
+    monkeypatch.setattr('recorder.destination.youtube.googleapiclient.http.MediaFileUpload', lambda *args, **kwargs: object())
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = UploadYoutubeApi(FailingUploadRequest(FakeHttpError(403, reason)))
+
+    assert youtube.upload('/recording.flv', 'title', raise_errors=True) is False
+
+
+def test_youtube_update_only_reraises_errors_in_strict_mode():
+    exception = OSError('update failed')
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = FailingMutationYoutubeApi(exception)
+
+    assert youtube.update('yt123', 'title', 'description') is False
+    with pytest.raises(OSError) as raised:
+        youtube.update('yt123', 'title', 'description', raise_errors=True)
+    assert raised.value is exception
+
+
+def test_youtube_check_processed_only_reraises_errors_in_strict_mode():
+    exception = OSError('status failed')
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = FailingMutationYoutubeApi(exception)
+
+    assert youtube.check_processed('yt123') is False
+    with pytest.raises(OSError) as raised:
+        youtube.check_processed('yt123', raise_errors=True)
+    assert raised.value is exception
+
+
+def test_youtube_get_processing_status_only_reraises_errors_in_strict_mode():
+    exception = OSError('status failed')
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = FailingMutationYoutubeApi(exception)
+
+    assert youtube.get_processing_status('yt123') is False
+    with pytest.raises(OSError) as raised:
+        youtube.get_processing_status('yt123', raise_errors=True)
+    assert raised.value is exception
+
+
+def test_youtube_insert_into_playlist_only_reraises_errors_in_strict_mode():
+    exception = OSError('playlist failed')
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = FailingMutationYoutubeApi(exception)
+
+    assert youtube.insert_into_playlist('yt123', 'PL123') is False
+    with pytest.raises(OSError) as raised:
+        youtube.insert_into_playlist('yt123', 'PL123', raise_errors=True)
+    assert raised.value is exception
+
+
+def test_youtube_add_caption_result_only_reraises_errors_in_strict_mode(monkeypatch):
+    monkeypatch.setattr('recorder.destination.youtube.googleapiclient.http.MediaFileUpload', lambda *args, **kwargs: object())
+    exception = OSError('caption failed')
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = FailingMutationYoutubeApi(exception)
+
+    assert youtube.add_caption_result('yt123', '/caption.vtt') == 'failed'
+    with pytest.raises(OSError) as raised:
+        youtube.add_caption_result('yt123', '/caption.vtt', raise_errors=True)
+    assert raised.value is exception
+
+
+def test_youtube_add_caption_result_strict_mode_preserves_quota_sentinel(monkeypatch, capsys):
+    monkeypatch.setattr('recorder.destination.youtube.googleapiclient.errors.HttpError', FakeHttpError)
+    monkeypatch.setattr('recorder.destination.youtube.googleapiclient.http.MediaFileUpload', lambda *args, **kwargs: object())
+    youtube = Youtube.__new__(Youtube)
+    youtube.youtube = FailingMutationYoutubeApi(FakeHttpError(403, 'quotaExceeded'))
+
+    assert youtube.add_caption_result('yt123', '/caption.vtt', raise_errors=True) == CAPTION_UPLOAD_QUOTA_EXCEEDED
+    assert 'quota_exceeded' in capsys.readouterr().err
