@@ -1,0 +1,185 @@
+import json
+from types import SimpleNamespace
+
+import pytest
+
+import recorder
+
+mongo_dsn = recorder.config['app'].get('mongo_dsn')
+recorder.config['app']['mongo_dsn'] = None
+import recorder.app as app
+recorder.config['app']['mongo_dsn'] = mongo_dsn
+from recorder.publishing import PublishResult, PublishStatus
+
+
+class FakeYoutube:
+    def __init__(self, upload_result='yt123'):
+        self.upload_result = upload_result
+        self.upload_calls = []
+        self.caption_calls = []
+
+    def upload(self, path, title, description, **kwargs):
+        self.upload_calls.append((path, title, description, kwargs))
+        return self.upload_result
+
+    def caption_exists(self, video_id, caption_name):
+        return False
+
+    def add_caption_result(self, video_id, path, caption_name, **kwargs):
+        self.caption_calls.append((video_id, path, caption_name, kwargs))
+        return 'uploaded'
+
+    def get_processing_status(self, video_id, **kwargs):
+        return {
+            'upload_status': 'processed',
+            'failure_reason': None,
+            'rejection_reason': None,
+        }
+
+
+def make_config(tmp_path, *, source_type='bilibili'):
+    return {
+        'app': {
+            'video_path': str(tmp_path / 'videos'),
+            'danmaku_path': str(tmp_path / 'captions'),
+        },
+        'source': {
+            'alice': {
+                'source_type': source_type,
+                'room_id': 'room-1',
+                'title': 'Live {datetime}',
+                'description': 'Base description',
+            },
+        },
+    }
+
+
+def make_upload_video(tmp_path, content=b'original-video'):
+    path = (
+        tmp_path / 'videos' / 'upload' / 'bilibili' / 'alice'
+        / '2026-07-27 18:00:00.mp4'
+    )
+    path.parent.mkdir(parents=True)
+    path.write_bytes(content)
+    return path
+
+
+def metadata_path_for(video_path):
+    return app.pathlib.Path(str(video_path).split('.')[0].replace('upload', 'record') + '.metadata')
+
+
+def test_process_upload_file_adapts_bilibili_caption_and_moves_source(tmp_path, monkeypatch):
+    config = make_config(tmp_path)
+    video_path = make_upload_video(tmp_path)
+    metadata_path = metadata_path_for(video_path)
+    metadata_path.parent.mkdir(parents=True)
+    metadata_path.write_text(json.dumps({'title': 'Stream title'}), encoding='utf8')
+    generated_calls = []
+
+    def generate(room_id, start, end, caption_path):
+        generated_calls.append((room_id, start, end, caption_path))
+        caption = app.pathlib.Path(caption_path)
+        caption.write_text('WEBVTT\n\n', encoding='utf8')
+        return 'Highlights\n00:00 Start'
+
+    monkeypatch.setattr(
+        app,
+        'bilibili_danmaku_mongo',
+        SimpleNamespace(gen_caption_and_return_highlights=generate),
+    )
+    monkeypatch.setattr(app.ffmpeg, 'calc_end_time', lambda *args: '2026-07-27 19:00:00')
+    monkeypatch.setattr(app, 'video_name_sep', '__')
+    youtube = FakeYoutube()
+
+    result = app.process_upload_file(config, youtube, str(video_path))
+
+    validate_path = (
+        tmp_path / 'videos' / 'validate' / 'bilibili' / 'alice'
+        / 'yt123__2026-07-27 18:00:00.mp4'
+    )
+    caption_path = (
+        tmp_path / 'captions' / 'bilibili' / 'alice'
+        / '2026-07-27 18:00:00.mp4.vtt'
+    )
+    assert result.status is PublishStatus.COMPLETE
+    assert result.video_id == 'yt123'
+    assert not video_path.exists()
+    assert validate_path.read_bytes() == b'original-video'
+    assert not metadata_path.exists()
+    assert not caption_path.exists()
+    assert generated_calls == [(
+        'room-1',
+        '2026-07-27 18:00:00',
+        '2026-07-27 19:00:00',
+        str(caption_path),
+    )]
+    assert youtube.upload_calls == [(
+        str(video_path),
+        'Live 2026-07-27 18:00:00: Stream title',
+        'Base description\n\nHighlights\n00:00 Start',
+        {'max_retryable_errors': 0, 'raise_errors': True},
+    )]
+    assert youtube.caption_calls == [(
+        'yt123',
+        str(caption_path),
+        'via_recorder_vtt',
+        {'raise_errors': True},
+    )]
+
+
+def test_process_upload_file_without_video_id_preserves_upload_artifacts(tmp_path, monkeypatch):
+    config = make_config(tmp_path)
+    video_path = make_upload_video(tmp_path)
+    metadata_path = metadata_path_for(video_path)
+    metadata_path.parent.mkdir(parents=True)
+    metadata_path.write_text(json.dumps({'title': 'Stream title'}), encoding='utf8')
+    caption_path = (
+        tmp_path / 'captions' / 'bilibili' / 'alice'
+        / '2026-07-27 18:00:00.mp4.vtt'
+    )
+    caption_path.parent.mkdir(parents=True)
+    caption_path.write_text('WEBVTT\n\n', encoding='utf8')
+    monkeypatch.setattr(app, 'bilibili_danmaku_mongo', None)
+    monkeypatch.setattr(app.ffmpeg, 'calc_end_time', lambda *args: '2026-07-27 19:00:00')
+    monkeypatch.setattr(app.ffmpeg, 'get_bilibili_title', lambda path: None)
+
+    result = app.process_upload_file(config, FakeYoutube(upload_result=None), str(video_path))
+
+    assert result.status is PublishStatus.QUOTA_EXCEEDED
+    assert result.video_id is None
+    assert video_path.read_bytes() == b'original-video'
+    assert metadata_path.exists()
+    assert caption_path.exists()
+    assert not (tmp_path / 'videos' / 'validate').exists()
+
+
+def test_process_upload_file_uses_bilibili_tag_title_fallback(tmp_path, monkeypatch):
+    config = make_config(tmp_path)
+    video_path = make_upload_video(tmp_path)
+    monkeypatch.setattr(app, 'bilibili_danmaku_mongo', None)
+    monkeypatch.setattr(app.ffmpeg, 'calc_end_time', lambda *args: '2026-07-27 19:00:00')
+    monkeypatch.setattr(app.ffmpeg, 'get_bilibili_title', lambda path: 'Tagged title')
+    youtube = FakeYoutube()
+
+    app.process_upload_file(config, youtube, str(video_path))
+
+    assert youtube.upload_calls[0][1] == 'Live 2026-07-27 18:00:00: Tagged title'
+
+
+def test_upload_thread_sleeps_for_quota_result_and_poll_interval(monkeypatch):
+    sleeps = []
+    quota_result = PublishResult(PublishStatus.QUOTA_EXCEEDED)
+    monkeypatch.setattr(app.glob, 'glob', lambda pattern: ['/tmp/video.mp4'])
+    monkeypatch.setattr(app, 'process_upload_file', lambda *args: quota_result)
+
+    def sleep(seconds):
+        sleeps.append(seconds)
+        if seconds == 5:
+            raise RuntimeError('stop loop')
+
+    monkeypatch.setattr(app.time, 'sleep', sleep)
+
+    with pytest.raises(RuntimeError, match='stop loop'):
+        app.upload_thread({'app': {'video_path': '/tmp'}}, object(), interval=5, quota_exceeded_sleep=99)
+
+    assert sleeps == [99, 5]

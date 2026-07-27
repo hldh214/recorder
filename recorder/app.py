@@ -18,6 +18,12 @@ import recorder
 import recorder.destination.youtube
 import recorder.ffmpeg as ffmpeg
 import recorder.utils
+from recorder.publishing import (
+    CaptionArtifact,
+    PublishResult,
+    PublishStatus,
+    YoutubePublishService,
+)
 
 from recorder import logger, base_path, video_name_sep
 
@@ -156,6 +162,113 @@ def my_recorder():
 
 
 # noinspection PyBroadException
+def process_upload_file(config, youtube, video_path):
+    video_path = os.fspath(video_path)
+    split_video_path = video_path.split(os.sep)
+    source_type = split_video_path[-3]
+    source_name = split_video_path[-2]
+    video_filename = split_video_path[-1]
+    filename_datetime = video_filename.split('.')[0]
+    metadata_path = video_path.split('.')[0].replace('upload', 'record') + '.metadata'
+
+    current_config = config['source'].get(source_name)
+    if not current_config:
+        return PublishResult(
+            PublishStatus.FATAL,
+            error_stage='config',
+            error_message=f'Source configuration not found: {source_name}',
+        )
+
+    room_id = current_config.get('room_id')
+    start = filename_datetime
+    end = ffmpeg.calc_end_time(video_path, start, datetime_format)
+
+    stream_title = None
+    if os.path.exists(metadata_path):
+        metadata = json.load(open(metadata_path))
+        if metadata.get('title'):
+            stream_title = metadata['title']
+    if source_type == 'bilibili' and not stream_title:
+        # Fallback to parsing title from tags when stream_title is not available
+        parsed_from_tags = ffmpeg.get_bilibili_title(video_path)
+        if parsed_from_tags:
+            stream_title = parsed_from_tags
+
+    caption_folder_path = os.path.join(
+        os.path.abspath(config['app']['danmaku_path']), source_type, source_name
+    )
+    pathlib.Path(caption_folder_path).mkdir(parents=True, exist_ok=True)
+    vtt_caption_path = os.path.join(caption_folder_path, f'{video_filename}.{vtt_caption_extension}')
+    highlights = ''
+
+    # todo: improve this
+    if source_type == 'bilibili' and bilibili_danmaku_mongo:
+        try:
+            highlights = bilibili_danmaku_mongo.gen_caption_and_return_highlights(
+                room_id, start, end, vtt_caption_path
+            )
+        except Exception:
+            logger.warning(
+                'bilibili_danmaku_mongo.gen_caption_and_return_highlights raise exception: ' +
+                traceback.format_exc()
+            )
+
+    if source_type == 'douyin' and douyin_danmaku_mongo:
+        try:
+            highlights = douyin_danmaku_mongo.gen_caption_and_return_highlights(
+                room_id, start, end, vtt_caption_path
+            )
+        except Exception:
+            logger.warning(
+                'douyin_danmaku_mongo.gen_caption_and_return_highlights raise exception: ' +
+                traceback.format_exc()
+            )
+
+    if source_type == 'huya' and huya_danmaku_mongo:
+        # generate highlights
+        try:
+            highlights = huya_danmaku_mongo.generate_highlights(room_id, start, end)
+        except Exception:
+            logger.warning('huya_danmaku_mongo.generate_highlights raise exception: ' + traceback.format_exc())
+
+        # generate vtt caption
+        try:
+            generated = huya_danmaku_mongo.generate(room_id, vtt_caption_path, start, end)
+        except Exception:
+            logger.warning('huya_danmaku_mongo.generate raise exception: ' + traceback.format_exc())
+        else:
+            if not generated:
+                logger.warning(f'huya_danmaku_mongo.generate failed: {room_id} {start} {end}')
+
+    caption = CaptionArtifact(
+        path=pathlib.Path(vtt_caption_path) if os.path.exists(vtt_caption_path) else None,
+        highlights=highlights,
+        temporary=True,
+    )
+    logger.info(f'uploading: {video_path}')
+    result = YoutubePublishService(youtube, config).publish_video(
+        video_path,
+        source_type,
+        source_name,
+        start,
+        stream_title=stream_title,
+        caption=caption,
+    )
+
+    if not result.video_id:
+        return result
+
+    logger.info(f'uploaded: {video_path} -> {result.video_id}')
+    if os.path.exists(metadata_path):
+        os.unlink(metadata_path)
+
+    # move to validate folder and add video_id in filename
+    dst_dir = os.path.join(os.path.abspath(config['app']['video_path']), 'validate', source_type, source_name)
+    pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
+    os.rename(video_path, os.path.join(dst_dir, f'{result.video_id}{video_name_sep}{video_filename}'))
+    return result
+
+
 def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
     while True:
         videos = glob.glob(os.path.join(
@@ -163,119 +276,10 @@ def upload_thread(config, youtube, interval=5, quota_exceeded_sleep=3600):
         ))
 
         for video_path in videos:
-            split_video_path = video_path.split(os.sep)
-            source_type = split_video_path[-3]
-            source_name = split_video_path[-2]
-            video_filename = split_video_path[-1]
-            filename_datetime = video_filename.split('.')[0]
-            metadata_path = video_path.split('.')[0].replace('upload', 'record') + '.metadata'
-
-            current_config = config['source'].get(source_name)
-
-            if not current_config:
-                continue
-
-            room_id = config['source'].get(source_name).get('room_id')
-            start = filename_datetime
-            end = ffmpeg.calc_end_time(video_path, start, datetime_format)
-            description = current_config.get('description', '')
-            title = current_config['title'].format(datetime=filename_datetime)
-
-            stream_title = None
-            if os.path.exists(metadata_path):
-                metadata = json.load(open(metadata_path))
-                if metadata.get('title'):
-                    stream_title = metadata['title']
-            if source_type == 'bilibili' and not stream_title:
-                # Fallback to parsing title from tags when stream_title is not available
-                parsed_from_tags = ffmpeg.get_bilibili_title(video_path)
-                if parsed_from_tags:
-                    stream_title = parsed_from_tags
-            if stream_title:
-                title += f': {stream_title}'
-
-            caption_folder_path = os.path.join(
-                os.path.abspath(config['app']['danmaku_path']), source_type, source_name
-            )
-            pathlib.Path(caption_folder_path).mkdir(parents=True, exist_ok=True)
-            vtt_caption_path = os.path.join(caption_folder_path, f'{video_filename}.{vtt_caption_extension}')
-
-            # todo: improve this
-            if source_type == 'bilibili' and bilibili_danmaku_mongo:
-                try:
-                    description += '\n\n' + bilibili_danmaku_mongo.gen_caption_and_return_highlights(
-                        room_id, start, end, vtt_caption_path
-                    )
-                except Exception:
-                    logger.warning(
-                        'bilibili_danmaku_mongo.gen_caption_and_return_highlights raise exception: ' +
-                        traceback.format_exc()
-                    )
-
-            if source_type == 'douyin' and douyin_danmaku_mongo:
-                try:
-                    description += '\n\n' + douyin_danmaku_mongo.gen_caption_and_return_highlights(
-                        room_id, start, end, vtt_caption_path
-                    )
-                except Exception:
-                    logger.warning(
-                        'douyin_danmaku_mongo.gen_caption_and_return_highlights raise exception: ' +
-                        traceback.format_exc()
-                    )
-
-            if source_type == 'huya' and huya_danmaku_mongo:
-                # generate highlights
-                try:
-                    description += '\n\n' + huya_danmaku_mongo.generate_highlights(room_id, start, end)
-                except Exception:
-                    logger.warning('huya_danmaku_mongo.generate_highlights raise exception: ' + traceback.format_exc())
-
-                # generate vtt caption
-                try:
-                    result = huya_danmaku_mongo.generate(room_id, vtt_caption_path, start, end)
-                except Exception:
-                    logger.warning('huya_danmaku_mongo.generate raise exception: ' + traceback.format_exc())
-                else:
-                    if not result:
-                        logger.warning(f'huya_danmaku_mongo.generate failed: {room_id} {start} {end}')
-
-            logger.info(f'uploading: {video_path}')
-            try:
-                video_id = youtube.upload(video_path, title, description)
-            except googleapiclient.errors.HttpError as exception:
-                time.sleep(interval)
-                logger.warning(f'A HTTP error occurred:\n{exception}')
-                continue
-
-            if not video_id:
-                # googleapiclient.errors.ResumableUploadError:
-                # <HttpError 403 "The request cannot be completed
-                # because you have exceeded your
-                # <a href="/youtube/v3/getting-started#quota">quota</a>.">
+            result = process_upload_file(config, youtube, video_path)
+            if result.status is PublishStatus.QUOTA_EXCEEDED:
                 logger.warning(f'quota exceeded, sleep {quota_exceeded_sleep} secs')
                 time.sleep(quota_exceeded_sleep)
-                continue
-
-            logger.info(f'uploaded: {video_path} -> {video_id}')
-            if os.path.exists(metadata_path):
-                os.unlink(metadata_path)
-
-            if os.path.exists(vtt_caption_path):
-                if youtube.add_caption(video_id, vtt_caption_path, 'via_recorder_vtt'):
-                    os.unlink(vtt_caption_path)
-                    logger.info(f'caption added successfully: {vtt_caption_path} -> {video_id}')
-
-            playlist_id = current_config.get('playlist_id')
-            if playlist_id:
-                youtube.insert_into_playlist(video_id, playlist_id)
-                logger.info(f'inserted_into_playlist: {video_id} -> {playlist_id}')
-
-            # move to validate folder and add video_id in filename
-            dst_dir = os.path.join(os.path.abspath(config['app']['video_path']), 'validate', source_type, source_name)
-
-            pathlib.Path(dst_dir).mkdir(parents=True, exist_ok=True)
-
-            os.rename(video_path, os.path.join(dst_dir, f'{video_id}{video_name_sep}{split_video_path[-1]}'))
 
         time.sleep(interval)
 
