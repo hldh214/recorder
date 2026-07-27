@@ -154,6 +154,7 @@ class JournalDeleteIntent:
     mtime_ns: int
     reason: str
     source_deleted: bool = False
+    state_checkpoint: str | None = None
 
 
 @dataclass(frozen=True)

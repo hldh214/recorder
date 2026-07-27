@@ -12,7 +12,7 @@ from recorder.bililive.cleanup import (
 )
 from recorder.bililive.cleanup_fs import RootDirectory, stat_identity
 from recorder.bililive.journal import JsonlJournal
-from recorder.bililive.journal import baseline_fingerprint
+from recorder.bililive.journal import baseline_fingerprint, file_state_checkpoint
 from recorder.bililive.models import (
     JournalDeleteIntent,
     JournalFileState,
@@ -171,6 +171,22 @@ class Usage:
 
 class SimulatedCleanupCrash(BaseException):
     pass
+
+
+def pending_intent(state, path, quarantine_path, *, source_deleted=False):
+    file_stat = path.stat()
+    return JournalDeleteIntent(
+        fingerprint=state.fingerprint,
+        original_path=str(path),
+        quarantine_path=quarantine_path,
+        dev=file_stat.st_dev,
+        ino=file_stat.st_ino,
+        size=file_stat.st_size,
+        mtime_ns=file_stat.st_mtime_ns,
+        reason='disk pressure',
+        source_deleted=source_deleted,
+        state_checkpoint=file_state_checkpoint(state),
+    )
 
 
 class CrashJournal(JsonlJournal):
@@ -1549,6 +1565,122 @@ def test_corrupt_control_graph_blocks_pending_reconciliation_below_threshold(
     assert journal.events == []
 
 
+def test_raw_caption_retry_after_xml_delete_intent_rolls_back_and_aborts(
+    tmp_path,
+):
+    video = tmp_path / 'published.flv'
+    xml = tmp_path / 'published.xml'
+    video.write_bytes(b'video')
+    xml.write_bytes(b'<i/>')
+    authorized = file_state(
+        video, xml, event='caption_uploaded', video_id='yt1',
+        youtube_processed=True, caption_uploaded=True,
+    )
+    quarantine_name = '.bililive-cleanup-quarantine/pending-xml'
+    intent = pending_intent(authorized, xml, quarantine_name)
+    quarantine = tmp_path / quarantine_name
+    quarantine.parent.mkdir(mode=0o700)
+    xml.rename(quarantine)
+    injected = replace(
+        authorized, event='stage_retry_scheduled', stage='caption',
+        status='retryable', retry_at=NOW, attempt=1,
+    )
+    current_replay = replace(
+        replay((injected,)), pending_deletions=(intent,), journal_version=41,
+    )
+    journal = FakeJournal(current_replay)
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=Usage(1)
+    ).run((injected,), dry_run=False)
+
+    assert xml.read_bytes() == b'<i/>'
+    assert not quarantine.exists()
+    assert result.deleted == ()
+    assert [event for event, _ in journal.events] == ['source_delete_aborted']
+    assert journal.events[0][1]['expected_journal_version'] == 41
+
+
+@pytest.mark.parametrize(
+    'updates',
+    [
+        {'event': 'upload_started', 'upload_started_at': NOW, 'attempt': 1},
+        {
+            'event': 'description_updated', 'description_updated': True,
+            'description_fingerprint': 'changed-after-intent',
+        },
+        {
+            'event': 'stage_retry_scheduled', 'stage': 'video',
+            'status': 'retryable', 'retry_at': NOW, 'attempt': 1,
+        },
+    ],
+)
+def test_raw_video_file_event_after_delete_intent_aborts(
+    tmp_path, updates,
+):
+    video = tmp_path / 'published.flv'
+    video.write_bytes(b'video')
+    authorized = file_state(
+        video, event='youtube_processed', video_id='yt1',
+        youtube_processed=True,
+    )
+    quarantine_name = '.bililive-cleanup-quarantine/pending-video'
+    intent = pending_intent(authorized, video, quarantine_name)
+    quarantine = tmp_path / quarantine_name
+    quarantine.parent.mkdir(mode=0o700)
+    video.rename(quarantine)
+    injected = replace(authorized, **updates)
+    current_replay = replace(
+        replay((injected,)), pending_deletions=(intent,), journal_version=43,
+    )
+    journal = FakeJournal(current_replay)
+
+    StateAwareCleanup(
+        journal, tmp_path, disk_usage=Usage(1)
+    ).run((injected,), dry_run=False)
+
+    assert video.read_bytes() == b'video'
+    assert not quarantine.exists()
+    assert [event for event, _ in journal.events] == ['source_delete_aborted']
+    assert journal.events[0][1]['expected_journal_version'] == 43
+
+
+def test_raw_lifecycle_change_after_tombstone_keeps_quarantine_pending(
+    tmp_path,
+):
+    video = tmp_path / 'published.flv'
+    video.write_bytes(b'video')
+    authorized = file_state(
+        video, event='youtube_processed', video_id='yt1',
+        youtube_processed=True,
+    )
+    quarantine_name = '.bililive-cleanup-quarantine/pending-video'
+    intent = pending_intent(
+        authorized, video, quarantine_name, source_deleted=True
+    )
+    quarantine = tmp_path / quarantine_name
+    quarantine.parent.mkdir(mode=0o700)
+    video.rename(quarantine)
+    injected = replace(
+        authorized, event='stage_retry_scheduled', stage='video',
+        status='retryable', retry_at=NOW, attempt=1,
+        deleted_paths=(str(video),),
+    )
+    current_replay = replace(
+        replay((injected,)), pending_deletions=(intent,), journal_version=47,
+    )
+    journal = FakeJournal(current_replay)
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=Usage(1)
+    ).run((injected,), dry_run=False)
+
+    assert quarantine.read_bytes() == b'video'
+    assert not video.exists()
+    assert journal.events == []
+    assert quarantine in result.protected
+
+
 def test_pending_reconciliation_requires_unique_replay_path_owner(tmp_path):
     video = tmp_path / 'pending.flv'
     video.write_bytes(b'pending')
@@ -2907,7 +3039,7 @@ def test_transaction_error_stops_before_next_candidate_and_rechecks_usage(
     assert newer.exists()
     assert len(usage.calls) == 2
     assert result.disk_usage_percent == 84
-    if fault == 'intent-append':
+    if fault in {'intent-append', 'rename-fsync'}:
         assert older.exists()
     else:
         assert not older.exists()
@@ -3187,5 +3319,5 @@ def test_cleanup_reconciles_every_quarantine_crash_window_below_threshold(
     assert replay.pending_deletions == ()
     assert replay.files[fingerprint].deleted_paths == (str(video),)
     assert not video.exists() and not quarantine.exists()
-    assert recovery_journal.replay_calls == 1
+    assert recovery_journal.replay_calls >= 3
     assert recovered.disk_usage_percent == 1

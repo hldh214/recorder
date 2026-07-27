@@ -21,6 +21,7 @@ from recorder.bililive.models import (
 from recorder.bililive.journal import (
     baseline_fingerprint,
     canonical_source_path,
+    file_state_checkpoint,
 )
 from recorder.bililive.cleanup_fs import (
     QUARANTINE_DIRECTORY,
@@ -89,6 +90,7 @@ class _Candidate:
     fingerprint: str
     mtime_ns: int
     identity: tuple[int, int, int, int]
+    state_checkpoint: str
 
 
 @dataclass(frozen=True)
@@ -124,6 +126,9 @@ class StateAwareCleanup:
                             root_directory, intent, dry_run=dry_run
                         )
                         if not dry_run:
+                            decision = self._reauthorized_pending_decision(
+                                root_directory, intent, decision
+                            )
                             reconciliation_version = (
                                 self._apply_pending_decision(
                                     root_directory, intent, decision,
@@ -275,6 +280,9 @@ class StateAwareCleanup:
                 fingerprint=next(iter(owners[path])),
                 mtime_ns=file_stat.st_mtime_ns,
                 identity=identities[path],
+                state_checkpoint=file_state_checkpoint(
+                    replay.files[next(iter(owners[path]))]
+                ),
             ))
         candidates.sort(key=lambda item: (item.mtime_ns, str(item.path)))
 
@@ -363,6 +371,7 @@ class StateAwareCleanup:
             size=identity[2],
             mtime_ns=identity[3],
             reason=_DELETE_REASON,
+            state_checkpoint=candidate.state_checkpoint,
         )
         try:
             root_directory.rename_to_quarantine(
@@ -569,6 +578,9 @@ class StateAwareCleanup:
         decision = self._pending_decision_for_intent(
             root_directory, intent, dry_run=False
         )
+        decision = self._reauthorized_pending_decision(
+            root_directory, intent, decision
+        )
         journal_version = self._apply_pending_decision(
             root_directory, intent, decision, expected_journal_version
         )
@@ -577,17 +589,30 @@ class StateAwareCleanup:
     def _apply_pending_decision(
         self, root_directory, intent, decision, expected_journal_version
     ):
+        authorized, current_version = self._authorize_pending_intent(intent)
+        if not authorized:
+            expected_journal_version = current_version
+            if intent.source_deleted:
+                return expected_journal_version
+            decision = self._abort_pending_decision(
+                root_directory, intent, decision
+            )
+        else:
+            expected_journal_version = current_version
         identity = self._intent_identity(intent)
         action = decision.action
         if action == 'protect':
             return expected_journal_version
         if action == 'remove-quarantine':
+            authorized, current_version = self._authorize_pending_intent(intent)
+            if not authorized:
+                return expected_journal_version
             root_directory.unlink_quarantine(
                 intent.quarantine_path, identity
             )
             root_directory.sync_intent_directories(intent.original_path)
             return self._record_quarantine_removed(
-                intent, expected_journal_version
+                intent, current_version
             )
         if action == 'finish-source-deleted':
             root_directory.sync_intent_directories(intent.original_path)
@@ -599,10 +624,16 @@ class StateAwareCleanup:
             journal_version = self._record_source_deleted(
                 intent, expected_journal_version
             )
+            tombstoned_intent = replace(intent, source_deleted=True)
+            authorized, current_version = self._authorize_pending_intent(
+                tombstoned_intent
+            )
+            if not authorized:
+                return journal_version
             root_directory.unlink_quarantine(intent.quarantine_path, identity)
             root_directory.sync_intent_directories(intent.original_path)
             return self._record_quarantine_removed(
-                intent, journal_version
+                tombstoned_intent, current_version
             )
         if action == 'rollback-abort':
             root_directory.move_quarantine_to_original(
@@ -636,17 +667,29 @@ class StateAwareCleanup:
                 expected_journal_version,
             )
         if action == 'delete-original':
+            authorized, current_version = self._authorize_pending_intent(intent)
+            if not authorized:
+                return self._record_delete_aborted(
+                    intent, 'cleanup authorization changed', None,
+                    current_version,
+                )
             root_directory.rename_to_quarantine(
                 intent.original_path, intent.quarantine_path, identity
             )
             root_directory.sync_intent_directories(intent.original_path)
             journal_version = self._record_source_deleted(
-                intent, expected_journal_version
+                intent, current_version
             )
+            tombstoned_intent = replace(intent, source_deleted=True)
+            authorized, current_version = self._authorize_pending_intent(
+                tombstoned_intent
+            )
+            if not authorized:
+                return journal_version
             root_directory.unlink_quarantine(intent.quarantine_path, identity)
             root_directory.sync_intent_directories(intent.original_path)
             return self._record_quarantine_removed(
-                intent, journal_version
+                tombstoned_intent, current_version
             )
         if action == 'abort-changed':
             root_directory.sync_intent_directories(intent.original_path)
@@ -655,6 +698,127 @@ class StateAwareCleanup:
                 expected_journal_version,
             )
         raise RuntimeError(f'unknown pending cleanup action {action!r}')
+
+    def _authorize_pending_intent(self, intent):
+        replay = self.journal.replay()
+        if not self._control_graph_valid(replay):
+            return False, replay.journal_version
+        matches = tuple(
+            item for item in replay.pending_deletions
+            if (
+                item.fingerprint == intent.fingerprint
+                and item.original_path == intent.original_path
+                and item.quarantine_path == intent.quarantine_path
+                and item.dev == intent.dev
+                and item.ino == intent.ino
+                and item.size == intent.size
+                and item.mtime_ns == intent.mtime_ns
+                and item.reason == intent.reason
+                and item.source_deleted == intent.source_deleted
+                and item.state_checkpoint == intent.state_checkpoint
+            )
+        )
+        if len(matches) != 1:
+            return False, replay.journal_version
+        state = replay.files.get(intent.fingerprint)
+        if state is None:
+            return False, replay.journal_version
+        if (
+            intent.state_checkpoint is not None
+            and file_state_checkpoint(state) != intent.state_checkpoint
+        ):
+            return False, replay.journal_version
+
+        relationship_valid = (
+            self._state_shape_valid(state)
+            and self._state_binding_valid(state)
+        )
+        manifest_index = {}
+        for manifest in replay.manifests:
+            if manifest.manifest_id in manifest_index:
+                relationship_valid = False
+                break
+            manifest_index[manifest.manifest_id] = manifest
+        if state.manifest_id is not None:
+            manifest = manifest_index.get(state.manifest_id)
+            relationship_valid = bool(
+                relationship_valid
+                and manifest is not None
+                and not manifest.invalidated
+                and self._manifest_binding_valid(manifest, state)
+            )
+        original_path = Path(intent.original_path)
+        eligible = tuple(
+            allowed for path, allowed, _ in self._state_paths(
+                state, relationship_valid
+            )
+            if path == original_path
+        )
+        if eligible != (True,):
+            return False, replay.journal_version
+        protected = self._control_protected_paths(replay, manifest_index)
+        if original_path in protected:
+            return False, replay.journal_version
+        return True, replay.journal_version
+
+    def _reauthorized_pending_decision(
+        self, root_directory, intent, decision
+    ):
+        authorized, _ = self._authorize_pending_intent(intent)
+        if authorized:
+            return decision
+        if not intent.source_deleted:
+            return self._abort_pending_decision(
+                root_directory, intent, decision
+            )
+        quarantine = self.root / intent.quarantine_path
+        recovery = self._intent_recovery_path(intent)
+        protected = set(decision.protected_paths)
+        if root_directory.quarantine_stat(
+            intent.quarantine_path, create=True
+        ) is not None:
+            protected.add(quarantine)
+        if root_directory.lstat(intent.original_path) is not None:
+            protected.add(Path(intent.original_path))
+        if root_directory.lstat(recovery) is not None:
+            protected.add(recovery)
+        return _PendingDecision(
+            'protect', protected_paths=self._ordered(protected)
+        )
+
+    def _abort_pending_decision(self, root_directory, intent, decision):
+        identity = self._intent_identity(intent)
+        quarantine_stat = root_directory.quarantine_stat(
+            intent.quarantine_path, create=True
+        )
+        original_stat = root_directory.lstat(intent.original_path)
+        recovery_path = self._intent_recovery_path(intent)
+        recovery_stat = root_directory.lstat(recovery_path)
+        quarantine_matches = bool(
+            self._regular_single_link(quarantine_stat)
+            and self._stat_identity(quarantine_stat) == identity
+        )
+        if quarantine_matches and original_stat is None:
+            return _PendingDecision(
+                'rollback-abort', aborted=True,
+                protected_paths=(Path(intent.original_path),),
+            )
+        if quarantine_stat is not None and original_stat is not None:
+            return _PendingDecision(
+                'recover-abort', aborted=True,
+                protected_paths=(Path(intent.original_path), recovery_path),
+                recovery_path=recovery_path,
+            )
+        if recovery_stat is not None:
+            return _PendingDecision(
+                'finish-recovery-abort', aborted=True,
+                protected_paths=(Path(intent.original_path), recovery_path),
+                recovery_path=recovery_path,
+            )
+        return _PendingDecision(
+            'abort-changed', aborted=True,
+            protected_paths=(Path(intent.original_path),),
+        )
 
     def _record_delete_aborted(
         self, intent, reason, recovery_path, expected_version=None
@@ -1362,6 +1526,7 @@ class StateAwareCleanup:
     @classmethod
     def _pending_deletions_valid(cls, replay):
         sources = set()
+        fingerprints = set()
         quarantines = set()
         for intent in replay.pending_deletions:
             if type(intent) is not JournalDeleteIntent:
@@ -1369,6 +1534,7 @@ class StateAwareCleanup:
             source_key = (intent.fingerprint, intent.original_path)
             if (
                 source_key in sources
+                or intent.fingerprint in fingerprints
                 or intent.quarantine_path in quarantines
                 or type(intent.source_deleted) is not bool
                 or any(
@@ -1410,6 +1576,7 @@ class StateAwareCleanup:
             ):
                 return False
             sources.add(source_key)
+            fingerprints.add(intent.fingerprint)
             quarantines.add(intent.quarantine_path)
         return True
 
