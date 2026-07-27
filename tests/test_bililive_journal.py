@@ -299,6 +299,32 @@ def test_session_state_and_initialized_events_restore_json_tuple_shapes(tmp_path
     assert replay.session.started_at == '2026-07-27T08:00:00+00:00'
 
 
+def test_replayed_session_snapshot_can_be_reappended(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'session_state',
+        state=SessionState.SETTLING,
+        session_id='session-1',
+        session_paths=('/video.flv',),
+        snapshot={'/video.flv': (100, 123456789)},
+        quiet_since='2026-07-27T12:00:00+00:00',
+        started_at='2026-07-27T08:00:00+00:00',
+    )
+    replayed = journal.replay().session
+
+    journal.append(
+        'session_state',
+        state=replayed.state,
+        session_id=replayed.session_id,
+        session_paths=replayed.session_paths,
+        snapshot=replayed.snapshot,
+        quiet_since=replayed.quiet_since,
+        started_at=replayed.started_at,
+    )
+
+    assert journal.replay().session == replayed
+
+
 def test_partial_baseline_restart_remains_uninitialized_until_explicit_marker(
     tmp_path,
 ):
@@ -633,6 +659,67 @@ def test_append_rejects_history_invalid_stage_without_mutating_journal(tmp_path)
         journal.append('video_uploaded', fingerprint='fp1', video_id='yt123')
 
     assert not path.exists()
+
+
+def test_video_upload_rejected_cannot_discard_existing_video_id(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('file_ready', fingerprint='fp1', file='/video.flv')
+    journal.append('video_uploaded', fingerprint='fp1', video_id='yt123')
+    before = journal.path.read_bytes()
+
+    with pytest.raises(ValueError, match='existing video_id'):
+        journal.append('video_upload_rejected', fingerprint='fp1')
+
+    assert journal.path.read_bytes() == before
+    state = journal.replay().files['fp1']
+    assert state.video_id == 'yt123'
+    assert state.event == 'video_uploaded'
+
+
+def test_repeated_video_uploaded_is_idempotent_only_for_same_id(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('file_ready', fingerprint='fp1', file='/video.flv')
+    journal.append('video_uploaded', fingerprint='fp1', video_id='yt123')
+    journal.append(
+        'description_updated',
+        fingerprint='fp1',
+        description_fingerprint='description-hash',
+    )
+    expected = journal.replay().files['fp1']
+
+    journal.append('video_uploaded', fingerprint='fp1', video_id='yt123')
+
+    assert journal.replay().files['fp1'] == expected
+    before_conflict = journal.path.read_bytes()
+    with pytest.raises(ValueError, match='different video_id'):
+        journal.append('video_uploaded', fingerprint='fp1', video_id='other')
+    assert journal.path.read_bytes() == before_conflict
+    assert journal.replay().files['fp1'].video_id == 'yt123'
+
+
+def test_ambiguous_upload_requires_resolution_before_reupload(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('file_ready', fingerprint='fp1', file='/video.flv')
+    journal.append('ambiguous', fingerprint='fp1')
+    before = journal.path.read_bytes()
+    retry = {
+        'title': 'Retry title',
+        'duration': 120,
+        'upload_started_at': '2026-07-27T13:01:00+00:00',
+    }
+
+    with pytest.raises(ValueError, match='ambiguous'):
+        journal.append('upload_started', fingerprint='fp1', **retry)
+
+    assert journal.path.read_bytes() == before
+    assert journal.replay().files['fp1'].ambiguous is True
+
+    journal.append('video_upload_rejected', fingerprint='fp1')
+    journal.append('upload_started', fingerprint='fp1', **retry)
+    state = journal.replay().files['fp1']
+    assert state.event == 'upload_started'
+    assert state.video_id is None
+    assert state.ambiguous is False
 
 
 def test_append_rejects_manifest_completion_without_ready_event(tmp_path):
@@ -1142,6 +1229,14 @@ def test_two_journal_instances_share_lock_and_append_without_loss(tmp_path):
 
     assert len(first.replay().files) == 50
     assert len(path.read_bytes().splitlines()) == 50
+
+
+def test_journal_path_is_canonicalized_at_construction(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    journal = JsonlJournal('nested/../state.jsonl')
+
+    assert journal.path == (tmp_path / 'state.jsonl').resolve()
 
 
 def test_process_lock_rejects_nested_or_closed_context(tmp_path):

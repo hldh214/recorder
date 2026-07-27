@@ -5,6 +5,7 @@ import json
 import math
 import os
 import threading
+from collections.abc import Mapping
 from dataclasses import dataclass, fields, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -182,14 +183,27 @@ def _validate_file_record(record, event, existing, enforce_history=True):
             raise TypeError('upload_started requires a finite non-negative duration')
         if existing is not None and existing.video_id is not None:
             raise ValueError('upload_started cannot replace an existing video_id')
+        if existing is not None and existing.ambiguous:
+            raise ValueError('upload_started cannot retry an ambiguous upload')
         _parse_aware_instant(record['upload_started_at'], 'upload_started_at', event)
         attempt = record.get('attempt', 0)
         if isinstance(attempt, bool) or not isinstance(attempt, int) or attempt < 0:
             raise TypeError(
                 'upload_started requires a non-negative integer attempt'
             )
+    elif event == 'video_upload_rejected':
+        if existing is not None and existing.video_id is not None:
+            raise ValueError(
+                'video_upload_rejected cannot discard an existing video_id'
+            )
     elif event == 'video_uploaded':
         _require_non_empty_string(record, 'video_id', event)
+        if (
+            existing is not None
+            and existing.video_id is not None
+            and existing.video_id != record['video_id']
+        ):
+            raise ValueError('video_uploaded cannot replace a different video_id')
     elif event == 'description_updated':
         _require_non_empty_string(record, 'description_fingerprint', event)
     elif event == 'caption_status':
@@ -321,8 +335,10 @@ def _reduce_session_state(replay, record):
         raise TypeError('session_paths must be a list of non-empty strings')
 
     raw_snapshot = record['snapshot']
-    if not isinstance(raw_snapshot, dict):
+    if not isinstance(raw_snapshot, Mapping):
         raise TypeError('snapshot must be an object')
+    raw_snapshot = dict(raw_snapshot)
+    record['snapshot'] = raw_snapshot
     snapshot = {}
     for path, identity in raw_snapshot.items():
         if not isinstance(path, str) or not path:
@@ -556,7 +572,7 @@ def _public_replay(replay):
 
 class JsonlJournal:
     def __init__(self, path):
-        self.path = Path(path)
+        self.path = Path(path).resolve()
         self._mutex = _shared_journal_lock(self.path)
 
     def append(self, event, **fields):
@@ -650,6 +666,11 @@ class JsonlJournal:
         fingerprint = record.get('fingerprint')
         existing = replay.files.get(fingerprint)
         _validate_file_record(record, event, existing)
+        if (
+            event == 'video_uploaded'
+            and existing.video_id == record['video_id']
+        ):
+            return replay
         updates = _file_event_updates(record, event, existing)
         state_event = existing.event if event == 'source_deleted' else event
         if existing is None:
