@@ -466,20 +466,20 @@ class BililiveSessionMonitor:
         )
 
     def observe(self, now: datetime, room: RoomState | None, snapshot: Snapshot):
-        if self.machine.state is SessionState.WAITING and room is not None:
-            if not isinstance(room, RoomState):
-                raise TypeError('room must be RoomState or None')
-            replay = self.journal.replay()
-            if replay.pending_resettles:
-                return self._claim_pending_resettle(
-                    now, room, snapshot, replay
-                )
         was_initialized = self.machine.initialized
         previous_state = self.machine.state
         previous = self.machine.persistent_signature()
-        decision = self.machine.observe(now, room, snapshot)
 
         try:
+            if self.machine.state is SessionState.WAITING and room is not None:
+                if not isinstance(room, RoomState):
+                    raise TypeError('room must be RoomState or None')
+                replay = self.journal.replay()
+                if replay.pending_resettles:
+                    return self._claim_pending_resettle(
+                        now, room, snapshot, replay
+                    )
+            decision = self.machine.observe(now, room, snapshot)
             if not was_initialized and self.machine.initialized:
                 if previous_state is SessionState.BASELINING:
                     self._append_baselining_ownership(decision)
@@ -554,6 +554,12 @@ class BililiveSessionMonitor:
             xml_path = str(Path(flv_path).with_suffix('.xml'))
             if xml_path in current:
                 session_paths.add(xml_path)
+        if room.active:
+            session_paths.update(
+                path for path, identity in current.items()
+                if path.lower().endswith(('.flv', '.xml'))
+                and replay.session.snapshot.get(path) != identity
+            )
         replacement_id = self.machine.id_factory()
         state = (
             SessionState.RECORDING

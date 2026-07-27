@@ -1504,6 +1504,15 @@ def test_resettle_started_atomically_claims_request_and_session(tmp_path):
     assert replay.session.quiet_since == started['quiet_since']
     assert replay.session.started_at == started['started_at']
 
+    journal.append('session_resettle_started', **started)
+    assert journal.replay() == replay
+
+    with pytest.raises(ValueError, match='conflicting duplicate'):
+        journal.append(
+            'session_resettle_started',
+            **dict(started, quiet_since='2026-07-27T12:11:00+00:00'),
+        )
+
     with pytest.raises(ValueError, match='already claimed'):
         journal.append(
             'session_resettle_started',

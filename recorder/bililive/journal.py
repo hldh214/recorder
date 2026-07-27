@@ -646,18 +646,6 @@ def _reduce_resettle_started(replay, record):
     source = manifests[source_index]
     if not source.invalidated:
         raise ValueError(f'{event} requires an invalidated source manifest')
-    if source.replacement_manifest_id is not None:
-        raise ValueError(f'{event} source manifest is already claimed')
-    if any(
-        item.manifest_id == replacement_id
-        or item.replacement_manifest_id == replacement_id
-        for item in manifests
-    ):
-        raise ValueError(f'{event} replacement manifest ID is already used')
-    if replay.session.state is not SessionState.WAITING:
-        raise ValueError(f'{event} cannot replace an active session')
-    if replay.session.room_id not in (None, source.room_id):
-        raise ValueError(f'{event} room conflicts with the current session')
     room_id = record.get('room_id')
     if room_id != source.room_id:
         raise ValueError(f'{event} room conflicts with the source manifest')
@@ -678,23 +666,6 @@ def _reduce_resettle_started(replay, record):
     session_paths = record.get('session_paths')
     if not isinstance(session_paths, (list, tuple)):
         raise TypeError(f'{event} requires session_paths')
-    expected_paths = set(source.flv_paths)
-    for flv_path in source.flv_paths:
-        if flv_path not in raw_snapshot:
-            raise ValueError(
-                f'{event} current source FLV is missing: {flv_path}'
-            )
-        xml_path = os.path.splitext(flv_path)[0] + '.xml'
-        if xml_path in raw_snapshot:
-            expected_paths.add(xml_path)
-    if not source.flv_paths:
-        raise ValueError(f'{event} requires a current source FLV')
-    if set(session_paths) != expected_paths:
-        raise ValueError(
-            f'{event} session_paths must contain current source FLV/XML paths'
-        )
-    if len(session_paths) != len(expected_paths):
-        raise ValueError(f'{event} contains duplicate session_paths')
     replacement_started_at = _parse_aware_instant(
         record.get('started_at'), 'started_at', event
     )
@@ -719,6 +690,60 @@ def _reduce_resettle_started(replay, record):
         'started_at': record.get('started_at'),
     }
     updated = _reduce_session_state(replay, session_record)
+
+    if source.replacement_manifest_id is not None:
+        if source.replacement_manifest_id != replacement_id:
+            raise ValueError(f'{event} source manifest is already claimed')
+        if updated.session != replay.session:
+            raise ValueError(f'{event} has a conflicting duplicate claim')
+        if any(
+            item.source_manifest_id == source_id
+            for item in replay.pending_resettles
+        ):
+            raise ValueError(f'{event} duplicate has inconsistent pending state')
+        return replay
+
+    if any(
+        item.manifest_id == replacement_id
+        or item.replacement_manifest_id == replacement_id
+        for item in manifests
+    ):
+        raise ValueError(f'{event} replacement manifest ID is already used')
+    if replay.session.state is not SessionState.WAITING:
+        raise ValueError(f'{event} cannot replace an active session')
+    if replay.session.room_id not in (None, source.room_id):
+        raise ValueError(f'{event} room conflicts with the current session')
+    if not any(
+        item.source_manifest_id == source_id
+        for item in replay.pending_resettles
+    ):
+        raise ValueError(f'{event} requires a pending resettle request')
+    if not source.flv_paths:
+        raise ValueError(f'{event} requires a current source FLV')
+
+    current_snapshot = updated.session.snapshot
+    expected_paths = set(source.flv_paths)
+    for flv_path in source.flv_paths:
+        if flv_path not in current_snapshot:
+            raise ValueError(
+                f'{event} current source FLV is missing: {flv_path}'
+            )
+        xml_path = os.path.splitext(flv_path)[0] + '.xml'
+        if xml_path in current_snapshot:
+            expected_paths.add(xml_path)
+    if state is SessionState.RECORDING:
+        expected_paths.update(
+            path for path, identity in current_snapshot.items()
+            if path.lower().endswith(('.flv', '.xml'))
+            and replay.session.snapshot.get(path) != identity
+        )
+    if set(session_paths) != expected_paths:
+        raise ValueError(
+            f'{event} session_paths do not match the claimed recording paths'
+        )
+    if len(session_paths) != len(expected_paths):
+        raise ValueError(f'{event} contains duplicate session_paths')
+
     manifests[source_index] = replace(
         source, replacement_manifest_id=replacement_id
     )

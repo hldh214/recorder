@@ -39,6 +39,7 @@ class FakePublisher:
         self.results = list(results)
         self.events = events if events is not None else []
         self.calls = []
+        self.config = {'source': {str(ROOM_ID): {}}}
 
     def publish_video(self, **kwargs):
         callback = kwargs.get('before_video_upload')
@@ -1116,11 +1117,15 @@ def test_success_journals_each_completed_remote_stage_separately(tmp_path):
     ]
 
 
-def test_run_pending_completes_manifest_only_after_requested_stages(tmp_path):
+@pytest.mark.parametrize('source_config', [{}, {'playlist_id': ''}])
+def test_run_pending_completes_manifest_only_after_requested_stages(
+    tmp_path, source_config
+):
     journal = RecordingJournal(tmp_path / 'state.jsonl')
     classified = ready_media(tmp_path)
     append_manifest(journal, 'session-1', classified)
     publisher = FakePublisher([publish_result()])
+    publisher.config = {'source': {str(ROOM_ID): source_config}}
     runner = BililivePublishRunner(
         journal=journal,
         publisher=publisher,
@@ -1134,6 +1139,175 @@ def test_run_pending_completes_manifest_only_after_requested_stages(tmp_path):
     assert result.status == 'complete'
     assert journal.replay().manifests[0].completed is True
     assert journal_events(journal.path)[-1] == 'session_manifest_completed'
+
+
+def test_selection_and_completion_share_one_state_index_per_replay(tmp_path):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    classified = ready_media(tmp_path)
+    append_manifest(journal, 'session-1', classified)
+    journal.append('video_uploaded', fingerprint='fp1', video_id='yt123')
+    journal.append(
+        'description_updated',
+        fingerprint='fp1',
+        description_fingerprint='description-fingerprint',
+    )
+    journal.append('youtube_processed', fingerprint='fp1')
+
+    class CountingRunner(BililivePublishRunner):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.index_calls = 0
+
+        def _file_state_index(self, replay):
+            self.index_calls += 1
+            return super()._file_state_index(replay)
+
+    runner = CountingRunner(
+        journal=journal,
+        publisher=FakePublisher([]),
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW,
+        caption_provider=None,
+    )
+
+    result = runner.run_pending_once(journal.replay())
+
+    assert result.status == 'complete'
+    assert runner.index_calls == 1
+
+
+@pytest.mark.parametrize(
+    'invalid_config',
+    [
+        None,
+        {},
+        {'source': []},
+        {'source': {}},
+        {'source': {str(ROOM_ID): []}},
+    ],
+    ids=[
+        'missing-config',
+        'missing-source',
+        'bad-source',
+        'missing-room',
+        'bad-room',
+    ],
+)
+def test_invalid_playlist_config_cannot_complete_processed_manifest(
+    tmp_path, invalid_config
+):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    classified = ready_media(tmp_path)
+    append_manifest(journal, 'session-1', classified)
+    journal.append('video_uploaded', fingerprint='fp1', video_id='yt123')
+    journal.append(
+        'description_updated',
+        fingerprint='fp1',
+        description_fingerprint='description-fingerprint',
+    )
+    journal.append('youtube_processed', fingerprint='fp1')
+
+    class ConfigFatalPublisher:
+        def __init__(self):
+            self.config = invalid_config
+            self.calls = 0
+
+        def publish_video(self, **kwargs):
+            self.calls += 1
+            return publish_result(
+                PublishStatus.FATAL,
+                playlist_inserted=False,
+                error_stage='config',
+                error_message='invalid source configuration',
+            )
+
+    publisher = ConfigFatalPublisher()
+    runner = BililivePublishRunner(
+        journal=journal,
+        publisher=publisher,
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW,
+        caption_provider=None,
+    )
+
+    result = runner.run_pending_once(journal.replay())
+
+    assert result.status == 'fatal'
+    assert publisher.calls == 1
+    assert journal.replay().manifests[0].completed is False
+
+
+@pytest.mark.parametrize(
+    'mutation_stage', ['video_uploaded', 'youtube_processed']
+)
+def test_post_remote_source_change_preserves_checkpoints_and_resettles(
+    tmp_path, mutation_stage
+):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    classified = ready_media(tmp_path)
+    classified.media.xml_path.write_text('<i/>')
+    append_manifest(journal, 'session-1', classified)
+
+    class MutatingPublisher:
+        config = {'source': {str(ROOM_ID): {}}}
+
+        def __init__(self):
+            self.calls = 0
+
+        def publish_video(self, **kwargs):
+            self.calls += 1
+            kwargs['before_video_upload'](
+                'Generated title', 'description-fingerprint'
+            )
+            callback = kwargs['on_stage_completed']
+            for stage, fields in (
+                ('video_uploaded', {'video_id': 'yt123'}),
+                ('description_updated', {
+                    'description_fingerprint': 'description-fingerprint'
+                }),
+                ('caption_uploaded', {}),
+                ('playlist_inserted', {}),
+                ('youtube_processed', {}),
+            ):
+                callback(stage, **fields)
+                if stage == mutation_stage:
+                    classified.media.path.write_bytes(b'changed-after-remote')
+                    classified.media.xml_path.write_text('<i>changed</i>')
+            return publish_result(
+                caption_uploaded=True, caption_status='uploaded'
+            )
+
+    publisher = MutatingPublisher()
+    runner = BililivePublishRunner(
+        journal=journal,
+        publisher=publisher,
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW,
+        caption_provider=None,
+    )
+
+    result = runner.run_pending_once(journal.replay())
+
+    assert result.status == 'resettle_pending'
+    replay = journal.replay()
+    manifest = replay.manifests[0]
+    state = replay.files['fp1']
+    assert manifest.invalidated is True
+    assert manifest.completed is False
+    assert set(manifest.changed_paths) == {
+        str(classified.media.path), str(classified.media.xml_path)
+    }
+    assert state.video_id == 'yt123'
+    assert state.description_updated is True
+    assert state.caption_uploaded is True
+    assert state.playlist_inserted is True
+    assert state.youtube_processed is True
+
+    assert runner.run_pending_once(replay) is None
+    assert publisher.calls == 1
 
 
 def test_missing_caption_keeps_manifest_open_without_blocking_video_stages(tmp_path):

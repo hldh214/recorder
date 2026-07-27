@@ -133,12 +133,17 @@ class BililivePublishRunner:
             eligible_manifest_ids.add(manifest.manifest_id)
             replay = self.journal.replay()
 
+        state_index = self._file_state_index(replay)
         candidate = self._select_due_candidate(
-            replay, eligible_manifest_ids=eligible_manifest_ids
+            replay,
+            eligible_manifest_ids=eligible_manifest_ids,
+            state_index=state_index,
         )
         if candidate is None:
             completed = self._complete_finished_manifests(
-                replay, eligible_manifest_ids=eligible_manifest_ids
+                replay,
+                eligible_manifest_ids=eligible_manifest_ids,
+                state_index=state_index,
             )
             if completed:
                 return RunnerResult('complete')
@@ -146,7 +151,10 @@ class BililivePublishRunner:
 
         classified, manifest, unresolved_upload = candidate
         fingerprint = classified.media.fingerprint
-        self._expected_snapshots[fingerprint] = dict(manifest.snapshot)
+        expected_snapshot = dict(manifest.snapshot)
+        xml_path = str(classified.media.xml_path)
+        expected_snapshot.setdefault(xml_path, _identity(xml_path))
+        self._expected_snapshots[fingerprint] = expected_snapshot
         self._manifest_rooms[fingerprint] = manifest.room_id
         try:
             if unresolved_upload:
@@ -164,14 +172,29 @@ class BililivePublishRunner:
                     settling_paths,
                     reason=result.message,
                 )
+            else:
+                post_remote_changes = self._snapshot_changed_paths(
+                    self._expected_snapshots[fingerprint]
+                )
+                if post_remote_changes:
+                    result = self._invalidate_changed_manifest(
+                        manifest,
+                        post_remote_changes,
+                        reason=(
+                            'frozen source identity changed after publication: '
+                            + ', '.join(post_remote_changes)
+                        ),
+                    )
         finally:
             self._expected_snapshots.pop(fingerprint, None)
             self._manifest_rooms.pop(fingerprint, None)
             self._settling_paths.pop(fingerprint, None)
 
+        completion_replay = self.journal.replay()
         self._complete_finished_manifests(
-            self.journal.replay(),
+            completion_replay,
             eligible_manifest_ids=eligible_manifest_ids,
+            state_index=self._file_state_index(completion_replay),
         )
         return result
 
@@ -631,11 +654,15 @@ class BililivePublishRunner:
                 error_message=media.probe_error,
             )
 
-    def _select_due_candidate(self, replay, eligible_manifest_ids=None):
+    def _select_due_candidate(
+        self, replay, eligible_manifest_ids=None, state_index=None
+    ):
         candidates = []
         now = self._now()
+        if state_index is None:
+            state_index = self._file_state_index(replay)
         for manifest in replay.manifests:
-            if manifest.completed:
+            if manifest.completed or manifest.invalidated:
                 continue
             if (
                 eligible_manifest_ids is not None
@@ -643,10 +670,7 @@ class BililivePublishRunner:
             ):
                 continue
             for path in manifest.flv_paths:
-                state = next((
-                    item for item in replay.files.values()
-                    if item.manifest_id == manifest.manifest_id and item.file == path
-                ), None)
+                state = state_index.get((manifest.manifest_id, path))
                 if state is None or state.event in _IGNORED_STATUSES:
                     continue
                 if state.event in ('fatal', 'ambiguous') or state.ambiguous:
@@ -705,26 +729,41 @@ class BililivePublishRunner:
             state.caption_uploaded
             or state.caption_status == 'not_requested'
         )
+        playlist_required = self._playlist_requirement(room_id)
+        if playlist_required is None:
+            return False
         return bool(
             state.video_id
             and state.youtube_processed
             and caption_complete
-            and (not self._playlist_required(room_id) or state.playlist_inserted)
+            and (not playlist_required or state.playlist_inserted)
         )
 
-    def _playlist_required(self, room_id):
+    def _playlist_requirement(self, room_id):
         config = getattr(self.publisher, 'config', None)
-        try:
-            return bool(config['source'][str(room_id)].get('playlist_id'))
-        except (AttributeError, KeyError, TypeError):
+        if not isinstance(config, Mapping):
+            return None
+        sources = config.get('source')
+        if not isinstance(sources, Mapping):
+            return None
+        source = sources.get(str(room_id))
+        if not isinstance(source, Mapping):
+            return None
+        playlist_id = source.get('playlist_id')
+        if playlist_id is None or playlist_id == '':
             return False
+        if not isinstance(playlist_id, str):
+            return None
+        return True
 
     def _complete_finished_manifests(
-        self, replay, eligible_manifest_ids=None
+        self, replay, eligible_manifest_ids=None, state_index=None
     ):
         appended = False
+        if state_index is None:
+            state_index = self._file_state_index(replay)
         for manifest in replay.manifests:
-            if manifest.completed:
+            if manifest.completed or manifest.invalidated:
                 continue
             if (
                 eligible_manifest_ids is not None
@@ -733,10 +772,7 @@ class BililivePublishRunner:
                 continue
             states = []
             for path in manifest.flv_paths:
-                state = next((
-                    item for item in replay.files.values()
-                    if item.manifest_id == manifest.manifest_id and item.file == path
-                ), None)
+                state = state_index.get((manifest.manifest_id, path))
                 states.append(state)
             if states and all(
                 state is not None and self._state_complete(state, manifest.room_id)
@@ -748,17 +784,19 @@ class BililivePublishRunner:
                 appended = True
         return appended
 
+    @staticmethod
+    def _file_state_index(replay):
+        return {
+            (state.manifest_id, state.file): state
+            for state in replay.files.values()
+            if state.manifest_id is not None and state.file is not None
+        }
+
     def _expected_for(self, classified):
         media = classified.media
         expected = self._expected_snapshots.get(media.fingerprint)
         if expected is not None:
-            expected = dict(expected)
-            xml_path = str(media.xml_path)
-            if xml_path not in expected:
-                xml_identity = _identity(media.xml_path)
-                if xml_identity is not None:
-                    expected[xml_path] = xml_identity
-            return expected
+            return dict(expected)
         dynamic = {str(media.path): (media.size, media.mtime_ns)}
         xml_identity = _identity(media.xml_path)
         if xml_identity is not None:
@@ -787,15 +825,24 @@ class BililivePublishRunner:
         return RunnerResult('resettle_pending', message=message)
 
     def _snapshot_mismatch(self, media, expected):
-        flv_path = str(media.path)
-        if _identity(flv_path) != tuple(expected[flv_path]):
-            self._settling_paths[media.fingerprint] = (flv_path,)
-            return f'frozen FLV identity changed: {flv_path}'
-        xml_path = str(media.xml_path)
-        if xml_path in expected and _identity(xml_path) != tuple(expected[xml_path]):
-            self._settling_paths[media.fingerprint] = (xml_path,)
-            return f'frozen XML identity changed: {xml_path}'
+        changed_paths = self._snapshot_changed_paths(expected)
+        if changed_paths:
+            self._settling_paths[media.fingerprint] = changed_paths
+            labels = ', '.join(
+                f'{Path(path).suffix.upper().lstrip(".")} identity changed: {path}'
+                for path in changed_paths
+            )
+            return f'frozen {labels}'
         return None
+
+    @staticmethod
+    def _snapshot_changed_paths(expected):
+        return tuple(
+            path for path, identity in expected.items()
+            if _identity(path) != (
+                tuple(identity) if identity is not None else None
+            )
+        )
 
     def _room_for(self, fingerprint):
         room = self._manifest_rooms.get(fingerprint, self.room_id)

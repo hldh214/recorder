@@ -796,6 +796,107 @@ def test_active_pending_resettle_claims_as_recording(tmp_path):
     )
 
 
+def test_active_resettle_claim_includes_fragments_changed_since_waiting(
+    tmp_path,
+):
+    video = str(tmp_path / 'video.flv')
+    fragment = str(tmp_path / 'fragment.flv')
+    fragment_xml = str(tmp_path / 'fragment.xml')
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('initialized')
+    journal.append(
+        'session_state',
+        room_id=123,
+        state='waiting',
+        session_id=None,
+        session_paths=(),
+        snapshot={video: (100, 1), fragment: (50, 1)},
+        quiet_since=None,
+        started_at=None,
+    )
+    append_pending_resettle(journal, video)
+    monitor = BililiveSessionMonitor(
+        journal=journal,
+        room_id=123,
+        id_factory=lambda: 'replacement-session',
+    )
+    current = {
+        video: (200, 2),
+        fragment: (75, 2),
+        fragment_xml: (10, 2),
+        str(tmp_path / 'unrelated.txt'): (3, 1),
+    }
+
+    decision = monitor.observe(at(13), RoomState(True, True), current)
+
+    assert decision.state is SessionState.RECORDING
+    assert set(decision.session_paths) == {video, fragment, fragment_xml}
+    assert dict(decision.snapshot) == current
+    replay = journal.replay()
+    assert set(replay.session.session_paths) == {
+        video, fragment, fragment_xml
+    }
+
+
+def test_resettle_claim_recovers_after_durable_append_then_error(tmp_path):
+    class DurableThenErrorJournal(JsonlJournal):
+        def __init__(self, path):
+            super().__init__(path)
+            self.failed = False
+
+        def append(self, event, **fields):
+            result = super().append(event, **fields)
+            if event == 'session_resettle_started' and not self.failed:
+                self.failed = True
+                raise OSError('simulated post-fsync failure')
+            return result
+
+    video = str(tmp_path / 'video.flv')
+    path = tmp_path / 'state.jsonl'
+    journal = DurableThenErrorJournal(path)
+    journal.append('initialized')
+    journal.append(
+        'session_state',
+        room_id=123,
+        state='waiting',
+        session_id=None,
+        session_paths=(),
+        snapshot={video: (100, 1)},
+        quiet_since=None,
+        started_at=None,
+    )
+    append_pending_resettle(journal, video)
+    monitor = BililiveSessionMonitor(
+        journal=journal,
+        room_id=123,
+        id_factory=lambda: 'replacement-session',
+    )
+    current = {video: (200, 2)}
+
+    with pytest.raises(OSError, match='post-fsync'):
+        monitor.observe(at(13), RoomState(True, True), current)
+
+    assert monitor.machine.state is SessionState.RECORDING
+    assert monitor.machine.session_id == 'replacement-session'
+    assert journal.replay().pending_resettles == ()
+
+    resumed = monitor.observe(at(13, 1), RoomState(True, True), current)
+    assert resumed.session_id == 'replacement-session'
+    restarted = BililiveSessionMonitor(
+        journal=JsonlJournal(path),
+        room_id=123,
+        id_factory=lambda: pytest.fail('must not allocate another session'),
+    )
+    restarted_decision = restarted.observe(
+        at(13, 2), RoomState(True, True), current
+    )
+    assert restarted_decision.session_id == 'replacement-session'
+    assert sum(
+        record['event'] == 'session_resettle_started'
+        for record in _journal_records(path)
+    ) == 1
+
+
 def test_active_resettle_starts_fresh_quiet_period_when_room_goes_offline(
     tmp_path,
 ):
