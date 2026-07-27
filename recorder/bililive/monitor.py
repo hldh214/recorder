@@ -128,6 +128,26 @@ class SessionMonitorState:
             if manifest.manifest_id == machine.session_id
         ), None)
         if matching_manifest is not None:
+            expected_flv_paths = tuple(sorted(
+                path
+                for path in session.session_paths
+                if path.lower().endswith('.flv')
+            ))
+            if matching_manifest.flv_paths != expected_flv_paths:
+                raise ValueError(
+                    'matching session manifest has conflicting flv_paths'
+                )
+            if dict(matching_manifest.snapshot) != dict(session.snapshot):
+                raise ValueError(
+                    'matching session manifest has conflicting snapshot'
+                )
+            manifest_started_at = _parse_instant(
+                matching_manifest.started_at
+            )
+            if manifest_started_at != machine.started_at:
+                raise ValueError(
+                    'matching session manifest has conflicting started_at'
+                )
             settled_at = _parse_instant(matching_manifest.settled_at)
             if (
                 machine._last_observed_at is None

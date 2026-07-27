@@ -4,6 +4,7 @@ import pytest
 
 from recorder.bililive.journal import JsonlJournal, baseline_fingerprint
 from recorder.bililive.models import (
+    JournalManifest,
     JournalReplay,
     JournalSessionState,
     RoomState,
@@ -503,6 +504,94 @@ def test_restart_rejects_observation_before_durable_manifest_settlement(
         restarted.observe(
             at(22, 20), RoomState(False, False), {'a.flv': (200, 2)}
         )
+
+
+def _replay_with_active_session_and_manifest(
+    *,
+    session_paths=('a.flv', 'a.xml'),
+    session_snapshot=None,
+    session_started=None,
+    manifest_paths=('a.flv',),
+    manifest_snapshot=None,
+    manifest_started=None,
+):
+    session_snapshot = session_snapshot or {
+        'a.flv': (200, 2),
+        'a.xml': (20, 2),
+    }
+    manifest_snapshot = manifest_snapshot or dict(session_snapshot)
+    session_started = session_started or at(18).isoformat()
+    manifest_started = manifest_started or session_started
+    return JournalReplay(
+        files={},
+        manifests=(
+            JournalManifest(
+                manifest_id='session-1',
+                room_id=123,
+                started_at=manifest_started,
+                settled_at=at(22, 30).isoformat(),
+                flv_paths=manifest_paths,
+                snapshot=manifest_snapshot,
+            ),
+        ),
+        session=JournalSessionState(
+            state=SessionState.SETTLING,
+            session_id='session-1',
+            session_paths=session_paths,
+            snapshot=session_snapshot,
+            quiet_since=at(22).isoformat(),
+            started_at=session_started,
+        ),
+        initialized=True,
+    )
+
+
+def test_restore_rejects_matching_manifest_id_with_different_flv_paths():
+    replay = _replay_with_active_session_and_manifest(
+        session_paths=('a.flv', 'b.flv', 'a.xml'),
+        session_snapshot={
+            'a.flv': (200, 2),
+            'b.flv': (300, 3),
+            'a.xml': (20, 2),
+        },
+        manifest_paths=('b.flv',),
+    )
+
+    with pytest.raises(ValueError, match='flv_paths'):
+        SessionMonitorState.restore(replay)
+
+
+def test_restore_rejects_matching_manifest_id_with_different_snapshot():
+    replay = _replay_with_active_session_and_manifest(
+        manifest_snapshot={
+            'a.flv': (201, 2),
+            'a.xml': (20, 2),
+        }
+    )
+
+    with pytest.raises(ValueError, match='snapshot'):
+        SessionMonitorState.restore(replay)
+
+
+def test_restore_rejects_matching_manifest_id_with_different_start_time():
+    replay = _replay_with_active_session_and_manifest(
+        manifest_started=at(18, 1).isoformat()
+    )
+
+    with pytest.raises(ValueError, match='started_at'):
+        SessionMonitorState.restore(replay)
+
+
+def test_restore_accepts_matching_manifest_start_time_with_equivalent_offset():
+    replay = _replay_with_active_session_and_manifest(
+        session_started='2026-07-27T18:00:00+09:00',
+        manifest_started='2026-07-27T09:00:00+00:00',
+    )
+
+    restored = SessionMonitorState.restore(replay)
+
+    assert restored.state is SessionState.WAITING
+    assert restored.session_id is None
 
 
 def test_monitor_decision_snapshot_is_copied_and_read_only():
