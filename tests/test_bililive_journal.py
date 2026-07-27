@@ -1303,6 +1303,109 @@ def test_manifest_rejects_empty_flv_paths(tmp_path):
         )
 
 
+@pytest.mark.parametrize(
+    ('flv_path', 'snapshot'),
+    [
+        ('relative/video.flv', {'relative/video.flv': (100, 200)}),
+        (
+            '/recording/parts/../video.flv',
+            {'/recording/parts/../video.flv': (100, 200)},
+        ),
+        (
+            '/recording/video.flv',
+            {
+                '/recording/parts/../video.xml': (10, 20),
+                '/recording/video.flv': (100, 200),
+            },
+        ),
+    ],
+)
+def test_manifest_requires_lexically_normalized_absolute_paths(
+    tmp_path, flv_path, snapshot
+):
+    with pytest.raises(ValueError, match='normalized absolute'):
+        JsonlJournal(tmp_path / 'state.jsonl').append(
+            'session_manifest_ready',
+            manifest_id='session-1',
+            room_id=123,
+            started_at='2026-07-27T08:00:00+00:00',
+            settled_at='2026-07-27T12:00:00+00:00',
+            flv_paths=(flv_path,),
+            snapshot=snapshot,
+        )
+
+
+def test_manifest_rejects_non_flv_media_path(tmp_path):
+    with pytest.raises(ValueError, match=r'\.flv'):
+        JsonlJournal(tmp_path / 'state.jsonl').append(
+            'session_manifest_ready',
+            manifest_id='session-1',
+            room_id=123,
+            started_at='2026-07-27T08:00:00+00:00',
+            settled_at='2026-07-27T12:00:00+00:00',
+            flv_paths=('/recording/video.mp4',),
+            snapshot={'/recording/video.mp4': (100, 200)},
+        )
+
+
+def test_manifest_accepts_case_insensitive_flv_suffix(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'session_manifest_ready',
+        manifest_id='session-1',
+        room_id=123,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:00:00+00:00',
+        flv_paths=('/recording/video.FLV',),
+        snapshot={'/recording/video.FLV': (100, 200)},
+    )
+
+    assert journal.replay().manifests[0].flv_paths == (
+        '/recording/video.FLV',
+    )
+
+
+def test_manifest_snapshot_rejects_unrelated_directory_history(tmp_path):
+    with pytest.raises(ValueError, match='unrelated'):
+        JsonlJournal(tmp_path / 'state.jsonl').append(
+            'session_manifest_ready',
+            manifest_id='session-1',
+            room_id=123,
+            started_at='2026-07-27T08:00:00+00:00',
+            settled_at='2026-07-27T12:00:00+00:00',
+            flv_paths=('/recording/video.flv',),
+            snapshot={
+                '/recording/video.flv': (100, 200),
+                '/recording/video.xml': (10, 20),
+                '/recording/historical.flv': (900, 900),
+            },
+        )
+
+
+def test_manifest_replay_is_independent_of_current_working_directory(
+    tmp_path, monkeypatch
+):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    video = str(tmp_path / 'recording' / 'video.flv')
+    journal.append(
+        'session_manifest_ready',
+        manifest_id='session-1',
+        room_id=123,
+        started_at='2026-07-27T08:00:00+00:00',
+        settled_at='2026-07-27T12:00:00+00:00',
+        flv_paths=(video,),
+        snapshot={video: (100, 200)},
+    )
+    other_directory = tmp_path / 'other'
+    other_directory.mkdir()
+    monkeypatch.chdir(other_directory)
+
+    manifest = journal.replay().manifests[0]
+
+    assert manifest.flv_paths == (video,)
+    assert manifest.snapshot == {video: (100, 200)}
+
+
 @pytest.mark.parametrize('start_time', ['not-a-time', '2026-07-27T08:00:00'])
 def test_file_ready_start_time_requires_timezone_aware_iso(
     tmp_path, start_time

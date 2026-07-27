@@ -336,9 +336,45 @@ def test_failed_baseline_persistence_does_not_leave_monitor_armed(tmp_path):
     assert monitor.machine.state is SessionState.BASELINING
 
 
+def test_failed_persistence_rollback_uses_configured_room_id(
+    tmp_path, monkeypatch
+):
+    calls = []
+    original_restore = SessionMonitorState.restore.__func__
+
+    def tracking_restore(cls, replay, id_factory=None, room_id=None):
+        calls.append(room_id)
+        return original_restore(
+            cls, replay, id_factory=id_factory, room_id=room_id
+        )
+
+    monkeypatch.setattr(
+        SessionMonitorState, 'restore', classmethod(tracking_restore)
+    )
+
+    class FailingJournal(JsonlJournal):
+        def append(self, event, **fields):
+            if event == 'baseline':
+                raise OSError('disk unavailable')
+            return super().append(event, **fields)
+
+    journal = FailingJournal(tmp_path / 'state.jsonl')
+    monitor = BililiveSessionMonitor(journal=journal, room_id=123)
+
+    with pytest.raises(OSError, match='disk unavailable'):
+        monitor.observe(
+            at(18), RoomState(False, False), {'a.flv': (100, 1)}
+        )
+
+    assert calls == [123, 123]
+
+
 def test_manifest_is_durable_before_monitor_rearms(tmp_path):
     events = []
     monitor_ref = {}
+    video = str(tmp_path / 'a.flv')
+    xml = str(tmp_path / 'a.xml')
+    unrelated = str(tmp_path / 'historical.flv')
 
     class ObservingJournal(JsonlJournal):
         def append(inner_self, event, **fields):
@@ -357,20 +393,23 @@ def test_manifest_is_durable_before_monitor_rearms(tmp_path):
     )
     monitor_ref['monitor'] = monitor
     monitor.observe(
+        at(17), RoomState(False, False), {unrelated: (500, 5)}
+    )
+    monitor.observe(
         at(18),
         RoomState(True, True),
-        {'a.flv': (100, 1), 'a.xml': (10, 1)},
+        {video: (100, 1), xml: (10, 1), unrelated: (500, 5)},
     )
     monitor.observe(
         at(22),
         RoomState(False, False),
-        {'a.flv': (200, 2), 'a.xml': (20, 2)},
+        {video: (200, 2), xml: (20, 2), unrelated: (500, 5)},
     )
 
     decision = monitor.observe(
         at(22, 30),
         RoomState(False, False),
-        {'a.flv': (200, 2), 'a.xml': (20, 2)},
+        {video: (200, 2), xml: (20, 2), unrelated: (500, 5)},
     )
 
     replay = journal.replay()
@@ -382,11 +421,31 @@ def test_manifest_is_durable_before_monitor_rearms(tmp_path):
     assert monitor.machine.state is SessionState.WAITING
     assert replay.session.state is SessionState.WAITING
     assert replay.manifests[0].manifest_id == 'session-1'
-    assert replay.manifests[0].flv_paths == ('a.flv',)
+    assert replay.manifests[0].flv_paths == (video,)
     assert replay.manifests[0].snapshot == {
-        'a.flv': (200, 2),
-        'a.xml': (20, 2),
+        video: (200, 2),
+        xml: (20, 2),
     }
+
+
+def test_journaled_monitor_fails_closed_on_relative_manifest_path(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('initialized')
+    monitor = BililiveSessionMonitor(
+        journal=journal,
+        room_id=123,
+        machine=armed_machine(ids=('session-1',)),
+    )
+    monitor.observe(at(18), RoomState(True, True), {'a.flv': (100, 1)})
+    monitor.observe(at(22), RoomState(False, False), {'a.flv': (200, 2)})
+
+    with pytest.raises(ValueError, match='normalized absolute'):
+        monitor.observe(
+            at(22, 30), RoomState(False, False), {'a.flv': (200, 2)}
+        )
+
+    assert journal.replay().manifests == ()
+    assert monitor.machine.state is SessionState.SETTLING
 
 
 def test_ready_session_without_flv_rearms_without_empty_manifest(tmp_path):
@@ -420,7 +479,8 @@ def test_journal_retains_multiple_ready_manifests(tmp_path):
         machine=armed_machine(ids=('session-1', 'session-2')),
     )
 
-    for offset, path in enumerate(('a.flv', 'b.flv')):
+    paths = tuple(str(tmp_path / name) for name in ('a.flv', 'b.flv'))
+    for offset, path in enumerate(paths):
         start = at(18) + timedelta(days=offset)
         monitor.observe(start, RoomState(True, True), {path: (100, 1)})
         monitor.observe(
@@ -444,14 +504,15 @@ def test_journal_retains_multiple_ready_manifests(tmp_path):
 def test_restart_after_manifest_fsync_does_not_emit_conflicting_manifest(
     tmp_path,
 ):
+    video = str(tmp_path / 'a.flv')
     journal = JsonlJournal(tmp_path / 'state.jsonl')
     journal.append('initialized')
     journal.append(
         'session_state',
         state='settling',
         session_id='session-1',
-        session_paths=('a.flv',),
-        snapshot={'a.flv': (200, 2)},
+        session_paths=(video,),
+        snapshot={video: (200, 2)},
         quiet_since=at(22).isoformat(),
         started_at=at(18).isoformat(),
     )
@@ -461,13 +522,13 @@ def test_restart_after_manifest_fsync_does_not_emit_conflicting_manifest(
         room_id=123,
         started_at=at(18).isoformat(),
         settled_at=at(22, 30).isoformat(),
-        flv_paths=('a.flv',),
-        snapshot={'a.flv': (200, 2)},
+        flv_paths=(video,),
+        snapshot={video: (200, 2)},
     )
 
     restarted = BililiveSessionMonitor(journal=journal, room_id=123)
     decision = restarted.observe(
-        at(23), RoomState(False, False), {'a.flv': (200, 2)}
+        at(23), RoomState(False, False), {video: (200, 2)}
     )
 
     assert decision.state is SessionState.WAITING
@@ -478,14 +539,15 @@ def test_restart_after_manifest_fsync_does_not_emit_conflicting_manifest(
 def test_restart_rejects_observation_before_durable_manifest_settlement(
     tmp_path,
 ):
+    video = str(tmp_path / 'a.flv')
     journal = JsonlJournal(tmp_path / 'state.jsonl')
     journal.append('initialized')
     journal.append(
         'session_state',
         state='settling',
         session_id='session-1',
-        session_paths=('a.flv',),
-        snapshot={'a.flv': (200, 2)},
+        session_paths=(video,),
+        snapshot={video: (200, 2)},
         quiet_since=at(22).isoformat(),
         started_at=at(18).isoformat(),
     )
@@ -495,14 +557,14 @@ def test_restart_rejects_observation_before_durable_manifest_settlement(
         room_id=123,
         started_at=at(18).isoformat(),
         settled_at=at(22, 30).isoformat(),
-        flv_paths=('a.flv',),
-        snapshot={'a.flv': (200, 2)},
+        flv_paths=(video,),
+        snapshot={video: (200, 2)},
     )
     restarted = BililiveSessionMonitor(journal=journal, room_id=123)
 
     with pytest.raises(ValueError, match='earlier'):
         restarted.observe(
-            at(22, 20), RoomState(False, False), {'a.flv': (200, 2)}
+            at(22, 20), RoomState(False, False), {video: (200, 2)}
         )
 
 
@@ -598,6 +660,31 @@ def test_restore_accepts_matching_manifest_start_time_with_equivalent_offset():
 
     assert restored.state is SessionState.WAITING
     assert restored.session_id is None
+
+
+def test_restore_rejects_matching_manifest_for_other_room():
+    replay = _replay_with_active_session_and_manifest()
+
+    with pytest.raises(ValueError, match='room_id'):
+        SessionMonitorState.restore(replay, room_id=456)
+
+
+def test_restore_compares_manifest_with_minimal_session_snapshot_subset():
+    replay = _replay_with_active_session_and_manifest(
+        session_snapshot={
+            'a.flv': (200, 2),
+            'a.xml': (20, 2),
+            'historical.flv': (900, 9),
+        },
+        manifest_snapshot={
+            'a.flv': (200, 2),
+            'a.xml': (20, 2),
+        },
+    )
+
+    restored = SessionMonitorState.restore(replay, room_id=123)
+
+    assert restored.state is SessionState.WAITING
 
 
 @pytest.mark.parametrize(

@@ -367,8 +367,18 @@ def _validate_manifest_id(record, event):
     _require_non_empty_string(record, 'manifest_id', event)
 
 
-def _normalized_manifest_path(path):
-    return os.path.abspath(os.path.normpath(path))
+def _require_normalized_absolute_path(path, event, field):
+    normalized = os.path.normpath(path)
+    if (
+        '\0' in path
+        or not os.path.isabs(path)
+        or path.startswith('//')
+        or normalized != path
+    ):
+        raise ValueError(
+            f'{event} {field} must be a normalized absolute path'
+        )
+    return normalized
 
 
 def _reduce_manifest_ready(replay, record):
@@ -390,14 +400,16 @@ def _reduce_manifest_ready(replay, record):
         raise TypeError(f'{event} requires a list of non-empty flv_paths')
     if not flv_paths:
         raise ValueError(f'{event} requires at least one flv_path')
-    normalized_flv_paths = [
-        _normalized_manifest_path(path) for path in flv_paths
-    ]
+    normalized_flv_paths = [os.path.normpath(path) for path in flv_paths]
     if (
         len(set(flv_paths)) != len(flv_paths)
         or len(set(normalized_flv_paths)) != len(normalized_flv_paths)
     ):
         raise ValueError(f'{event} contains duplicate flv_paths')
+    for path in flv_paths:
+        _require_normalized_absolute_path(path, event, 'flv_path')
+        if not path.lower().endswith('.flv'):
+            raise ValueError(f'{event} flv_paths must end with .flv')
 
     raw_snapshot = record.get('snapshot')
     if not isinstance(raw_snapshot, Mapping):
@@ -409,12 +421,13 @@ def _reduce_manifest_ready(replay, record):
     for path, identity in raw_snapshot.items():
         if not isinstance(path, str) or not path:
             raise TypeError(f'{event} snapshot paths must be non-empty strings')
-        normalized_path = _normalized_manifest_path(path)
+        normalized_path = os.path.normpath(path)
         if normalized_path in normalized_snapshot_paths:
             raise ValueError(
                 f'{event} snapshot contains duplicate normalized paths'
             )
         normalized_snapshot_paths.add(normalized_path)
+        _require_normalized_absolute_path(path, event, 'snapshot path')
         if not isinstance(identity, (list, tuple)) or len(identity) != 2:
             raise TypeError(
                 f'{event} snapshot identities must be [size, mtime_ns] lists'
@@ -433,6 +446,16 @@ def _reduce_manifest_ready(replay, record):
         raise ValueError(
             f'{event} snapshot is missing flv_path identities: '
             + ', '.join(missing_identities)
+        )
+    allowed_snapshot_paths = set(flv_paths)
+    allowed_snapshot_paths.update(
+        os.path.splitext(path)[0] + '.xml' for path in flv_paths
+    )
+    unrelated_paths = sorted(set(snapshot).difference(allowed_snapshot_paths))
+    if unrelated_paths:
+        raise ValueError(
+            f'{event} snapshot contains unrelated paths: '
+            + ', '.join(unrelated_paths)
         )
 
     manifest = JournalManifest(

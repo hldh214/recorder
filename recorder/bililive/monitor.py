@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from pathlib import Path
 from types import MappingProxyType
 from typing import Callable, Mapping
 from uuid import uuid4
@@ -78,6 +79,22 @@ def _changed_paths(previous, current):
     }
 
 
+def _manifest_snapshot(flv_paths, snapshot):
+    frozen = {}
+    for flv_path in flv_paths:
+        identity = snapshot.get(flv_path)
+        if identity is None:
+            raise ValueError(
+                f'settled snapshot is missing ready FLV {flv_path}'
+            )
+        frozen[flv_path] = identity
+        xml_path = str(Path(flv_path).with_suffix('.xml'))
+        xml_identity = snapshot.get(xml_path)
+        if xml_identity is not None:
+            frozen[xml_path] = xml_identity
+    return frozen
+
+
 class SessionMonitorState:
     def __init__(self, initialized=False, id_factory=None):
         self.initialized = bool(initialized)
@@ -94,7 +111,7 @@ class SessionMonitorState:
         self._last_observed_at = None
 
     @classmethod
-    def restore(cls, replay: JournalReplay, id_factory=None):
+    def restore(cls, replay: JournalReplay, id_factory=None, room_id=None):
         machine = cls(initialized=replay.initialized, id_factory=id_factory)
         session = replay.session
         if not isinstance(session.state, SessionState):
@@ -135,6 +152,10 @@ class SessionMonitorState:
                 raise ValueError(
                     'matching session manifest has an invalid recovery state'
                 )
+            if room_id is not None and matching_manifest.room_id != room_id:
+                raise ValueError(
+                    'matching session manifest has conflicting room_id'
+                )
             settled_at = _parse_instant(matching_manifest.settled_at)
             minimum_settled_at = machine.quiet_since + timedelta(
                 seconds=QUIET_PERIOD_SECONDS
@@ -152,7 +173,10 @@ class SessionMonitorState:
                 raise ValueError(
                     'matching session manifest has conflicting flv_paths'
                 )
-            if dict(matching_manifest.snapshot) != dict(session.snapshot):
+            expected_snapshot = _manifest_snapshot(
+                expected_flv_paths, session.snapshot
+            )
+            if dict(matching_manifest.snapshot) != expected_snapshot:
                 raise ValueError(
                     'matching session manifest has conflicting snapshot'
                 )
@@ -430,7 +454,7 @@ class BililiveSessionMonitor:
         self.journal = journal
         self.room_id = room_id
         self.machine = machine or SessionMonitorState.restore(
-            journal.replay(), id_factory=id_factory
+            journal.replay(), id_factory=id_factory, room_id=room_id
         )
 
     def observe(self, now: datetime, room: RoomState | None, snapshot: Snapshot):
@@ -457,7 +481,9 @@ class BililiveSessionMonitor:
                     started_at=decision.started_at.isoformat(),
                     settled_at=now.isoformat(),
                     flv_paths=decision.ready_paths,
-                    snapshot=dict(decision.snapshot),
+                    snapshot=_manifest_snapshot(
+                        decision.ready_paths, decision.snapshot
+                    ),
                 )
                 self.machine.rearm()
                 self._append_session_state()
@@ -470,7 +496,9 @@ class BililiveSessionMonitor:
             id_factory = self.machine.id_factory
             try:
                 self.machine = SessionMonitorState.restore(
-                    self.journal.replay(), id_factory=id_factory
+                    self.journal.replay(),
+                    id_factory=id_factory,
+                    room_id=self.room_id,
                 )
             except Exception:
                 self.machine = SessionMonitorState(
