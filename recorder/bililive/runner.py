@@ -786,11 +786,20 @@ class BililivePublishRunner:
 
     @staticmethod
     def _file_state_index(replay):
-        return {
-            (state.manifest_id, state.file): state
-            for state in replay.files.values()
-            if state.manifest_id is not None and state.file is not None
-        }
+        index = {}
+        for state in replay.files.values():
+            if state.manifest_id is None or state.file is None:
+                continue
+            key = (state.manifest_id, state.file)
+            existing = index.get(key)
+            if existing is not None and existing.fingerprint != state.fingerprint:
+                raise ValueError(
+                    f'duplicate manifest/file binding {key!r} for '
+                    f'fingerprints {existing.fingerprint!r} and '
+                    f'{state.fingerprint!r}'
+                )
+            index[key] = state
+        return index
 
     def _expected_for(self, classified):
         media = classified.media

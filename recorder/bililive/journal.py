@@ -302,6 +302,29 @@ def _file_event_updates(record, event, existing=None):
     return updates
 
 
+def _validate_file_binding(files, state, existing=None):
+    if existing is not None:
+        for field_name in ('manifest_id', 'file'):
+            old_value = getattr(existing, field_name)
+            new_value = getattr(state, field_name)
+            if old_value is not None and new_value != old_value:
+                raise ValueError(
+                    f'fingerprint {state.fingerprint!r} cannot change its '
+                    f'manifest/file binding'
+                )
+    if state.manifest_id is None or state.file is None:
+        return
+    binding = (state.manifest_id, state.file)
+    for other_fingerprint, other in files.items():
+        if other_fingerprint == state.fingerprint:
+            continue
+        if (other.manifest_id, other.file) == binding:
+            raise ValueError(
+                f'manifest/file binding {binding!r} belongs to both '
+                f'{other_fingerprint!r} and {state.fingerprint!r}'
+            )
+
+
 def _validate_optional_string(record, name):
     if name not in record:
         raise TypeError(f'session_state requires {name}')
@@ -1026,5 +1049,6 @@ class JsonlJournal:
             )
         else:
             state = replace(existing, event=state_event, **updates)
+        _validate_file_binding(replay.files, state, existing)
         replay.files[fingerprint] = state
         return replay

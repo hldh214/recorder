@@ -8,8 +8,11 @@ from recorder.bililive.journal import JsonlJournal
 from recorder.bililive.media import MediaProbeRetryableError
 from recorder.bililive.models import (
     ClassifiedMedia,
+    JournalFileState,
     JournalReplay,
+    JournalSessionState,
     MediaInfo,
+    SessionState,
 )
 from recorder.bililive.runner import BililivePublishRunner
 from recorder.danmaku.bilibili.bililive_xml import BililiveCaptionArtifact
@@ -1175,6 +1178,39 @@ def test_selection_and_completion_share_one_state_index_per_replay(tmp_path):
 
     assert result.status == 'complete'
     assert runner.index_calls == 1
+
+
+def test_state_index_rejects_duplicate_manifest_file_bindings():
+    replay = JournalReplay(
+        files={
+            'fp-first': JournalFileState(
+                fingerprint='fp-first',
+                event='file_ready',
+                manifest_id='session-1',
+                file='/recording/video.flv',
+            ),
+            'fp-second': JournalFileState(
+                fingerprint='fp-second',
+                event='file_ready',
+                manifest_id='session-1',
+                file='/recording/video.flv',
+            ),
+        },
+        manifests=(),
+        session=JournalSessionState(
+            state=SessionState.WAITING,
+            room_id=ROOM_ID,
+            session_id=None,
+            session_paths=(),
+            snapshot={},
+            quiet_since=None,
+            started_at=None,
+        ),
+        initialized=True,
+    )
+
+    with pytest.raises(ValueError, match='duplicate manifest/file binding'):
+        BililivePublishRunner._file_state_index(replay)
 
 
 @pytest.mark.parametrize(

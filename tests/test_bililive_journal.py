@@ -143,6 +143,88 @@ def test_room_state_and_replayed_models_are_immutable(tmp_path):
         state.event = 'changed'
 
 
+@pytest.mark.parametrize(
+    ('first_event', 'second_event'),
+    [
+        ('file_ready', 'ignored_tiny'),
+        ('ignored_tiny', 'file_ready'),
+    ],
+)
+def test_append_rejects_different_fingerprint_for_manifest_file_binding(
+    tmp_path, first_event, second_event
+):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+
+    def append_classification(event, fingerprint):
+        fields = {
+            'fingerprint': fingerprint,
+            'manifest_id': 'session-1',
+            'file': '/recording/video.flv',
+        }
+        if event == 'ignored_tiny':
+            fields['reason'] = 'too small'
+        journal.append(event, **fields)
+
+    append_classification(first_event, 'fp-first')
+    original = journal.path.read_bytes()
+
+    with pytest.raises(ValueError, match='manifest/file binding'):
+        append_classification(second_event, 'fp-second')
+
+    assert journal.path.read_bytes() == original
+    assert set(journal.replay().files) == {'fp-first'}
+
+
+def test_raw_replay_rejects_duplicate_manifest_file_fingerprint_binding(
+    tmp_path,
+):
+    path = tmp_path / 'state.jsonl'
+    records = [
+        {
+            'event': 'file_ready',
+            'fingerprint': 'fp-first',
+            'manifest_id': 'session-1',
+            'file': '/recording/video.flv',
+        },
+        {
+            'event': 'file_ready',
+            'fingerprint': 'fp-second',
+            'manifest_id': 'session-1',
+            'file': '/recording/video.flv',
+        },
+    ]
+    path.write_text(
+        ''.join(json.dumps(record) + '\n' for record in records),
+        encoding='utf8',
+    )
+
+    with pytest.raises(
+        JournalCorruptError, match='line 2.*manifest/file binding'
+    ):
+        JsonlJournal(path).replay()
+
+
+def test_exact_duplicate_classification_keeps_same_fingerprint_binding(
+    tmp_path,
+):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    fields = {
+        'fingerprint': 'fp1',
+        'manifest_id': 'session-1',
+        'file': '/recording/video.flv',
+        'caption_status': 'pending',
+    }
+
+    journal.append('file_ready', **fields)
+    journal.append('file_ready', **fields)
+    journal.append('video_uploaded', fingerprint='fp1', video_id='yt123')
+
+    state = journal.replay().files['fp1']
+    assert state.manifest_id == 'session-1'
+    assert state.file == '/recording/video.flv'
+    assert state.video_id == 'yt123'
+
+
 def test_manifest_and_resettle_collections_are_defensively_frozen():
     flv_paths = ['/video.flv']
     changed_paths = ['/video.flv']
