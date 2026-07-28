@@ -383,10 +383,11 @@ FLV deletion eligibility is independent from XML deletion eligibility:
   unknown files are never deleted.
 
 Immediately before deletion, the service revalidates that the path is a regular
-file inside the configured recorder root and still has the journaled device,
-inode, size, and mtime identity. Any mismatch protects the path. With cleanup
-restricted to a settled offline directory, deletion uses a direct unlink rather
-than a recoverable quarantine transaction. A crash after unlink but before the
+file inside the configured recorder root, still has the size and mtime recorded
+in the journal, and still has the device and inode observed when it became a
+deletion candidate. Any mismatch protects the path. With cleanup restricted to
+a settled offline directory, deletion uses a direct unlink rather than a
+recoverable quarantine transaction. A crash after unlink but before the
 completion event is safe: replay sees an absent source that was already in a
 terminal publication/ignore state and performs no upload or second deletion.
 
