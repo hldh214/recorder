@@ -1198,16 +1198,17 @@ class CleanupResult:
     exhausted: bool
 ```
 
-`StateAwareCleanup(journal, root, disk_usage=filesystem_usage_percent).run(states, dry_run)` must return immediately below 85 percent. Above threshold, sort eligible paths by mtime and delete one at a time, recomputing root disk usage after each delete. Append `source_deleted` with path, fingerprint, and reason after successful unlink. In dry-run, calculate and return the same ordered candidates but do not unlink or append any journal event.
+`StateAwareCleanup(journal, root, disk_usage=filesystem_usage_percent, clock_ns=time.time_ns).run(states, dry_run)` must return immediately below 85 percent. Above threshold, consider only paths whose own mtime is at least six hours old, sort eligible paths by mtime, and delete one at a time, recomputing root disk usage after each delete. Append `source_deleted` with path, fingerprint, and reason after successful unlink. In dry-run, calculate and return the same ordered candidates but do not unlink or append any journal event.
 
 Eligibility rules are exact:
 
-- FLV: baseline, ignored, or `youtube_processed=True`.
-- XML: paired baseline/ignored, or `caption_uploaded=True`.
+- FLV: ignored, or `youtube_processed=True` with a durable `video_id`.
+- XML: paired ignored, or `caption_uploaded=True` with no pending caption refresh.
+- Baseline-only files are always protected because this service does not own their lifecycle.
 - Any ambiguous, unknown, currently recording, ready, uploading, or remotely unprocessed video: protected.
 - Any missing path, non-regular file, symlink, or path whose resolved parent is outside the resolved recorder root: protected regardless of journal fields.
 
-Before applying file-level eligibility, build the protected path set from the replayed current session whenever it is `SKIP_CURRENT_SESSION`, `RECORDING`, or `SETTLING`. Membership in that set overrides an older baseline/ignored event for the same path.
+Before applying file-level eligibility, build the protected path set from the replayed current session whenever it is `SKIP_CURRENT_SESSION`, `RECORDING`, or `SETTLING`. Membership in that set overrides an older ignored event for the same path. Revalidate the candidate through an open recorder-root directory fd immediately before a direct unlink; require the same device, inode, size, and mtime, and never follow symlinks or move the source to quarantine.
 
 When no eligible path remains above threshold, return `exhausted=True` and log at critical level.
 
@@ -1265,7 +1266,7 @@ def test_dry_run_does_not_initialize_youtube(monkeypatch, tmp_path):
     assert result == 0
 ```
 
-Use injected dependencies rather than opening real network connections in tests. In `tests/test_bililive_service.py`, block the fake publisher on a `threading.Event`, perform two observation iterations while it remains blocked, and assert both API snapshots are journaled. Also assert one worker never starts a second publication concurrently and `stop()` joins a cooperative worker cleanly; a second test keeps it blocked and asserts shutdown returns after the injected join timeout. Gate tests must prove that API-unavailable or active room state prevents the next `run_pending_once`, and that a later available/offline observation wakes exactly one pending run.
+Use injected dependencies rather than opening real network connections in tests. In `tests/test_bililive_service.py`, block the fake publisher on a `threading.Event`, perform two observation iterations while it remains blocked, and assert both API snapshots are journaled. Also assert one worker never starts a second publication concurrently and `stop()` joins a cooperative worker cleanly; a second test keeps it blocked and asserts shutdown returns after the injected join timeout. Gate tests must prove `cleanup.run` and the next `run_pending_once` are both blocked when the API is unavailable, `recording=True`, `streaming=True`, or the monitor is `RECORDING`/`SETTLING`. An available `RoomState(False, False)` decision in `READY` or `WAITING` opens the gate and wakes exactly one pending worker iteration; a later active observation closes it before another cleanup or upload begins.
 
 - [ ] **Step 2: Run CLI tests and verify import failure**
 
@@ -1288,12 +1289,22 @@ Implementation requirements:
 3. Acquire `ProcessLock` before replay or cleanup.
 4. Use `httpx.Client(timeout=5)` against `<api_url>/api/room/<room_id>` when no provider is injected.
 5. Require boolean `recording` and `streaming`; malformed or unavailable API state produces a wait-only iteration.
-6. In dry-run, replay/baseline/probe/XML/cleanup decisions are printed, but no YouTube client, journal append, source unlink, or remote mutation occurs.
+6. In dry-run, replay/baseline/probe/XML decisions are printed, plus cleanup decisions only when the settled-offline gate is open; no YouTube client, journal append, source unlink, or remote mutation occurs.
 7. In normal mode, create `Youtube`, `YoutubePublishService`, journal, runner, monitor state, and cleanup once, then poll every 60 seconds. Append the monitor's full `session_state` payload whenever it changes; append first-run `baseline` file events before arming the next session, but only after a live startup's skipped session has settled as specified in Task 7.
 8. `once=True` runs one observation and returns an integer exit code without sleep.
 9. Expose `run_monitor` through `fire.Fire({'run': run_monitor})` only under `if __name__ == '__main__'`.
 
-Implement `BililiveDirectoryService` in `service.py`. Its main thread owns API observations, directory snapshots, the pure monitor state machine, and a thread-safe publication gate. The gate opens only after an available observation reports both `recording=False` and `streaming=False`; unavailable/malformed or active observations close it immediately. Its one daemon publication thread waits on a `threading.Event`, replays the JSONL journal, and performs state-aware cleanup on every wake even while live so old eligible files can free space; current/unknown files remain protected by cleanup rules. It calls `runner.run_pending_once` only while the gate is open, checking again after every item. Do not cancel an already-running runner/YouTube call when the gate closes, because an interrupted upload would create ambiguity, but do not begin the next file until it reopens. A frozen manifest is fsynced before signaling the worker. The event is merely a wakeup optimization: startup and timeout wakeups always replay the journal, so a crash between append and signal cannot lose work. `stop()` sets a stop event, wakes the worker, and joins for the file-level `WORKER_JOIN_TIMEOUT_SECONDS = 30`; if an upload remains blocked, log a warning and let Supervisor terminate the daemon process, whose pre-upload checkpoint will force reconciliation on restart. No ffprobe/ffmpeg-family process or video upload may exist outside this sole worker.
+Implement `BililiveDirectoryService` in `service.py`. Its main thread owns API observations, directory snapshots, the pure monitor state machine, and a thread-safe publication gate. The exact gate predicate is:
+
+```python
+cleanup_allowed = (
+    room is not None
+    and not room.active
+    and decision.state in {SessionState.READY, SessionState.WAITING}
+)
+```
+
+Unavailable/malformed input, active room state, or `RECORDING`/`SETTLING` closes it immediately. Its one daemon publication thread waits on a `threading.Event`, replays the JSONL journal, and performs state-aware cleanup before pending publication only while this gate is open. The worker rechecks the same gate before cleanup and after every item. Do not cancel an already-running runner/YouTube call when the gate closes, because an interrupted upload would create ambiguity, but do not begin cleanup or the next file until it reopens. A frozen manifest is fsynced before signaling the worker. The event is merely a wakeup optimization: startup and timeout wakeups always replay the journal, so a crash between append and signal cannot lose work. `stop()` sets a stop event, wakes the worker, and joins for the file-level `WORKER_JOIN_TIMEOUT_SECONDS = 30`; if an upload remains blocked, log a warning and let Supervisor terminate the daemon process, whose pre-upload checkpoint will force reconciliation on restart. No ffprobe/ffmpeg-family process or video upload may exist outside this sole worker.
 
 - [ ] **Step 4: Document commands and operational cutover**
 
