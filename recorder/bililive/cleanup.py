@@ -1,17 +1,15 @@
-import hashlib
 import logging
 import math
 import os
 import shutil
 import stat
-import uuid
+import time
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 from recorder.bililive.models import (
-    JournalDeleteIntent,
     JournalFileState,
     JournalManifest,
     JournalResettleRequest,
@@ -21,16 +19,12 @@ from recorder.bililive.models import (
 from recorder.bililive.journal import (
     baseline_fingerprint,
     canonical_source_path,
-    file_state_checkpoint,
 )
-from recorder.bililive.cleanup_fs import (
-    QUARANTINE_DIRECTORY,
-    RootDirectory,
-    UnsafeCleanupPathError,
-)
+from recorder.bililive.cleanup_fs import RootDirectory
 
 
 DISK_CLEANUP_THRESHOLD_PERCENT = 85
+MIN_CLEANUP_AGE_SECONDS = 6 * 60 * 60
 
 
 _IGNORED_EVENTS = frozenset({
@@ -90,130 +84,56 @@ class _Candidate:
     fingerprint: str
     mtime_ns: int
     identity: tuple[int, int, int, int]
-    state_checkpoint: str
-
-
-@dataclass(frozen=True)
-class _PendingDecision:
-    action: str
-    deleted: bool = False
-    reconciled: bool = False
-    aborted: bool = False
-    protected_paths: tuple[Path, ...] = ()
-    recovery_path: Path | None = None
 
 
 class StateAwareCleanup:
-    def __init__(self, journal, root, disk_usage=filesystem_usage_percent):
+    def __init__(
+        self,
+        journal,
+        root,
+        disk_usage=filesystem_usage_percent,
+        clock_ns=time.time_ns,
+    ):
         self.journal = journal
         self.root = Path(root).resolve()
         self.disk_usage = disk_usage
+        self.clock_ns = clock_ns
 
     def run(self, states, dry_run):
         replay = self.journal.replay()
-        reconciled_deleted = []
-        reconciled_intents = []
-        aborted_intents = []
-        reconciliation_protected = set()
-        reconciliation_failed = False
-        reconciliation_version = replay.journal_version
-        control_graph_valid = self._control_graph_valid(replay)
-        if replay.pending_deletions and control_graph_valid:
-            with RootDirectory(self.root) as root_directory:
-                for index, intent in enumerate(replay.pending_deletions):
-                    try:
-                        decision = self._pending_decision_for_intent(
-                            root_directory, intent, dry_run=dry_run
-                        )
-                        if not dry_run:
-                            decision = self._reauthorized_pending_decision(
-                                root_directory, intent, decision
-                            )
-                            reconciliation_version = (
-                                self._apply_pending_decision(
-                                    root_directory, intent, decision,
-                                    reconciliation_version,
-                                )
-                            )
-                    except Exception:
-                        reconciliation_failed = True
-                        reconciliation_protected.update(
-                            Path(item.original_path)
-                            for item in replay.pending_deletions[index:]
-                        )
-                        break
-                    if decision.reconciled:
-                        reconciled_intents.append(intent)
-                    if decision.aborted:
-                        aborted_intents.append(intent)
-                    if decision.deleted:
-                        reconciled_deleted.append(Path(intent.original_path))
-                    reconciliation_protected.update(
-                        decision.protected_paths
-                    )
-            replay = self._replay_after_reconciliation(
-                replay, reconciled_intents, aborted_intents,
-                reconciliation_version,
-            )
-
-        protected_by_control = (
-            self._control_protected_paths(
-                replay,
-                {
-                    item.manifest_id: item
-                    for item in replay.manifests
-                },
-            )
-            if control_graph_valid
-            else self._all_replay_paths(replay)
-        )
-
-        usage = self.disk_usage(self.root)
-        if reconciliation_failed:
-            protected = (
-                reconciliation_protected
-                | protected_by_control
-                | self._all_replay_paths(replay)
-            )
-            exhausted = usage >= DISK_CLEANUP_THRESHOLD_PERCENT
-            if exhausted:
-                self._log_exhausted(usage)
-            return CleanupResult(
-                tuple(reconciled_deleted),
-                self._ordered(protected),
-                usage,
-                exhausted,
-            )
-        if usage < DISK_CLEANUP_THRESHOLD_PERCENT:
-            return CleanupResult(
-                tuple(reconciled_deleted),
-                self._ordered(
-                    reconciliation_protected | protected_by_control
-                ),
-                usage,
-                False,
-            )
-
-        states = tuple(replay.files.values())
-
         manifest_groups = {}
-        for item in replay.manifests:
-            if self._non_empty_string(item.manifest_id):
+        control_graph_valid = self._control_graph_valid(replay)
+        if control_graph_valid:
+            for item in replay.manifests:
                 manifest_groups.setdefault(item.manifest_id, []).append(item)
         manifest_index = {
             manifest_id: items[0]
             for manifest_id, items in manifest_groups.items()
             if len(items) == 1
         }
-        if control_graph_valid:
-            protected_by_control = self._control_protected_paths(
-                replay, manifest_index
+
+        protected_by_control = (
+            self._control_protected_paths(replay, manifest_index)
+            if control_graph_valid
+            else self._all_replay_paths(replay)
+        )
+        usage = self.disk_usage(self.root)
+        if usage < DISK_CLEANUP_THRESHOLD_PERCENT:
+            return CleanupResult(
+                (), self._ordered(protected_by_control), usage, False
             )
+        if not control_graph_valid:
+            self._log_exhausted(usage)
+            return CleanupResult(
+                (), self._ordered(protected_by_control), usage, True
+            )
+
         assessments = {}
         owners = {}
         identities = {}
+        now_ns = self.clock_ns()
 
-        for state in states:
+        for state in replay.files.values():
             shape_valid = self._state_shape_valid(state)
             manifest = None
             relationship_valid = (
@@ -234,9 +154,8 @@ class StateAwareCleanup:
                 and manifest is not None
                 and manifest.invalidated
             ):
-                # An invalidated generation is either protected by its resettle
-                # chain or superseded by a safely completed replacement.
                 continue
+
             for path, eligible, is_xml in self._state_paths(
                 state, relationship_valid
             ):
@@ -256,41 +175,37 @@ class StateAwareCleanup:
                     state,
                     is_xml=is_xml,
                 )
-                allowed = bool(eligible and safe and frozen)
+                old_enough = (
+                    file_stat is not None
+                    and self._old_enough(now_ns, file_stat.st_mtime_ns)
+                )
+                allowed = bool(eligible and safe and frozen and old_enough)
                 assessments.setdefault(path, []).append(allowed)
                 if safe and file_stat is not None:
                     identities[path] = self._stat_identity(file_stat)
 
-        protected = set(protected_by_control) | reconciliation_protected
+        protected = set(protected_by_control)
         candidates = []
         for path, path_assessments in assessments.items():
             if (
                 path in protected
                 or not all(path_assessments)
                 or len(owners[path]) != 1
+                or path not in identities
             ):
                 protected.add(path)
                 continue
-            file_stat = self._lstat(path)
-            if file_stat is None:
-                protected.add(path)
-                continue
+            identity = identities[path]
             candidates.append(_Candidate(
                 path=path,
                 fingerprint=next(iter(owners[path])),
-                mtime_ns=file_stat.st_mtime_ns,
-                identity=identities[path],
-                state_checkpoint=file_state_checkpoint(
-                    replay.files[next(iter(owners[path]))]
-                ),
+                mtime_ns=identity[3],
+                identity=identity,
             ))
         candidates.sort(key=lambda item: (item.mtime_ns, str(item.path)))
 
         if dry_run:
-            planned = tuple(dict.fromkeys(
-                tuple(reconciled_deleted)
-                + tuple(item.path for item in candidates)
-            ))
+            planned = tuple(item.path for item in candidates)
             exhausted = not planned
             if exhausted:
                 self._log_exhausted(usage)
@@ -298,42 +213,24 @@ class StateAwareCleanup:
                 planned, self._ordered(protected), usage, exhausted
             )
 
-        deleted = list(reconciled_deleted)
-        authorized_version = replay.journal_version
+        deleted = []
         with RootDirectory(self.root) as root_directory:
-            for index, candidate in enumerate(candidates):
+            for candidate in candidates:
                 if usage < DISK_CLEANUP_THRESHOLD_PERCENT:
                     break
-                try:
-                    fresh_replay = self.journal.replay()
-                    if fresh_replay.journal_version != authorized_version:
-                        protected.update(
-                            item.path for item in candidates[index:]
-                        )
-                        usage = self.disk_usage(self.root)
-                        break
-                    current_stat = root_directory.lstat(candidate.path)
-                    if (
-                        current_stat is None
-                        or current_stat.st_nlink != 1
-                        or self._stat_identity(current_stat)
-                        != candidate.identity
-                    ):
-                        protected.add(candidate.path)
-                        continue
-                    transaction_version = self._quarantine_candidate(
-                        root_directory, candidate,
-                        fresh_replay.journal_version,
-                    )
-                except Exception:
-                    protected.update(
-                        item.path for item in candidates[index:]
-                    )
-                    usage = self.disk_usage(self.root)
-                    break
+                if not root_directory.unlink_source(
+                    candidate.path, candidate.identity
+                ):
+                    protected.add(candidate.path)
+                    continue
+                self.journal.append(
+                    'source_deleted',
+                    fingerprint=candidate.fingerprint,
+                    path=str(candidate.path),
+                    reason=_DELETE_REASON,
+                )
                 deleted.append(candidate.path)
                 usage = self.disk_usage(self.root)
-                authorized_version = transaction_version
 
         exhausted = usage >= DISK_CLEANUP_THRESHOLD_PERCENT
         if exhausted:
@@ -342,504 +239,22 @@ class StateAwareCleanup:
             tuple(deleted), self._ordered(protected), usage, exhausted
         )
 
-    def _quarantine_candidate(
-        self, root_directory, candidate, expected_journal_version
-    ):
-        quarantine_path = (
-            f'{QUARANTINE_DIRECTORY}/{uuid.uuid4().hex}'
-        )
-        identity = candidate.identity
-        root_directory.ensure_quarantine()
-        transaction_version = self.journal.append(
-            'source_delete_intent',
-            fingerprint=candidate.fingerprint,
-            original_path=str(candidate.path),
-            quarantine_path=quarantine_path,
-            dev=identity[0],
-            ino=identity[1],
-            size=identity[2],
-            mtime_ns=identity[3],
-            reason=_DELETE_REASON,
-            expected_journal_version=expected_journal_version,
-        )
-        intent = JournalDeleteIntent(
-            fingerprint=candidate.fingerprint,
-            original_path=str(candidate.path),
-            quarantine_path=quarantine_path,
-            dev=identity[0],
-            ino=identity[1],
-            size=identity[2],
-            mtime_ns=identity[3],
-            reason=_DELETE_REASON,
-            state_checkpoint=candidate.state_checkpoint,
-        )
-        try:
-            root_directory.rename_to_quarantine(
-                candidate.path, quarantine_path, identity
-            )
-        except UnsafeCleanupPathError:
-            decision, _ = self._reconcile_intent(
-                root_directory, intent, transaction_version
-            )
-            if decision.aborted:
-                raise RuntimeError('source deletion aborted')
-            raise
-        transaction_version = self._record_source_deleted(
-            intent, transaction_version
-        )
-        root_directory.unlink_quarantine(quarantine_path, identity)
-        return self._record_quarantine_removed(intent, transaction_version)
-
-    def _record_source_deleted(self, intent, expected_version=None):
-        fields = {}
-        if expected_version is not None:
-            fields['expected_journal_version'] = expected_version
-        return self.journal.append(
-            'source_deleted',
-            fingerprint=intent.fingerprint,
-            path=intent.original_path,
-            reason=intent.reason,
-            **fields,
-        )
-
-    def _record_quarantine_removed(self, intent, expected_version=None):
-        fields = {}
-        if expected_version is not None:
-            fields['expected_journal_version'] = expected_version
-        return self.journal.append(
-            'quarantine_removed',
-            fingerprint=intent.fingerprint,
-            original_path=intent.original_path,
-            quarantine_path=intent.quarantine_path,
-            **fields,
-        )
-
     @staticmethod
-    def _replay_after_reconciliation(
-        replay, reconciled_intents, aborted_intents=(),
-        journal_version=None,
-    ):
-        if (
-            not reconciled_intents
-            and not aborted_intents
-            and journal_version is None
-        ):
-            return replay
-        files = dict(replay.files)
-        for intent in tuple(reconciled_intents) + tuple(aborted_intents):
-            state = files[intent.fingerprint]
-            original_path = canonical_source_path(intent.original_path)
-            deleted_paths = tuple(
-                canonical_source_path(path) for path in state.deleted_paths
-            )
-            if original_path not in deleted_paths:
-                files[intent.fingerprint] = replace(
-                    state,
-                    deleted_paths=deleted_paths + (original_path,),
-                )
-        return replace(
-            replay,
-            files=files,
-            pending_deletions=tuple(
-                intent for intent in replay.pending_deletions
-                if intent not in reconciled_intents
-                and intent not in aborted_intents
-            ),
-            journal_version=(
-                replay.journal_version
-                if journal_version is None else journal_version
-            ),
-        )
-
-    @staticmethod
-    def _intent_identity(intent):
-        return (intent.dev, intent.ino, intent.size, intent.mtime_ns)
-
-    @staticmethod
-    def _intent_recovery_path(intent):
-        token = hashlib.sha256(
-            intent.quarantine_path.encode('utf8')
-        ).hexdigest()[:32]
-        original = Path(intent.original_path)
-        return original.parent / (
-            f'{original.name}.bililive-recovery-{token}.bin'
-        )
-
-    @staticmethod
-    def _regular_single_link(file_stat):
+    def _old_enough(now_ns, mtime_ns):
         return bool(
-            file_stat is not None
-            and stat.S_ISREG(file_stat.st_mode)
-            and file_stat.st_nlink == 1
-        )
-
-    def _pending_decision_for_intent(
-        self, root_directory, intent, dry_run
-    ):
-        identity = self._intent_identity(intent)
-        quarantine_stat = root_directory.quarantine_stat(
-            intent.quarantine_path, create=not dry_run
-        )
-        original_stat = root_directory.lstat(intent.original_path)
-        recovery_path = self._intent_recovery_path(intent)
-        recovery_stat = root_directory.lstat(recovery_path)
-        return self._pending_decision(
-            intent, identity, original_stat, quarantine_stat,
-            recovery_path, recovery_stat,
-        )
-
-    def _pending_decision(
-        self, intent, identity, original_stat, quarantine_stat,
-        recovery_path, recovery_stat,
-    ):
-        original_path = Path(intent.original_path)
-        quarantine_path = self.root / intent.quarantine_path
-        quarantine_matches = (
-            self._regular_single_link(quarantine_stat)
-            and self._stat_identity(quarantine_stat) == identity
-        )
-        original_matches = (
-            self._regular_single_link(original_stat)
-            and self._stat_identity(original_stat) == identity
-        )
-        recovery_safe = (
-            recovery_stat is None
-            or self._regular_single_link(recovery_stat)
-        )
-        existing_original = (original_path,) if original_stat is not None else ()
-        existing_recovery = (recovery_path,) if recovery_stat is not None else ()
-
-        if not recovery_safe:
-            return _PendingDecision(
-                'protect', protected_paths=existing_original + existing_recovery
-            )
-        if intent.source_deleted:
-            if quarantine_matches:
-                return _PendingDecision(
-                    'remove-quarantine', reconciled=True,
-                    protected_paths=existing_original + existing_recovery,
-                )
-            if quarantine_stat is not None:
-                return _PendingDecision(
-                    'protect', protected_paths=(quarantine_path,)
-                    + existing_original + existing_recovery,
-                )
-            return _PendingDecision(
-                'finish-source-deleted', reconciled=True,
-                protected_paths=existing_original + existing_recovery,
-            )
-
-        if quarantine_stat is not None and not self._regular_single_link(
-            quarantine_stat
-        ):
-            return _PendingDecision(
-                'protect', protected_paths=(quarantine_path,)
-                + existing_original + existing_recovery,
-            )
-        if recovery_stat is not None and quarantine_stat is not None:
-            return _PendingDecision(
-                'protect', protected_paths=(quarantine_path,)
-                + existing_original + existing_recovery,
-            )
-        if quarantine_matches:
-            return _PendingDecision(
-                'delete-quarantined', deleted=original_stat is None,
-                reconciled=True, protected_paths=existing_original,
-            )
-        if quarantine_stat is not None:
-            if original_stat is None:
-                return _PendingDecision(
-                    'rollback-abort', aborted=True,
-                    protected_paths=(original_path,),
-                )
-            return _PendingDecision(
-                'recover-abort', aborted=True,
-                protected_paths=existing_original + (recovery_path,),
-                recovery_path=recovery_path,
-            )
-        if recovery_stat is not None:
-            return _PendingDecision(
-                'finish-recovery-abort', aborted=True,
-                protected_paths=existing_original + existing_recovery,
-                recovery_path=recovery_path,
-            )
-        if original_matches:
-            return _PendingDecision(
-                'delete-original', deleted=True, reconciled=True
-            )
-        return _PendingDecision(
-            'abort-changed', aborted=True,
-            protected_paths=existing_original,
-        )
-
-    def _reconcile_intent(
-        self, root_directory, intent, expected_journal_version
-    ):
-        decision = self._pending_decision_for_intent(
-            root_directory, intent, dry_run=False
-        )
-        decision = self._reauthorized_pending_decision(
-            root_directory, intent, decision
-        )
-        journal_version = self._apply_pending_decision(
-            root_directory, intent, decision, expected_journal_version
-        )
-        return decision, journal_version
-
-    def _apply_pending_decision(
-        self, root_directory, intent, decision, expected_journal_version
-    ):
-        authorized, current_version = self._authorize_pending_intent(intent)
-        if not authorized:
-            expected_journal_version = current_version
-            if intent.source_deleted:
-                return expected_journal_version
-            decision = self._abort_pending_decision(
-                root_directory, intent, decision
-            )
-        else:
-            expected_journal_version = current_version
-        identity = self._intent_identity(intent)
-        action = decision.action
-        if action == 'protect':
-            return expected_journal_version
-        if action == 'remove-quarantine':
-            authorized, current_version = self._authorize_pending_intent(intent)
-            if not authorized:
-                return expected_journal_version
-            root_directory.unlink_quarantine(
-                intent.quarantine_path, identity
-            )
-            root_directory.sync_intent_directories(intent.original_path)
-            return self._record_quarantine_removed(
-                intent, current_version
-            )
-        if action == 'finish-source-deleted':
-            root_directory.sync_intent_directories(intent.original_path)
-            return self._record_quarantine_removed(
-                intent, expected_journal_version
-            )
-        if action == 'delete-quarantined':
-            root_directory.sync_intent_directories(intent.original_path)
-            journal_version = self._record_source_deleted(
-                intent, expected_journal_version
-            )
-            tombstoned_intent = replace(intent, source_deleted=True)
-            authorized, current_version = self._authorize_pending_intent(
-                tombstoned_intent
-            )
-            if not authorized:
-                return journal_version
-            root_directory.unlink_quarantine(intent.quarantine_path, identity)
-            root_directory.sync_intent_directories(intent.original_path)
-            return self._record_quarantine_removed(
-                tombstoned_intent, current_version
-            )
-        if action == 'rollback-abort':
-            root_directory.move_quarantine_to_original(
-                intent.quarantine_path, intent.original_path
-            )
-            root_directory.sync_intent_directories(intent.original_path)
-            return self._record_delete_aborted(
-                intent, 'quarantine identity mismatch', None,
-                expected_journal_version,
-            )
-        if action == 'recover-abort':
-            root_directory.move_quarantine_to_recovery(
-                intent.quarantine_path, intent.original_path,
-                decision.recovery_path.name,
-            )
-            root_directory.sync_intent_directories(
-                intent.original_path, decision.recovery_path
-            )
-            return self._record_delete_aborted(
-                intent, 'quarantine identity mismatch',
-                str(decision.recovery_path),
-                expected_journal_version,
-            )
-        if action == 'finish-recovery-abort':
-            root_directory.sync_intent_directories(
-                intent.original_path, decision.recovery_path
-            )
-            return self._record_delete_aborted(
-                intent, 'quarantine identity mismatch',
-                str(decision.recovery_path),
-                expected_journal_version,
-            )
-        if action == 'delete-original':
-            authorized, current_version = self._authorize_pending_intent(intent)
-            if not authorized:
-                return self._record_delete_aborted(
-                    intent, 'cleanup authorization changed', None,
-                    current_version,
-                )
-            root_directory.rename_to_quarantine(
-                intent.original_path, intent.quarantine_path, identity
-            )
-            root_directory.sync_intent_directories(intent.original_path)
-            journal_version = self._record_source_deleted(
-                intent, current_version
-            )
-            tombstoned_intent = replace(intent, source_deleted=True)
-            authorized, current_version = self._authorize_pending_intent(
-                tombstoned_intent
-            )
-            if not authorized:
-                return journal_version
-            root_directory.unlink_quarantine(intent.quarantine_path, identity)
-            root_directory.sync_intent_directories(intent.original_path)
-            return self._record_quarantine_removed(
-                tombstoned_intent, current_version
-            )
-        if action == 'abort-changed':
-            root_directory.sync_intent_directories(intent.original_path)
-            return self._record_delete_aborted(
-                intent, 'source identity changed before quarantine', None,
-                expected_journal_version,
-            )
-        raise RuntimeError(f'unknown pending cleanup action {action!r}')
-
-    def _authorize_pending_intent(self, intent):
-        replay = self.journal.replay()
-        if not self._control_graph_valid(replay):
-            return False, replay.journal_version
-        matches = tuple(
-            item for item in replay.pending_deletions
-            if (
-                item.fingerprint == intent.fingerprint
-                and item.original_path == intent.original_path
-                and item.quarantine_path == intent.quarantine_path
-                and item.dev == intent.dev
-                and item.ino == intent.ino
-                and item.size == intent.size
-                and item.mtime_ns == intent.mtime_ns
-                and item.reason == intent.reason
-                and item.source_deleted == intent.source_deleted
-                and item.state_checkpoint == intent.state_checkpoint
-            )
-        )
-        if len(matches) != 1:
-            return False, replay.journal_version
-        state = replay.files.get(intent.fingerprint)
-        if state is None:
-            return False, replay.journal_version
-        if (
-            intent.state_checkpoint is not None
-            and file_state_checkpoint(state) != intent.state_checkpoint
-        ):
-            return False, replay.journal_version
-
-        relationship_valid = (
-            self._state_shape_valid(state)
-            and self._state_binding_valid(state)
-        )
-        manifest_index = {}
-        for manifest in replay.manifests:
-            if manifest.manifest_id in manifest_index:
-                relationship_valid = False
-                break
-            manifest_index[manifest.manifest_id] = manifest
-        if state.manifest_id is not None:
-            manifest = manifest_index.get(state.manifest_id)
-            relationship_valid = bool(
-                relationship_valid
-                and manifest is not None
-                and not manifest.invalidated
-                and self._manifest_binding_valid(manifest, state)
-            )
-        original_path = Path(intent.original_path)
-        eligible = tuple(
-            allowed for path, allowed, _ in self._state_paths(
-                state, relationship_valid
-            )
-            if path == original_path
-        )
-        if eligible != (True,):
-            return False, replay.journal_version
-        protected = self._control_protected_paths(replay, manifest_index)
-        if original_path in protected:
-            return False, replay.journal_version
-        return True, replay.journal_version
-
-    def _reauthorized_pending_decision(
-        self, root_directory, intent, decision
-    ):
-        authorized, _ = self._authorize_pending_intent(intent)
-        if authorized:
-            return decision
-        if not intent.source_deleted:
-            return self._abort_pending_decision(
-                root_directory, intent, decision
-            )
-        quarantine = self.root / intent.quarantine_path
-        recovery = self._intent_recovery_path(intent)
-        protected = set(decision.protected_paths)
-        if root_directory.quarantine_stat(
-            intent.quarantine_path, create=True
-        ) is not None:
-            protected.add(quarantine)
-        if root_directory.lstat(intent.original_path) is not None:
-            protected.add(Path(intent.original_path))
-        if root_directory.lstat(recovery) is not None:
-            protected.add(recovery)
-        return _PendingDecision(
-            'protect', protected_paths=self._ordered(protected)
-        )
-
-    def _abort_pending_decision(self, root_directory, intent, decision):
-        identity = self._intent_identity(intent)
-        quarantine_stat = root_directory.quarantine_stat(
-            intent.quarantine_path, create=True
-        )
-        original_stat = root_directory.lstat(intent.original_path)
-        recovery_path = self._intent_recovery_path(intent)
-        recovery_stat = root_directory.lstat(recovery_path)
-        quarantine_matches = bool(
-            self._regular_single_link(quarantine_stat)
-            and self._stat_identity(quarantine_stat) == identity
-        )
-        if quarantine_matches and original_stat is None:
-            return _PendingDecision(
-                'rollback-abort', aborted=True,
-                protected_paths=(Path(intent.original_path),),
-            )
-        if quarantine_stat is not None and original_stat is not None:
-            return _PendingDecision(
-                'recover-abort', aborted=True,
-                protected_paths=(Path(intent.original_path), recovery_path),
-                recovery_path=recovery_path,
-            )
-        if recovery_stat is not None:
-            return _PendingDecision(
-                'finish-recovery-abort', aborted=True,
-                protected_paths=(Path(intent.original_path), recovery_path),
-                recovery_path=recovery_path,
-            )
-        return _PendingDecision(
-            'abort-changed', aborted=True,
-            protected_paths=(Path(intent.original_path),),
-        )
-
-    def _record_delete_aborted(
-        self, intent, reason, recovery_path, expected_version=None
-    ):
-        fields = {}
-        if expected_version is not None:
-            fields['expected_journal_version'] = expected_version
-        return self.journal.append(
-            'source_delete_aborted', fingerprint=intent.fingerprint,
-            original_path=intent.original_path,
-            quarantine_path=intent.quarantine_path, reason=reason,
-            recovery_path=recovery_path, **fields,
+            type(now_ns) is int
+            and type(mtime_ns) is int
+            and now_ns - mtime_ns
+            >= MIN_CLEANUP_AGE_SECONDS * 1_000_000_000
         )
 
     def _state_paths(self, state, relationship_valid):
         file_value = (
-            state.file if self._non_empty_string(state.file) else None
+            state.file if self._source_path_string(state.file) else None
         )
         xml_value = (
             state.xml_file
-            if self._non_empty_string(state.xml_file)
+            if self._source_path_string(state.xml_file)
             else None
         )
         if file_value is not None:
@@ -861,7 +276,7 @@ class StateAwareCleanup:
             and video_path.suffix.lower() == '.xml'
         )
         if standalone_xml_baseline:
-            yield video_path, True, True
+            yield video_path, False, True
             return
         path_binding_valid = (
             video_path.suffix.lower() == '.flv'
@@ -881,14 +296,12 @@ class StateAwareCleanup:
 
         xml_path = claimed_xml_path or derived_xml_path
         eligibility_valid = relationship_valid and path_binding_valid
-        baseline_or_ignored = eligibility_valid and (
-            state.event == 'baseline' or state.event in _IGNORED_EVENTS
-        )
+        ignored = eligibility_valid and state.event in _IGNORED_EVENTS
         video_eligible = self._video_eligible(
-            state, baseline_or_ignored, eligibility_valid
+            state, ignored, eligibility_valid
         )
         xml_eligible = self._xml_eligible(
-            state, baseline_or_ignored, eligibility_valid
+            state, ignored, eligibility_valid
         )
         yield video_path, video_eligible, False
         if state.event == 'baseline' and claimed_xml_path is None:
@@ -969,12 +382,14 @@ class StateAwareCleanup:
         return Path(canonical_source_path(value))
 
     @classmethod
-    def _video_eligible(cls, state, baseline_or_ignored, shape_valid):
+    def _video_eligible(cls, state, ignored, shape_valid):
         if not shape_valid:
             return False
         if cls._inconsistent_lifecycle(state):
             return False
-        if baseline_or_ignored:
+        if state.event == 'baseline':
+            return False
+        if ignored:
             return True
         if state.youtube_processed is not True or not state.video_id:
             return False
@@ -987,12 +402,14 @@ class StateAwareCleanup:
         return True
 
     @classmethod
-    def _xml_eligible(cls, state, baseline_or_ignored, shape_valid):
+    def _xml_eligible(cls, state, ignored, shape_valid):
         if not shape_valid:
             return False
         if cls._inconsistent_lifecycle(state):
             return False
-        if baseline_or_ignored:
+        if state.event == 'baseline':
+            return False
+        if ignored:
             return True
         if (
             state.caption_uploaded is not True
@@ -1020,8 +437,8 @@ class StateAwareCleanup:
         if (
             not cls._non_empty_string(state.fingerprint)
             or not cls._non_empty_string(state.event)
-            or not cls._non_empty_string(state.file)
-            or not cls._optional_non_empty_string(state.xml_file)
+            or not cls._source_path_string(state.file)
+            or not cls._optional_source_path_string(state.xml_file)
             or not cls._optional_non_empty_string(state.manifest_id)
             or not cls._optional_non_empty_string(state.video_id)
         ):
@@ -1082,7 +499,7 @@ class StateAwareCleanup:
         if (
             not isinstance(state.deleted_paths, tuple)
             or any(
-                not cls._non_empty_string(path)
+                not cls._source_path_string(path)
                 for path in state.deleted_paths
             )
         ):
@@ -1103,6 +520,20 @@ class StateAwareCleanup:
     @classmethod
     def _optional_non_empty_string(cls, value):
         return value is None or cls._non_empty_string(value)
+
+    @staticmethod
+    def _source_path_string(value):
+        return bool(
+            isinstance(value, str)
+            and value
+            and '\0' not in value
+            and os.path.isabs(value)
+            and not value.startswith('//')
+        )
+
+    @classmethod
+    def _optional_source_path_string(cls, value):
+        return value is None or cls._source_path_string(value)
 
     @staticmethod
     def _non_negative_integer(value):
@@ -1328,7 +759,7 @@ class StateAwareCleanup:
                 if manifest is None or state.file not in manifest.flv_paths:
                     return False
 
-        return cls._pending_deletions_valid(replay)
+        return True
 
     @classmethod
     def _session_shape_valid(cls, session, initialized):
@@ -1524,81 +955,6 @@ class StateAwareCleanup:
         return True
 
     @classmethod
-    def _pending_deletions_valid(cls, replay):
-        sources = set()
-        fingerprints = set()
-        quarantines = set()
-        for intent in replay.pending_deletions:
-            if type(intent) is not JournalDeleteIntent:
-                return False
-            source_key = (intent.fingerprint, intent.original_path)
-            if (
-                source_key in sources
-                or intent.fingerprint in fingerprints
-                or intent.quarantine_path in quarantines
-                or type(intent.source_deleted) is not bool
-                or any(
-                    not cls._non_negative_integer(value)
-                    for value in (
-                        intent.dev, intent.ino, intent.size, intent.mtime_ns
-                    )
-                )
-                or not cls._non_empty_string(intent.reason)
-                or not cls._normalized_absolute(intent.original_path)
-                or not cls._safe_quarantine_path(intent.quarantine_path)
-            ):
-                return False
-            state = replay.files.get(intent.fingerprint)
-            owners = {
-                item.fingerprint for item in replay.files.values()
-                if canonical_source_path(intent.original_path)
-                in cls._state_control_owned_paths(item)
-            }
-            deleted_paths = (
-                {
-                    canonical_source_path(path)
-                    for path in state.deleted_paths
-                }
-                if state is not None else set()
-            )
-            if (
-                state is None
-                or intent.source_deleted
-                != (
-                    canonical_source_path(intent.original_path)
-                    in deleted_paths
-                )
-                or (
-                    not intent.source_deleted
-                    and owners != {intent.fingerprint}
-                )
-                or (intent.source_deleted and len(owners) > 1)
-            ):
-                return False
-            sources.add(source_key)
-            fingerprints.add(intent.fingerprint)
-            quarantines.add(intent.quarantine_path)
-        return True
-
-    @classmethod
-    def _state_control_owned_paths(cls, state):
-        owned = set()
-        if cls._non_empty_string(state.file):
-            file_path = canonical_source_path(state.file)
-            owned.add(file_path)
-            if (
-                Path(file_path).suffix.lower() == '.flv'
-                and state.event != 'baseline'
-            ):
-                owned.add(str(Path(file_path).with_suffix('.xml')))
-        if cls._non_empty_string(state.xml_file):
-            owned.add(canonical_source_path(state.xml_file))
-        deleted = {
-            canonical_source_path(path) for path in state.deleted_paths
-        }
-        return owned - deleted
-
-    @classmethod
     def _path_sequence_valid(cls, paths, *, suffix=None, nonempty=False):
         if not isinstance(paths, (tuple, list)) or (nonempty and not paths):
             return False
@@ -1640,18 +996,6 @@ class StateAwareCleanup:
         )
 
     @staticmethod
-    def _safe_quarantine_path(value):
-        parts = Path(value).parts if isinstance(value, str) else ()
-        return bool(
-            isinstance(value, str)
-            and not os.path.isabs(value)
-            and os.path.normpath(value) == value
-            and len(parts) == 2
-            and parts[0] == QUARANTINE_DIRECTORY
-            and parts[1] not in ('', '.', '..')
-        )
-
-    @staticmethod
     def _instant(value):
         if not isinstance(value, str) or not value:
             return None
@@ -1669,7 +1013,7 @@ class StateAwareCleanup:
         paths = set()
 
         def add(value):
-            if cls._non_empty_string(value):
+            if cls._source_path_string(value):
                 paths.add(cls._lexical_absolute(value))
 
         for state in replay.files.values():
@@ -1694,8 +1038,6 @@ class StateAwareCleanup:
         for request in replay.pending_resettles:
             for value in getattr(request, 'changed_paths', ()):
                 add(value)
-        for intent in replay.pending_deletions:
-            add(getattr(intent, 'original_path', None))
         return cls._paired_paths(paths)
 
     @staticmethod
@@ -1735,17 +1077,29 @@ class StateAwareCleanup:
 
     def _safe_regular_file(self, path):
         try:
-            file_stat = path.lstat()
-            parent = path.parent.resolve(strict=True)
+            relative = path.relative_to(self.root)
+        except ValueError:
+            return False, None
+        if not relative.parts:
+            return False, None
+        current = self.root
+        try:
+            for part in relative.parts[:-1]:
+                current = current / part
+                directory_stat = current.lstat()
+                if (
+                    stat.S_ISLNK(directory_stat.st_mode)
+                    or not stat.S_ISDIR(directory_stat.st_mode)
+                ):
+                    return False, None
+            file_stat = (current / relative.parts[-1]).lstat()
         except OSError:
             return False, None
-        if stat.S_ISLNK(file_stat.st_mode) or not stat.S_ISREG(file_stat.st_mode):
-            return False, None
-        if file_stat.st_nlink != 1:
-            return False, None
-        try:
-            parent.relative_to(self.root)
-        except ValueError:
+        if (
+            stat.S_ISLNK(file_stat.st_mode)
+            or not stat.S_ISREG(file_stat.st_mode)
+            or file_stat.st_nlink != 1
+        ):
             return False, None
         return True, file_stat
 
@@ -1771,12 +1125,18 @@ class StateAwareCleanup:
             )
         if expected is not None:
             return current == tuple(expected)
+        if (
+            is_xml
+            and isinstance(state.event, str)
+            and state.event in _IGNORED_EVENTS
+        ):
+            return True
         if not is_xml:
             return current == (state.source_size, state.source_mtime_ns)
         size = state.caption_source_xml_size
         mtime_ns = state.caption_source_xml_mtime_ns
         if (
-            not StateAwareCleanup._non_empty_string(state.xml_file)
+            not StateAwareCleanup._source_path_string(state.xml_file)
             or StateAwareCleanup._lexical_absolute(state.xml_file) != path
             or isinstance(size, bool)
             or not isinstance(size, int)
@@ -1796,13 +1156,6 @@ class StateAwareCleanup:
             file_stat.st_size,
             file_stat.st_mtime_ns,
         )
-
-    @staticmethod
-    def _lstat(path):
-        try:
-            return path.lstat()
-        except OSError:
-            return None
 
     @staticmethod
     def _ordered(paths):
