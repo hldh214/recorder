@@ -69,7 +69,7 @@ def test_dry_run_does_not_probe_or_parse_xml_while_gate_is_closed(
     assert result == 0
 
 
-def test_dry_run_media_report_probes_first_offline_baseline_flv(
+def test_dry_run_media_report_does_not_probe_baseline_only_flv(
     monkeypatch, tmp_path
 ):
     video = tmp_path / 'baseline.flv'
@@ -93,7 +93,7 @@ def test_dry_run_media_report_probes_first_offline_baseline_flv(
         ),
     )
 
-    assert calls == [str(video)]
+    assert calls == []
 
 
 def test_once_performs_exactly_one_observation_without_sleep(monkeypatch, tmp_path):

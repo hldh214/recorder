@@ -132,10 +132,6 @@ def _dry_run_report(replay, decision, cleanup_result=None):
 
 def _dry_run_media_report(replay, decision):
     probe_paths = set(decision.ready_paths)
-    probe_paths.update(
-        path for path in decision.baseline_paths
-        if Path(path).suffix.lower() == '.flv'
-    )
     for manifest in replay.manifests:
         if not manifest.completed and not manifest.invalidated:
             probe_paths.update(manifest.flv_paths)
