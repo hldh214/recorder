@@ -4,7 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from recorder.bililive.cleanup import StateAwareCleanup
+from recorder.bililive.cleanup import (
+    MIN_CLEANUP_AGE_SECONDS,
+    StateAwareCleanup,
+)
 from recorder.bililive.journal import JsonlJournal
 from recorder.bililive.media import MediaProbeRetryableError
 from recorder.bililive.models import (
@@ -960,7 +963,13 @@ def test_late_xml_identity_controls_cleanup_after_caption_upload(tmp_path):
     assert state.caption_source_xml_size == xml_stat.st_size
     assert state.caption_source_xml_mtime_ns == xml_stat.st_mtime_ns
     cleanup = StateAwareCleanup(
-        journal, tmp_path, disk_usage=lambda path: 99
+        journal,
+        tmp_path,
+        disk_usage=lambda path: 99,
+        clock_ns=lambda: (
+            xml_stat.st_mtime_ns
+            + MIN_CLEANUP_AGE_SECONDS * 1_000_000_000
+        ),
     )
     unchanged = cleanup.run(replay.files.values(), dry_run=True)
     assert classified.media.xml_path in unchanged.deleted
