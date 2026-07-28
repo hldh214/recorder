@@ -144,52 +144,16 @@ class JournalResettleRequest:
 
 
 @dataclass(frozen=True)
-class JournalDeleteIntent:
-    fingerprint: str
-    original_path: str
-    quarantine_path: str
-    dev: int
-    ino: int
-    size: int
-    mtime_ns: int
-    reason: str
-    source_deleted: bool = False
-    state_checkpoint: str | None = None
-
-
-@dataclass(frozen=True)
-class JournalDeleteAbort:
-    fingerprint: str
-    original_path: str
-    quarantine_path: str
-    reason: str
-    recovery_path: str | None = None
-
-
-@dataclass(frozen=True)
 class JournalReplay:
     files: Mapping[str, JournalFileState]
     manifests: tuple[JournalManifest, ...]
     session: JournalSessionState
     initialized: bool
     pending_resettles: tuple[JournalResettleRequest, ...] = ()
-    pending_deletions: tuple[JournalDeleteIntent, ...] = ()
-    journal_version: int = 0
-    deletion_aborts: tuple[JournalDeleteAbort, ...] = ()
 
     def __post_init__(self):
-        if (
-            isinstance(self.journal_version, bool)
-            or not isinstance(self.journal_version, int)
-            or self.journal_version < 0
-        ):
-            raise ValueError('journal_version must be a non-negative integer')
         object.__setattr__(self, 'files', MappingProxyType(dict(self.files)))
         object.__setattr__(self, 'manifests', tuple(self.manifests))
         object.__setattr__(
             self, 'pending_resettles', tuple(self.pending_resettles)
         )
-        object.__setattr__(
-            self, 'pending_deletions', tuple(self.pending_deletions)
-        )
-        object.__setattr__(self, 'deletion_aborts', tuple(self.deletion_aborts))

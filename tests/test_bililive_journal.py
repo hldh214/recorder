@@ -14,11 +14,8 @@ from recorder.bililive.journal import (
     AlreadyRunningError,
     ProcessLock,
     baseline_fingerprint,
-    file_state_checkpoint,
 )
 from recorder.bililive.models import (
-    JournalDeleteAbort,
-    JournalDeleteIntent,
     JournalFileState,
     JournalManifest,
     JournalReplay,
@@ -27,313 +24,6 @@ from recorder.bililive.models import (
     RoomState,
     SessionState,
 )
-
-
-DELETE_IDENTITY = {
-    'dev': 10,
-    'ino': 20,
-    'size': 30,
-    'mtime_ns': 40,
-}
-
-
-def append_delete_intent(journal, **overrides):
-    fields = {
-        'fingerprint': 'baseline:1',
-        'original_path': '/video.flv',
-        'quarantine_path': '.bililive-cleanup-quarantine/delete-1',
-        'reason': 'disk pressure',
-        **DELETE_IDENTITY,
-        'expected_journal_version': journal.replay().journal_version,
-    }
-    fields.update(overrides)
-    return journal.append('source_delete_intent', **fields)
-
-
-def test_replay_exposes_immutable_verified_byte_version(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    assert journal.replay().journal_version == 0
-    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
-
-    replay = journal.replay()
-
-    assert replay.journal_version == len(journal.path.read_bytes())
-    with pytest.raises(FrozenInstanceError):
-        replay.journal_version = 0
-
-
-def test_delete_intent_requires_current_journal_version_cas(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
-    stale_version = journal.replay().journal_version
-    journal.append('initialized')
-    before = journal.path.read_bytes()
-
-    with pytest.raises(ValueError, match='journal version'):
-        append_delete_intent(
-            journal, expected_journal_version=stale_version
-        )
-
-    assert journal.path.read_bytes() == before
-
-
-def test_predelete_intent_leases_path_against_session_claim(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
-    append_delete_intent(journal)
-    before = journal.path.read_bytes()
-
-    with pytest.raises(ValueError, match='deletion lease'):
-        journal.append(
-            'session_state', room_id=123, state='recording',
-            session_id='session-1', session_paths=('/video.flv',),
-            snapshot={'/video.flv': (30, 40)},
-            quiet_since='2026-07-27T12:00:00+00:00',
-            started_at='2026-07-27T08:00:00+00:00',
-        )
-
-    assert journal.path.read_bytes() == before
-
-
-def test_predelete_lease_rejects_waiting_session_transition_to_recording(
-    tmp_path,
-):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
-    session_fields = {
-        'room_id': 123, 'session_id': 'session-1',
-        'session_paths': ('/video.flv',),
-        'snapshot': {'/video.flv': (30, 40)},
-        'quiet_since': '2026-07-27T12:00:00+00:00',
-        'started_at': '2026-07-27T08:00:00+00:00',
-    }
-    journal.append('session_state', state='waiting', **session_fields)
-    append_delete_intent(journal)
-    before = journal.path.read_bytes()
-
-    with pytest.raises(ValueError, match='deletion lease'):
-        journal.append('session_state', state='recording', **session_fields)
-
-    assert journal.path.read_bytes() == before
-
-
-def test_predelete_lease_rejects_manifest_changed_path(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
-    journal.append(
-        'session_manifest_ready', manifest_id='manifest-1', room_id=123,
-        started_at='2026-07-27T08:00:00+00:00',
-        settled_at='2026-07-27T12:00:00+00:00',
-        flv_paths=('/video.flv',), snapshot={'/video.flv': (30, 40)},
-    )
-    append_delete_intent(journal)
-    before = journal.path.read_bytes()
-
-    with pytest.raises(ValueError, match='deletion lease'):
-        journal.append(
-            'session_manifest_changed', manifest_id='manifest-1',
-            detected_at='2026-07-27T12:05:00+00:00',
-            reason='frozen source identity changed',
-            changed_paths=('/video.flv',),
-        )
-
-    assert journal.path.read_bytes() == before
-
-
-@pytest.mark.parametrize(
-    ('event', 'fields'),
-    [
-        ('session_manifest_ready', {
-            'manifest_id': 'manifest-1', 'room_id': 123,
-            'started_at': '2026-07-27T08:00:00+00:00',
-            'settled_at': '2026-07-27T12:00:00+00:00',
-            'flv_paths': ('/video.flv',),
-            'snapshot': {'/video.flv': (30, 40)},
-        }),
-        ('session_resettle_started', {
-            'source_manifest_id': 'old',
-            'replacement_manifest_id': 'replacement', 'room_id': 123,
-            'state': 'settling', 'session_paths': ('/video.flv',),
-            'snapshot': {'/video.flv': (30, 40)},
-            'quiet_since': '2026-07-27T12:00:00+00:00',
-            'started_at': '2026-07-27T08:00:00+00:00',
-        }),
-        ('baseline', {
-            'fingerprint': 'other', 'file': '/video.flv',
-            'source_size': 30, 'source_mtime_ns': 40,
-        }),
-    ],
-)
-def test_predelete_lease_rejects_other_new_control_claims(
-    tmp_path, event, fields
-):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
-    append_delete_intent(journal)
-    before = journal.path.read_bytes()
-
-    with pytest.raises(ValueError, match='deletion lease'):
-        journal.append(event, **fields)
-
-    assert journal.path.read_bytes() == before
-
-
-@pytest.mark.parametrize('source_deleted', [False, True])
-@pytest.mark.parametrize(
-    ('event', 'fields'),
-    [
-        ('baseline', {'file': '/video.flv'}),
-        ('file_ready', {'file': '/video.flv'}),
-        ('ignored_invalid', {'file': '/video.flv', 'reason': 'invalid'}),
-        ('ignored_tiny', {'file': '/video.flv', 'reason': 'tiny'}),
-        ('ignored_invalid_tail', {
-            'file': '/video.flv', 'reason': 'invalid tail',
-        }),
-        ('upload_started', {
-            'title': 'title', 'duration': 1,
-            'upload_started_at': '2026-07-27T12:00:00+00:00',
-            'attempt': 1,
-        }),
-        ('video_upload_rejected', {'stage': 'video', 'message': 'rejected'}),
-        ('video_uploaded', {'video_id': 'yt123'}),
-        ('description_updated', {'description_fingerprint': 'description'}),
-        ('caption_status', {'caption_status': 'pending'}),
-        ('caption_source_frozen', {
-            'xml_file': '/video.xml', 'caption_source_xml_size': 10,
-            'caption_source_xml_mtime_ns': 20,
-        }),
-        ('caption_uploaded', {'caption_track_id': 'track'}),
-        ('playlist_inserted', {}),
-        ('youtube_processed', {}),
-        ('stage_retry_scheduled', {
-            'stage': 'caption', 'status': 'retryable',
-            'retry_at': '2026-07-27T13:00:00+00:00', 'attempt': 1,
-        }),
-        ('ambiguous', {'stage': 'video', 'message': 'unknown outcome'}),
-        ('fatal', {'stage': 'caption', 'message': 'failed'}),
-    ],
-)
-def test_pending_delete_fingerprint_leases_all_file_event_families(
-    tmp_path, source_deleted, event, fields
-):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append(
-        'baseline', fingerprint='baseline:1', file='/video.flv',
-        xml_file='/video.xml',
-    )
-    append_delete_intent(journal)
-    if source_deleted:
-        journal.append(
-            'source_deleted', fingerprint='baseline:1', path='/video.flv',
-            reason='disk pressure',
-        )
-    before = journal.path.read_bytes()
-
-    with pytest.raises(ValueError, match='fingerprint lease'):
-        journal.append(event, fingerprint='baseline:1', **fields)
-
-    assert journal.path.read_bytes() == before
-
-
-def test_pending_delete_fingerprint_does_not_block_other_fingerprint(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
-    append_delete_intent(journal)
-
-    journal.append('baseline', fingerprint='other', file='/other.flv')
-
-    assert journal.replay().files['other'].file == '/other.flv'
-
-
-def test_raw_file_event_after_delete_intent_is_corrupt(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
-    append_delete_intent(journal)
-    injected = {
-        'event': 'stage_retry_scheduled', 'fingerprint': 'baseline:1',
-        'stage': 'video', 'status': 'retryable',
-        'retry_at': '2026-07-27T13:00:00+00:00', 'attempt': 1,
-    }
-    journal.path.write_bytes(
-        journal.path.read_bytes() + json.dumps(injected).encode('utf8') + b'\n'
-    )
-
-    with pytest.raises(JournalCorruptError, match='fingerprint lease'):
-        journal.replay()
-
-
-def test_exact_delete_intent_remains_idempotent_after_source_deleted(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
-    append_delete_intent(journal)
-    journal.append(
-        'source_deleted', fingerprint='baseline:1', path='/video.flv',
-        reason='disk pressure',
-    )
-    before = journal.path.read_bytes()
-
-    version = append_delete_intent(journal)
-
-    assert journal.path.read_bytes() == before
-    assert version == len(before)
-
-
-def test_second_delete_intent_for_same_fingerprint_is_rejected(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append(
-        'baseline', fingerprint='baseline:1', file='/video.flv',
-        xml_file='/video.xml',
-    )
-    append_delete_intent(journal)
-    before = journal.path.read_bytes()
-
-    with pytest.raises(ValueError, match='fingerprint lease'):
-        append_delete_intent(
-            journal, original_path='/video.xml',
-            quarantine_path='.bililive-cleanup-quarantine/delete-xml',
-        )
-
-    assert journal.path.read_bytes() == before
-
-
-@pytest.mark.parametrize(
-    'fields',
-    [
-        {'path': '/other.flv', 'reason': 'disk pressure'},
-        {'path': '/video.flv', 'reason': 'different reason'},
-    ],
-)
-def test_source_deleted_must_exactly_match_fingerprint_lease(tmp_path, fields):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
-    append_delete_intent(journal)
-    before = journal.path.read_bytes()
-
-    with pytest.raises(ValueError, match='fingerprint lease'):
-        journal.append('source_deleted', fingerprint='baseline:1', **fields)
-
-    assert journal.path.read_bytes() == before
-
-
-def test_concurrent_caption_retry_is_rejected_after_xml_intent(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append(
-        'baseline', fingerprint='baseline:1', file='/video.flv',
-        xml_file='/video.xml',
-    )
-    append_delete_intent(
-        journal, original_path='/video.xml',
-        quarantine_path='.bililive-cleanup-quarantine/delete-xml',
-    )
-
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(
-            journal.append, 'stage_retry_scheduled',
-            fingerprint='baseline:1', stage='caption', status='retryable',
-            retry_at='2026-07-27T13:00:00+00:00', attempt=1,
-        )
-        with pytest.raises(ValueError, match='fingerprint lease'):
-            future.result()
 
 
 def test_same_manifest_classification_cannot_overwrite_source_identity(
@@ -456,246 +146,6 @@ def test_raw_unbound_identity_clear_during_manifest_bind_is_corrupt(tmp_path):
         JsonlJournal(path).replay()
 
 
-def test_delete_abort_clears_lease_and_replays_idempotently(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
-    append_delete_intent(journal)
-    fields = {
-        'fingerprint': 'baseline:1', 'original_path': '/video.flv',
-        'quarantine_path': '.bililive-cleanup-quarantine/delete-1',
-        'reason': 'source identity changed',
-        'recovery_path': '/video.flv.bililive-recovery.bin',
-    }
-
-    journal.append('source_delete_aborted', **fields)
-    journal.append('source_delete_aborted', **fields)
-
-    replay = journal.replay()
-    assert replay.pending_deletions == ()
-    assert replay.deletion_aborts == (JournalDeleteAbort(**fields),)
-    journal.append(
-        'session_state', room_id=123, state='recording',
-        session_id='new', session_paths=('/video.flv',),
-        snapshot={'/video.flv': (31, 41)},
-        quiet_since='2026-07-27T12:00:00+00:00',
-        started_at='2026-07-27T08:00:00+00:00',
-    )
-
-
-def test_delete_intent_replays_each_durable_phase_immutably(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
-
-    append_delete_intent(journal)
-
-    replay = journal.replay()
-    assert replay.pending_deletions == (JournalDeleteIntent(
-        fingerprint='baseline:1',
-        original_path='/video.flv',
-        quarantine_path='.bililive-cleanup-quarantine/delete-1',
-        dev=10,
-        ino=20,
-        size=30,
-        mtime_ns=40,
-        reason='disk pressure',
-        source_deleted=False,
-        state_checkpoint=file_state_checkpoint(replay.files['baseline:1']),
-    ),)
-    with pytest.raises(FrozenInstanceError):
-        replay.pending_deletions[0].source_deleted = True
-
-    journal.append(
-        'source_deleted', fingerprint='baseline:1', path='/video.flv',
-        reason='disk pressure',
-    )
-
-    replay = journal.replay()
-    assert replay.pending_deletions[0].source_deleted is True
-    assert replay.files['baseline:1'].deleted_paths == ('/video.flv',)
-
-    journal.append(
-        'quarantine_removed', fingerprint='baseline:1',
-        original_path='/video.flv',
-        quarantine_path='.bililive-cleanup-quarantine/delete-1',
-    )
-
-    assert journal.replay().pending_deletions == ()
-
-
-@pytest.mark.parametrize(
-    ('field', 'value'),
-    [
-        ('original_path', 'relative.flv'),
-        ('original_path', '/recording/sub/../video.flv'),
-        ('quarantine_path', '/absolute/quarantine'),
-        ('quarantine_path', '../escape'),
-        ('dev', True),
-        ('ino', -1),
-        ('size', '30'),
-        ('mtime_ns', None),
-    ],
-)
-def test_delete_intent_rejects_unsafe_paths_and_identity(
-    tmp_path, field, value
-):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
-    before = journal.path.read_bytes()
-
-    with pytest.raises((TypeError, ValueError)):
-        append_delete_intent(journal, **{field: value})
-
-    assert journal.path.read_bytes() == before
-
-
-def test_delete_intent_requires_exact_state_path_ownership(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
-
-    with pytest.raises(ValueError, match='owned'):
-        append_delete_intent(journal, original_path='/other.flv')
-
-
-def test_delete_intent_rejects_normalized_alias_owner(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append(
-        'baseline', fingerprint='baseline:1',
-        file='/recording/sub/../video.flv',
-    )
-    journal.append(
-        'baseline', fingerprint='baseline:2', file='/recording/video.flv'
-    )
-    before = journal.path.read_bytes()
-
-    with pytest.raises(ValueError, match='one fingerprint'):
-        append_delete_intent(
-            journal, original_path='/recording/video.flv'
-        )
-
-    assert journal.path.read_bytes() == before
-
-
-def test_later_alias_owner_cannot_claim_pending_intent_path(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append(
-        'baseline', fingerprint='baseline:1',
-        file='/recording/sub/../video.flv',
-    )
-    append_delete_intent(
-        journal, original_path='/recording/video.flv'
-    )
-    before = journal.path.read_bytes()
-
-    with pytest.raises(ValueError, match='pending deletion'):
-        journal.append(
-            'baseline', fingerprint='baseline:2',
-            file='/recording/video.flv',
-        )
-
-    assert journal.path.read_bytes() == before
-
-
-def test_source_deleted_alias_replays_as_canonical_tombstone(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append(
-        'baseline', fingerprint='baseline:1',
-        file='/recording/sub/../video.flv',
-    )
-    append_delete_intent(
-        journal, original_path='/recording/video.flv'
-    )
-
-    journal.append(
-        'source_deleted', fingerprint='baseline:1',
-        path='/recording/sub/../video.flv', reason='disk pressure',
-    )
-
-    replay = journal.replay()
-    assert replay.files['baseline:1'].file == '/recording/video.flv'
-    assert replay.files['baseline:1'].deleted_paths == (
-        '/recording/video.flv',
-    )
-    assert replay.pending_deletions[0].source_deleted is True
-    records = [json.loads(line) for line in journal.path.read_text().splitlines()]
-    assert records[0]['file'] == '/recording/video.flv'
-    assert records[-1]['path'] == '/recording/video.flv'
-
-
-def test_completed_deletion_releases_path_for_new_generation_intent(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append(
-        'baseline', fingerprint='old', file='/recording/video.flv'
-    )
-    append_delete_intent(
-        journal, fingerprint='old', original_path='/recording/video.flv',
-        quarantine_path='.bililive-cleanup-quarantine/old',
-    )
-    journal.append(
-        'source_deleted', fingerprint='old', path='/recording/video.flv',
-        reason='disk pressure',
-    )
-    journal.append(
-        'quarantine_removed', fingerprint='old',
-        original_path='/recording/video.flv',
-        quarantine_path='.bililive-cleanup-quarantine/old',
-    )
-
-    journal.append(
-        'baseline', fingerprint='new', file='/recording/video.flv',
-        source_size=300, source_mtime_ns=400,
-    )
-    append_delete_intent(
-        journal, fingerprint='new', original_path='/recording/video.flv',
-        quarantine_path='.bililive-cleanup-quarantine/new',
-        dev=11, ino=21, size=300, mtime_ns=400,
-    )
-
-    replay = journal.replay()
-    assert replay.files['old'].deleted_paths == ('/recording/video.flv',)
-    assert replay.pending_deletions == (JournalDeleteIntent(
-        fingerprint='new', original_path='/recording/video.flv',
-        quarantine_path='.bililive-cleanup-quarantine/new',
-        dev=11, ino=21, size=300, mtime_ns=400,
-        reason='disk pressure', source_deleted=False,
-        state_checkpoint=file_state_checkpoint(replay.files['new']),
-    ),)
-
-
-def test_deleted_source_releases_path_while_old_quarantine_is_pending(
-    tmp_path,
-):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append(
-        'baseline', fingerprint='old', file='/recording/video.flv'
-    )
-    append_delete_intent(
-        journal, fingerprint='old', original_path='/recording/video.flv',
-        quarantine_path='.bililive-cleanup-quarantine/old',
-    )
-    journal.append(
-        'source_deleted', fingerprint='old', path='/recording/video.flv',
-        reason='disk pressure',
-    )
-
-    journal.append(
-        'baseline', fingerprint='new', file='/recording/video.flv',
-        source_size=300, source_mtime_ns=400,
-    )
-    append_delete_intent(
-        journal, fingerprint='new', original_path='/recording/video.flv',
-        quarantine_path='.bililive-cleanup-quarantine/new',
-        dev=11, ino=21, size=300, mtime_ns=400,
-    )
-
-    pending = journal.replay().pending_deletions
-    assert tuple(item.fingerprint for item in pending) == ('old', 'new')
-    assert tuple(item.source_deleted for item in pending) == (True, False)
-    assert tuple(item.quarantine_path for item in pending) == (
-        '.bililive-cleanup-quarantine/old',
-        '.bililive-cleanup-quarantine/new',
-    )
-
-
 def test_relative_source_path_is_persisted_as_canonical_absolute_path(
     tmp_path, monkeypatch
 ):
@@ -712,31 +162,6 @@ def test_relative_source_path_is_persisted_as_canonical_absolute_path(
     record = json.loads(journal.path.read_text().splitlines()[0])
     assert replay.files['baseline:1'].file == expected
     assert record['file'] == expected
-
-
-def test_delete_intent_quarantine_name_is_unique(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
-    journal.append('baseline', fingerprint='baseline:2', file='/other.flv')
-    append_delete_intent(journal)
-
-    with pytest.raises(ValueError, match='quarantine'):
-        append_delete_intent(
-            journal, fingerprint='baseline:2', original_path='/other.flv'
-        )
-
-
-def test_quarantine_removed_requires_durable_source_deleted(tmp_path):
-    journal = JsonlJournal(tmp_path / 'state.jsonl')
-    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
-    append_delete_intent(journal)
-
-    with pytest.raises(ValueError, match='source_deleted'):
-        journal.append(
-            'quarantine_removed', fingerprint='baseline:1',
-            original_path='/video.flv',
-            quarantine_path='.bililive-cleanup-quarantine/delete-1',
-        )
 
 
 def test_journal_replays_cumulative_latest_file_state(tmp_path):
@@ -2430,6 +1855,29 @@ def test_source_deleted_without_path_is_rejected_before_append(tmp_path):
     assert journal.path.read_bytes() == before
 
 
+@pytest.mark.parametrize(
+    ('fields', 'message'),
+    [
+        ({'path': 'video.flv', 'reason': 'disk pressure'}, 'absolute path'),
+        ({'path': '/video.flv', 'reason': ''}, 'reason'),
+        ({'path': '/other.flv', 'reason': 'disk pressure'}, 'owned'),
+    ],
+)
+def test_source_deleted_rejects_invalid_or_unowned_path(
+    tmp_path, fields, message
+):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('baseline', fingerprint='baseline:1', file='/video.flv')
+    before = journal.path.read_bytes()
+
+    with pytest.raises((TypeError, ValueError), match=message):
+        journal.append(
+            'source_deleted', fingerprint='baseline:1', **fields
+        )
+
+    assert journal.path.read_bytes() == before
+
+
 def test_caption_source_identity_replays_with_bound_xml_path(tmp_path):
     journal = JsonlJournal(tmp_path / 'state.jsonl')
     journal.append(
@@ -2828,12 +2276,13 @@ def test_source_deletions_preserve_lifecycle_and_accumulate_paths(
         path='/video.xml',
         reason='disk pressure',
     )
-    journal.append(
-        'source_deleted',
-        fingerprint=fingerprint,
-        path='/video.flv',
-        reason='idempotent cleanup replay',
-    )
+    with pytest.raises(ValueError, match='already deleted'):
+        journal.append(
+            'source_deleted',
+            fingerprint=fingerprint,
+            path='/video.flv',
+            reason='duplicate cleanup replay',
+        )
     after_xml = journal.replay().files[fingerprint]
     assert after_xml.event == expected_event
     assert after_xml.deleted_paths == ('/video.flv', '/video.xml')

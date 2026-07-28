@@ -11,8 +11,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from recorder.bililive.models import (
-    JournalDeleteAbort,
-    JournalDeleteIntent,
     JournalFileState,
     JournalManifest,
     JournalReplay,
@@ -44,12 +42,6 @@ _IGNORED_FILE_EVENTS = frozenset({
     'ignored_invalid',
     'ignored_tiny',
     'ignored_invalid_tail',
-})
-_DELETE_TRANSACTION_EVENTS = frozenset({
-    'source_delete_intent',
-    'source_deleted',
-    'quarantine_removed',
-    'source_delete_aborted',
 })
 _FILE_EVENT_UPDATES = {
     'baseline': frozenset({
@@ -135,19 +127,6 @@ def canonical_source_path(value):
     if normalized.startswith('//'):
         normalized = '/' + normalized.lstrip('/')
     return normalized
-
-
-def file_state_checkpoint(state):
-    payload = {
-        field.name: getattr(state, field.name)
-        for field in fields(JournalFileState)
-        if field.name != 'deleted_paths'
-    }
-    serialized = json.dumps(
-        payload, ensure_ascii=False, sort_keys=True,
-        separators=(',', ':'), allow_nan=False,
-    ).encode('utf8')
-    return hashlib.sha256(serialized).hexdigest()
 
 
 def _validate_file_record(record, event, existing, enforce_history=True):
@@ -523,16 +502,6 @@ def _validate_file_binding(replay, state, existing=None, event=None):
         ):
             caption_changed = _controlled_manifest_migration(
                 replay, existing, state, event
-            )
-    owned_paths = _owned_source_paths(state)
-    for intent in replay.pending_deletions:
-        if (
-            not intent.source_deleted
-            and intent.fingerprint != state.fingerprint
-            and intent.original_path in owned_paths
-        ):
-            raise ValueError(
-                'file state conflicts with a pending deletion owner'
             )
     if state.manifest_id is None or state.file is None:
         return caption_changed
@@ -1004,32 +973,6 @@ def _reduce_resettle_started(replay, record):
     )
 
 
-def _validate_delete_intent_record(record):
-    event = 'source_delete_intent'
-    for name in ('fingerprint', 'original_path', 'quarantine_path', 'reason'):
-        _require_non_empty_string(record, name, event)
-    original_path = record['original_path']
-    if (
-        not os.path.isabs(original_path)
-        or canonical_source_path(original_path) != original_path
-    ):
-        raise ValueError(f'{event} original_path must be normalized absolute')
-    quarantine_path = record['quarantine_path']
-    quarantine_parts = Path(quarantine_path).parts
-    if (
-        os.path.isabs(quarantine_path)
-        or os.path.normpath(quarantine_path) != quarantine_path
-        or len(quarantine_parts) != 2
-        or quarantine_parts[0] != '.bililive-cleanup-quarantine'
-        or quarantine_parts[1] in ('', '.', '..')
-    ):
-        raise ValueError(f'{event} requires a safe quarantine_path')
-    for name in ('dev', 'ino', 'size', 'mtime_ns'):
-        value = record.get(name)
-        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-            raise TypeError(f'{event} requires non-negative integer {name}')
-
-
 def _owned_source_paths(state):
     owned = {
         canonical_source_path(path)
@@ -1055,206 +998,6 @@ def _source_path_owners(replay, path):
     }
 
 
-def _canonical_record_paths(values):
-    return {
-        canonical_source_path(path) for path in values
-        if isinstance(path, str) and path
-    }
-
-
-def _new_record_claims(replay, record):
-    event = record['event']
-    if event in {'session_state', 'session_resettle_started'}:
-        claimed = _canonical_record_paths(record.get('session_paths', ()))
-        claimed.update(_canonical_record_paths(record.get('snapshot', {})))
-        return claimed
-    if event == 'session_manifest_ready':
-        claimed = _canonical_record_paths(record.get('flv_paths', ()))
-        claimed.update(_canonical_record_paths(record.get('snapshot', {})))
-        return claimed
-    if event == 'session_manifest_changed':
-        return _canonical_record_paths(record.get('changed_paths', ()))
-    if event in _INITIAL_FILE_EVENTS:
-        return _canonical_record_paths(
-            (record.get('file'), record.get('xml_file'))
-        )
-    return set()
-
-
-def _validate_pending_delete_leases(replay, record):
-    fingerprint = record.get('fingerprint')
-    if any(
-        intent.fingerprint == fingerprint
-        for intent in replay.pending_deletions
-    ):
-        raise ValueError(
-            'journal event conflicts with a pending deletion fingerprint lease'
-        )
-    leased = {
-        intent.original_path for intent in replay.pending_deletions
-        if not intent.source_deleted
-    }
-    if leased.intersection(_new_record_claims(replay, record)):
-        raise ValueError('journal event conflicts with a pending deletion lease')
-
-
-def _reduce_delete_intent(replay, record):
-    _validate_delete_intent_record(record)
-    fingerprint = record['fingerprint']
-    for existing in replay.pending_deletions:
-        if (
-            existing.fingerprint == fingerprint
-            and existing.original_path == record['original_path']
-            and existing.quarantine_path == record['quarantine_path']
-            and existing.dev == record['dev']
-            and existing.ino == record['ino']
-            and existing.size == record['size']
-            and existing.mtime_ns == record['mtime_ns']
-            and existing.reason == record['reason']
-        ):
-            return replay
-        if existing.fingerprint == fingerprint:
-            raise ValueError(
-                'source_delete_intent conflicts with pending deletion '
-                'fingerprint lease'
-            )
-    state = replay.files.get(fingerprint)
-    if state is None:
-        raise ValueError('source_delete_intent requires an existing file state')
-    original_path = record['original_path']
-    if _source_path_owners(replay, original_path) != {fingerprint}:
-        raise ValueError(
-            'source_delete_intent path must be owned by one fingerprint'
-        )
-    if original_path in state.deleted_paths:
-        raise ValueError('source_delete_intent path is already deleted')
-
-    intent = JournalDeleteIntent(
-        fingerprint=fingerprint,
-        original_path=original_path,
-        quarantine_path=record['quarantine_path'],
-        dev=record['dev'],
-        ino=record['ino'],
-        size=record['size'],
-        mtime_ns=record['mtime_ns'],
-        reason=record['reason'],
-        state_checkpoint=file_state_checkpoint(state),
-    )
-    for existing in replay.pending_deletions:
-        if existing.quarantine_path == intent.quarantine_path:
-            raise ValueError('source_delete_intent quarantine_path is not unique')
-        if (
-            existing.fingerprint == fingerprint
-            and existing.original_path == original_path
-        ):
-            raise ValueError('source_delete_intent conflicts with pending intent')
-    return replace(
-        replay,
-        pending_deletions=replay.pending_deletions + (intent,),
-    )
-
-
-def _validate_quarantine_removed_record(record):
-    event = 'quarantine_removed'
-    for name in ('fingerprint', 'original_path', 'quarantine_path'):
-        _require_non_empty_string(record, name, event)
-    if canonical_source_path(record['original_path']) != record['original_path']:
-        raise ValueError(
-            'quarantine_removed original_path must be normalized absolute'
-        )
-
-
-def _reduce_quarantine_removed(replay, record):
-    _validate_quarantine_removed_record(record)
-    matches = tuple(
-        intent for intent in replay.pending_deletions
-        if (
-            intent.fingerprint == record['fingerprint']
-            and intent.original_path == record['original_path']
-            and intent.quarantine_path == record['quarantine_path']
-        )
-    )
-    if len(matches) != 1:
-        raise ValueError('quarantine_removed requires one pending intent')
-    if not matches[0].source_deleted:
-        raise ValueError('quarantine_removed requires durable source_deleted')
-    return replace(
-        replay,
-        pending_deletions=tuple(
-            intent for intent in replay.pending_deletions
-            if intent is not matches[0]
-        ),
-    )
-
-
-def _validate_delete_aborted_record(record):
-    event = 'source_delete_aborted'
-    for name in ('fingerprint', 'original_path', 'quarantine_path', 'reason'):
-        _require_non_empty_string(record, name, event)
-    if canonical_source_path(record['original_path']) != record['original_path']:
-        raise ValueError(f'{event} original_path must be normalized absolute')
-    recovery_path = record.get('recovery_path')
-    if recovery_path is not None:
-        _require_non_empty_string(record, 'recovery_path', event)
-        if canonical_source_path(recovery_path) != recovery_path:
-            raise ValueError(f'{event} recovery_path must be normalized absolute')
-        if (
-            Path(recovery_path).parent != Path(record['original_path']).parent
-            or Path(recovery_path).suffix.lower() != '.bin'
-        ):
-            raise ValueError(
-                f'{event} recovery_path must be a .bin in the source parent'
-            )
-
-
-def _reduce_delete_aborted(replay, record):
-    _validate_delete_aborted_record(record)
-    abort = JournalDeleteAbort(
-        fingerprint=record['fingerprint'],
-        original_path=record['original_path'],
-        quarantine_path=record['quarantine_path'],
-        reason=record['reason'],
-        recovery_path=record.get('recovery_path'),
-    )
-    if abort in replay.deletion_aborts:
-        return replay
-    if any(
-        item.fingerprint == abort.fingerprint
-        and item.original_path == abort.original_path
-        and item.quarantine_path == abort.quarantine_path
-        for item in replay.deletion_aborts
-    ):
-        raise ValueError('source_delete_aborted conflicts with durable abort')
-    matches = tuple(
-        intent for intent in replay.pending_deletions
-        if intent.fingerprint == abort.fingerprint
-        and intent.original_path == abort.original_path
-        and intent.quarantine_path == abort.quarantine_path
-    )
-    if len(matches) != 1 or matches[0].source_deleted:
-        raise ValueError('source_delete_aborted requires one pre-delete intent')
-    files = dict(replay.files)
-    state = files.get(abort.fingerprint)
-    if state is None:
-        raise ValueError('source_delete_aborted requires an existing file state')
-    deleted_paths = tuple(
-        canonical_source_path(path) for path in state.deleted_paths
-    )
-    if abort.original_path not in deleted_paths:
-        files[abort.fingerprint] = replace(
-            state, deleted_paths=deleted_paths + (abort.original_path,)
-        )
-    return replace(
-        replay,
-        files=files,
-        pending_deletions=tuple(
-            intent for intent in replay.pending_deletions
-            if intent is not matches[0]
-        ),
-        deletion_aborts=replay.deletion_aborts + (abort,),
-    )
-
-
 _CONTROL_REDUCERS = {
     'initialized': _reduce_initialized,
     'session_state': _reduce_session_state,
@@ -1262,9 +1005,6 @@ _CONTROL_REDUCERS = {
     'session_manifest_completed': _reduce_manifest_completed,
     'session_manifest_changed': _reduce_manifest_changed,
     'session_resettle_started': _reduce_resettle_started,
-    'source_delete_intent': _reduce_delete_intent,
-    'quarantine_removed': _reduce_quarantine_removed,
-    'source_delete_aborted': _reduce_delete_aborted,
 }
 
 
@@ -1294,15 +1034,6 @@ def _validate_append_record(record):
     if event == 'session_resettle_started':
         for name in ('source_manifest_id', 'replacement_manifest_id'):
             _require_non_empty_string(record, name, event)
-        return
-    if event == 'source_delete_intent':
-        _validate_delete_intent_record(record)
-        return
-    if event == 'quarantine_removed':
-        _validate_quarantine_removed_record(record)
-        return
-    if event == 'source_delete_aborted':
-        _validate_delete_aborted_record(record)
         return
     raise ValueError(f'unknown event {event!r}')
 
@@ -1396,8 +1127,6 @@ class _ReplayState:
     session: JournalSessionState
     initialized: bool
     pending_resettles: tuple[JournalResettleRequest, ...]
-    pending_deletions: tuple[JournalDeleteIntent, ...]
-    deletion_aborts: tuple[JournalDeleteAbort, ...]
 
 
 def _empty_replay():
@@ -1415,21 +1144,16 @@ def _empty_replay():
         ),
         initialized=False,
         pending_resettles=(),
-        pending_deletions=(),
-        deletion_aborts=(),
     )
 
 
-def _public_replay(replay, journal_version=0):
+def _public_replay(replay):
     return JournalReplay(
         files=replay.files,
         manifests=replay.manifests,
         session=replay.session,
         initialized=replay.initialized,
         pending_resettles=replay.pending_resettles,
-        pending_deletions=replay.pending_deletions,
-        journal_version=journal_version,
-        deletion_aborts=replay.deletion_aborts,
     )
 
 
@@ -1447,29 +1171,9 @@ class JsonlJournal:
             replay, torn_offset, needs_separator = self._replay_payload(
                 existing_payload
             )
-            journal_version = (
-                torn_offset if torn_offset is not None
-                else len(existing_payload)
-            )
-            if event in _DELETE_TRANSACTION_EVENTS and (
-                event == 'source_delete_intent'
-                or 'expected_journal_version' in record
-            ):
-                expected = record.get('expected_journal_version')
-                if (
-                    isinstance(expected, bool)
-                    or not isinstance(expected, int)
-                    or expected < 0
-                ):
-                    raise TypeError(
-                        f'{event} requires a non-negative '
-                        'expected_journal_version'
-                    )
-                if expected != journal_version:
-                    raise ValueError(f'{event} journal version changed')
             updated = self._reduce(replay, record)
             if updated is replay:
-                return journal_version
+                return
             record['recorded_at'] = datetime.now(timezone.utc).isoformat()
             payload = json.dumps(
                 record,
@@ -1488,21 +1192,16 @@ class JsonlJournal:
                 journal_file.write(payload)
                 journal_file.flush()
                 os.fsync(journal_file.fileno())
-                journal_version = journal_file.tell()
             if not journal_existed:
                 _fsync_directory(self.path.parent)
-            return journal_version
 
     def replay(self):
         with self._mutex:
             if not self.path.exists():
                 return _public_replay(_empty_replay())
             payload = self.path.read_bytes()
-            replay, torn_offset, _ = self._replay_payload(payload)
-            journal_version = (
-                torn_offset if torn_offset is not None else len(payload)
-            )
-            return _public_replay(replay, journal_version)
+            replay, _, _ = self._replay_payload(payload)
+            return _public_replay(replay)
 
     @classmethod
     def _replay_payload(cls, payload):
@@ -1550,8 +1249,6 @@ class JsonlJournal:
         control_reducer = _CONTROL_REDUCERS.get(event)
         if control_reducer is None and event not in _FILE_EVENT_UPDATES:
             raise ValueError(f'unknown event {event!r}')
-        if event not in _DELETE_TRANSACTION_EVENTS:
-            _validate_pending_delete_leases(replay, record)
         if control_reducer is not None:
             return control_reducer(replay, record)
 
@@ -1559,22 +1256,16 @@ class JsonlJournal:
         existing = replay.files.get(fingerprint)
         _validate_file_record(record, event, existing)
         if event == 'source_deleted':
-            deleted_path = record['path']
-            pending_for_fingerprint = tuple(
-                intent for intent in replay.pending_deletions
-                if intent.fingerprint == fingerprint
-            )
-            matching_intents = tuple(
-                intent for intent in pending_for_fingerprint
-                if (
-                    intent.original_path == deleted_path
-                    and intent.reason == record['reason']
-                )
-            )
-            if pending_for_fingerprint and len(matching_intents) != 1:
+            deleted_path = canonical_source_path(record['path'])
+            if existing is None:
                 raise ValueError(
-                    'source_deleted conflicts with pending deletion '
-                    'fingerprint lease'
+                    'source_deleted requires an existing file state'
+                )
+            if deleted_path in existing.deleted_paths:
+                raise ValueError('source_deleted path is already deleted')
+            if _source_path_owners(replay, deleted_path) != {fingerprint}:
+                raise ValueError(
+                    'source_deleted path must be owned by one fingerprint'
                 )
         same_generation = bool(
             existing is not None
@@ -1662,28 +1353,4 @@ class JsonlJournal:
                 )
         files = dict(replay.files)
         files[fingerprint] = state
-        replay = replace(replay, files=files)
-        if event == 'source_deleted':
-            deleted_path = canonical_source_path(record['path'])
-            matching_intents = tuple(
-                intent for intent in replay.pending_deletions
-                if (
-                    intent.fingerprint == fingerprint
-                    and intent.original_path == deleted_path
-                )
-            )
-            if len(matching_intents) > 1:
-                raise ValueError('source_deleted has ambiguous pending intents')
-            if matching_intents:
-                intent = matching_intents[0]
-                if intent.reason != record['reason']:
-                    raise ValueError('source_deleted reason conflicts with intent')
-                return replace(
-                    replay,
-                    pending_deletions=tuple(
-                        replace(item, source_deleted=True)
-                        if item is intent else item
-                        for item in replay.pending_deletions
-                    ),
-                )
-        return replay
+        return replace(replay, files=files)
