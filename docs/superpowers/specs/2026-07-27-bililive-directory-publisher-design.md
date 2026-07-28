@@ -352,15 +352,28 @@ video that already has a `video_id` never returns to the video-upload stage.
 ## State-Aware Disk Cleanup
 
 The existing hourly cleanup script must be disabled after the new cleanup has
-been verified. The new cleanup runs under the monitor's single-instance lock
-and uses the same 85 percent disk-use threshold and oldest-first policy.
+been verified. The new cleanup runs under the monitor's single-instance lock,
+only after the room API reliably reports both recording and streaming as false
+and the completed session has passed the normal directory-settling checks. It
+never runs while a live session is active or while room state is unavailable.
+
+Cleanup starts at 85 percent disk use, considers only files whose own mtime is
+at least six hours old, deletes oldest-first, and stops as soon as usage drops
+below 85 percent. The age gate is intentionally shorter than a multi-day
+retention policy because a 100 GB recorder disk may hold only about two full
+evening sessions.
 
 FLV deletion eligibility is independent from XML deletion eligibility:
 
-- An FLV is deletable when it is `BASELINED`, deliberately ignored, or its
-  YouTube video is confirmed processed.
-- An XML is deletable when it is baseline/ignored with its FLV, or its caption
-  has been confirmed uploaded.
+- A normal FLV is deletable only after its YouTube video is confirmed processed.
+- A deliberately ignored small or invalid FLV is deletable because it has a
+  terminal local decision and will never be uploaded.
+- A baseline-only FLV is never automatically deleted. It predates ownership by
+  this service and requires an explicit later decision.
+- An XML paired with a published FLV is deletable only after its caption has
+  been confirmed uploaded. A missing XML requires no cleanup action.
+- An XML paired with a deliberately ignored FLV is deletable with the ignored
+  source once that XML independently passes the six-hour age gate.
 - Missing or malformed XML does not retain the large FLV after YouTube
   processing. The small XML and journal metadata remain available for later
   repair and backfill.
@@ -369,9 +382,17 @@ FLV deletion eligibility is independent from XML deletion eligibility:
 - `READY`, `UPLOADING_VIDEO`, unprocessed uploaded videos, `AMBIGUOUS`, and
   unknown files are never deleted.
 
-Every deletion is journaled with the path and reason. If disk use is above the
-threshold but no eligible file exists, cleanup deletes nothing and emits a
-high-severity operational error.
+Immediately before deletion, the service revalidates that the path is a regular
+file inside the configured recorder root and still has the journaled device,
+inode, size, and mtime identity. Any mismatch protects the path. With cleanup
+restricted to a settled offline directory, deletion uses a direct unlink rather
+than a recoverable quarantine transaction. A crash after unlink but before the
+completion event is safe: replay sees an absent source that was already in a
+terminal publication/ignore state and performs no upload or second deletion.
+
+Every successful deletion is journaled with the path and reason. If disk use is
+above the threshold but no eligible file exists, cleanup deletes nothing and
+emits a high-severity operational error.
 
 ## Legacy Compatibility
 
