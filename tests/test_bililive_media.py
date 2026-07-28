@@ -17,6 +17,7 @@ from recorder.bililive.media import (
     inspect_media,
 )
 from recorder.bililive.models import MediaInfo
+from recorder.bililive.timestamps import TimestampReadRetryableError
 
 
 SHANGHAI = ZoneInfo('Asia/Shanghai')
@@ -141,6 +142,99 @@ def test_inspect_media_falls_back_to_shanghai_filename_timestamp(
     assert inspected.start_time == datetime(
         2026, 7, 27, 19, 31, 2, tzinfo=SHANGHAI
     )
+
+
+def test_inspect_media_reconciles_real_ffprobe_and_xml_metadata(tmp_path):
+    path = tmp_path / 'wrong-name.flv'
+    path.write_bytes(b'video')
+    path.with_suffix('.xml').write_text(
+        '<i><BililiveRecorderRecordInfo '
+        'start_time="2026-07-27T20:31:59.1494083+09:00"/></i>',
+        encoding='utf8',
+    )
+    result = _probe_result(tags={
+        'StartTime': '2026-07-27T11:31:59.154000Z',
+        'Title': 'fallback title',
+        'StreamTitle': '56冠神抽',
+    })
+
+    inspected = inspect_media(path, runner=lambda *args, **kwargs: result)
+
+    assert inspected.start_time.isoformat() == (
+        '2026-07-27T19:31:59.154000+08:00'
+    )
+    assert inspected.stream_title == '56冠神抽'
+    assert inspected.probe_error is None
+
+
+def test_inspect_media_rejects_ffprobe_xml_timestamp_conflict(tmp_path):
+    path = tmp_path / '2026-07-27 19:31:59.flv'
+    path.write_bytes(b'video')
+    path.with_suffix('.xml').write_text(
+        '<i><BililiveRecorderRecordInfo '
+        'start_time="2026-07-27T20:32:10+09:00"/></i>',
+        encoding='utf8',
+    )
+
+    inspected = inspect_media(
+        path,
+        runner=lambda *args, **kwargs: _probe_result(
+            tags={'StartTime': '2026-07-27T11:31:59Z'}
+        ),
+    )
+
+    assert 'conflicting start times' in inspected.probe_error
+    assert classify_session_files([inspected])[inspected.fingerprint].status == (
+        'ignored_invalid'
+    )
+
+
+def test_inspect_media_uses_xml_when_ffprobe_start_tag_is_missing(tmp_path):
+    path = tmp_path / 'unknown.flv'
+    path.write_bytes(b'video')
+    path.with_suffix('.xml').write_text(
+        '<i><BililiveRecorderRecordInfo '
+        'start_time="2026-07-27T20:31:59+09:00"/></i>',
+        encoding='utf8',
+    )
+
+    inspected = inspect_media(
+        path, runner=lambda *args, **kwargs: _probe_result(tags={})
+    )
+
+    assert inspected.start_time.isoformat() == '2026-07-27T19:31:59+08:00'
+    assert inspected.probe_error is None
+
+
+def test_malformed_xml_header_does_not_override_valid_ffprobe_time(tmp_path):
+    path = tmp_path / 'unknown.flv'
+    path.write_bytes(b'video')
+    path.with_suffix('.xml').write_text('<i><broken', encoding='utf8')
+
+    inspected = inspect_media(
+        path,
+        runner=lambda *args, **kwargs: _probe_result(
+            tags={'StartTime': '2026-07-27T11:31:59Z'}
+        ),
+    )
+
+    assert inspected.start_time.isoformat() == '2026-07-27T19:31:59+08:00'
+    assert inspected.probe_error is None
+
+
+def test_inspect_media_retries_when_xml_changes(tmp_path):
+    path = tmp_path / '2026-07-27 19:31:59.flv'
+    path.write_bytes(b'video')
+
+    def changed_xml(xml_path):
+        raise TimestampReadRetryableError(f'changed: {xml_path}')
+
+    with pytest.raises(MediaProbeRetryableError, match='changed'):
+        inspect_media(
+            path,
+            runner=lambda *args, **kwargs: _probe_result(),
+            xml_start_reader=changed_xml,
+        )
 
 
 @pytest.mark.parametrize(

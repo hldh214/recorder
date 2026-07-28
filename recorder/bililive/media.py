@@ -1,25 +1,25 @@
 import hashlib
 import json
 import math
-import re
 import shutil
 import subprocess
 import sys
-from datetime import datetime
-from email.utils import parsedate_to_datetime
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from recorder.bililive.models import ClassifiedMedia, MediaInfo
+from recorder.bililive.timestamps import (
+    TimestampReadRetryableError,
+    normalized_tags,
+    read_xml_start_time,
+    resolve_start_time,
+)
 
 
 MIN_NON_TAIL_SIZE_BYTES = 256 * 1024 * 1024
 MIN_TAIL_DURATION_SECONDS = 60
 FFPROBE_TIMEOUT_SECONDS = 120
-SESSION_TIMEZONE = 'Asia/Shanghai'
 
 _ERROR_TEXT_LIMIT = 2048
-_FILENAME_TIMESTAMP = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})')
 
 
 class MediaProbeRetryableError(RuntimeError):
@@ -30,38 +30,6 @@ def _bounded_text(value):
     if isinstance(value, bytes):
         value = value.decode('utf-8', errors='replace')
     return str(value or '').strip()[:_ERROR_TEXT_LIMIT]
-
-
-def _filename_start_time(path):
-    match = _FILENAME_TIMESTAMP.match(path.stem)
-    if match is None:
-        return None
-    try:
-        parsed = datetime.strptime(match.group(1), '%Y-%m-%d %H:%M:%S')
-    except ValueError:
-        return None
-    return parsed.replace(tzinfo=ZoneInfo(SESSION_TIMEZONE))
-
-
-def _start_time(path, tags, mtime_ns):
-    raw_start = tags.get('StartTime')
-    if raw_start:
-        try:
-            parsed = parsedate_to_datetime(str(raw_start))
-            if parsed.tzinfo is None:
-                parsed = parsed.replace(tzinfo=ZoneInfo(SESSION_TIMEZONE))
-            return parsed.astimezone(ZoneInfo(SESSION_TIMEZONE)), None
-        except (TypeError, ValueError, OverflowError):
-            pass
-
-    fallback = _filename_start_time(path)
-    if fallback is not None:
-        return fallback, None
-
-    fallback = datetime.fromtimestamp(
-        mtime_ns / 1_000_000_000, ZoneInfo(SESSION_TIMEZONE)
-    )
-    return fallback, 'missing valid StartTime metadata and filename timestamp'
 
 
 def _fingerprint(path, stat_result, start_time, valid_duration):
@@ -124,7 +92,12 @@ def _stat(path):
         ) from exception
 
 
-def inspect_media(path, ffprobe_path='ffprobe', runner=subprocess.run):
+def inspect_media(
+    path,
+    ffprobe_path='ffprobe',
+    runner=subprocess.run,
+    xml_start_reader=read_xml_start_time,
+):
     try:
         path = Path(path).resolve()
     except OSError as exception:
@@ -188,9 +161,22 @@ def inspect_media(path, ffprobe_path='ffprobe', runner=subprocess.run):
     if not isinstance(tags, dict):
         tags = {}
 
-    start_time, start_error = _start_time(path, tags, before.st_mtime_ns)
-    probe_error = probe_error or start_error
-    stream_title = tags.get('title')
+    try:
+        xml_raw_start = xml_start_reader(path.with_suffix('.xml'))
+    except TimestampReadRetryableError as exception:
+        raise MediaProbeRetryableError(
+            f'could not read XML start time for {path}: {exception}'
+        ) from exception
+    resolution = resolve_start_time(
+        path, tags, xml_raw_start, before.st_mtime_ns
+    )
+    start_time = resolution.start_time
+    probe_error = probe_error or resolution.error
+
+    metadata = normalized_tags(tags)
+    stream_title = metadata.get('streamtitle')
+    if not isinstance(stream_title, str) or not stream_title.strip():
+        stream_title = metadata.get('title')
     if not isinstance(stream_title, str) or not stream_title.strip():
         stream_title = None
     else:
