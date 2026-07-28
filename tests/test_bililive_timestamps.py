@@ -6,6 +6,8 @@ import pytest
 
 from recorder.bililive.timestamps import (
     TIMESTAMP_CONFLICT_TOLERANCE_SECONDS,
+    TimestampReadRetryableError,
+    read_xml_start_time,
     resolve_start_time,
 )
 
@@ -107,3 +109,57 @@ def test_no_valid_source_is_not_uploadable():
 
     assert result.source == 'mtime_diagnostic'
     assert result.error == 'missing valid ffprobe, XML, and filename start time'
+
+
+@pytest.mark.parametrize(
+    'record_info',
+    [
+        '<BililiveRecorderRecordInfo',
+        '<x:BililiveRecorderRecordInfo xmlns:x="urn:bililive"',
+    ],
+)
+def test_reads_record_info_without_parsing_danmaku_tail(tmp_path, record_info):
+    xml = tmp_path / 'recording.xml'
+    xml.write_text(
+        f'<i>{record_info} '
+        'start_time="2026-07-27T20:31:59.1494083+09:00"/>'
+        '<d p="bad">unterminated',
+        encoding='utf8',
+    )
+
+    assert read_xml_start_time(xml) == (
+        '2026-07-27T20:31:59.1494083+09:00'
+    )
+
+
+def test_missing_or_malformed_xml_header_returns_none(tmp_path):
+    assert read_xml_start_time(tmp_path / 'missing.xml') is None
+    malformed = tmp_path / 'malformed.xml'
+    malformed.write_text('<i><broken', encoding='utf8')
+
+    assert read_xml_start_time(malformed) is None
+
+
+def test_xml_identity_change_is_retryable(tmp_path):
+    xml = tmp_path / 'recording.xml'
+    xml.write_text(
+        '<i><BililiveRecorderRecordInfo '
+        'start_time="2026-07-27T00:00:00Z"/></i>',
+        encoding='utf8',
+    )
+    real_stat = Path.stat
+    calls = 0
+
+    def changing_stat(path):
+        nonlocal calls
+        result = real_stat(path)
+        calls += 1
+        if calls == 2:
+            return type('ChangedStat', (), {
+                'st_size': result.st_size + 1,
+                'st_mtime_ns': result.st_mtime_ns,
+            })()
+        return result
+
+    with pytest.raises(TimestampReadRetryableError, match='changed'):
+        read_xml_start_time(xml, statter=changing_stat)

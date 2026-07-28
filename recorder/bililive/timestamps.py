@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
+from xml.etree import ElementTree
 from zoneinfo import ZoneInfo
 
 
@@ -18,6 +19,61 @@ class TimestampResolution:
     start_time: datetime
     source: str
     error: str | None = None
+
+
+class TimestampReadRetryableError(RuntimeError):
+    pass
+
+
+def read_xml_start_time(
+    xml_path,
+    statter=lambda path: path.stat(),
+    parser=ElementTree.iterparse,
+):
+    xml_path = Path(xml_path)
+    try:
+        before = statter(xml_path)
+    except FileNotFoundError:
+        return None
+    except OSError as exception:
+        raise TimestampReadRetryableError(
+            f'could not stat XML timestamp source {xml_path}: {exception}'
+        ) from exception
+
+    raw_start = None
+    try:
+        events = parser(xml_path, events=('start',))
+        for _, element in events:
+            if element.tag.rsplit('}', 1)[-1] == 'BililiveRecorderRecordInfo':
+                value = element.get('start_time')
+                raw_start = (
+                    value
+                    if isinstance(value, str) and value.strip()
+                    else None
+                )
+                break
+        del events
+    except ElementTree.ParseError:
+        raw_start = None
+    except OSError as exception:
+        raise TimestampReadRetryableError(
+            f'could not read XML timestamp source {xml_path}: {exception}'
+        ) from exception
+
+    try:
+        after = statter(xml_path)
+    except OSError as exception:
+        raise TimestampReadRetryableError(
+            f'could not re-stat XML timestamp source {xml_path}: {exception}'
+        ) from exception
+    if (before.st_size, before.st_mtime_ns) != (
+        after.st_size,
+        after.st_mtime_ns,
+    ):
+        raise TimestampReadRetryableError(
+            f'XML timestamp source changed during read: {xml_path}'
+        )
+    return raw_start
 
 
 def normalized_tags(tags):
