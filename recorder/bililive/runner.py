@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from itertools import islice
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from recorder.bililive.media import (
     MediaProbeRetryableError,
@@ -30,6 +31,7 @@ RETRY_BASE_SECONDS = 5 * 60
 RETRY_MAX_SECONDS = 6 * 60 * 60
 AMBIGUOUS_TIME_SKEW_SECONDS = 5 * 60
 AMBIGUOUS_DURATION_TOLERANCE_SECONDS = 1.0
+YOUTUBE_TIMEZONE = ZoneInfo('Asia/Shanghai')
 
 
 _IGNORED_STATUSES = frozenset({
@@ -58,6 +60,12 @@ def _aware_datetime(value):
     if instant.tzinfo is None or instant.utcoffset() is None:
         raise ValueError('timestamp must be timezone-aware')
     return instant
+
+
+def _youtube_wall_time(value):
+    return _aware_datetime(value).astimezone(YOUTUBE_TIMEZONE).strftime(
+        '%Y-%m-%d %H:%M:%S'
+    )
 
 
 def _identity(path):
@@ -413,7 +421,7 @@ class BililivePublishRunner:
                 video_path=media.path,
                 source_type='bilibili',
                 source_name=str(self._room_for(fingerprint)),
-                start=media.start_time.strftime('%Y-%m-%d %H:%M:%S'),
+                start=_youtube_wall_time(media.start_time),
                 stream_title=media.stream_title,
                 caption=caption,
                 checkpoint=checkpoint,

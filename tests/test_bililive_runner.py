@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -203,6 +204,32 @@ def test_runner_journals_upload_started_before_calling_youtube(tmp_path):
     assert replayed.title == 'Generated title'
     assert replayed.upload_started_at == NOW.isoformat()
     assert replayed.duration == 3600.25
+
+
+@pytest.mark.parametrize(
+    'start',
+    [
+        datetime(2026, 7, 27, 20, 31, 59, tzinfo=ZoneInfo('Asia/Tokyo')),
+        datetime(2026, 7, 27, 11, 31, 59, tzinfo=timezone.utc),
+    ],
+)
+def test_runner_formats_youtube_start_in_shanghai(tmp_path, start):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    classified = ready_media(tmp_path, start=start)
+    append_ready(journal, classified)
+    publisher = FakePublisher([publish_result()])
+    runner = BililivePublishRunner(
+        journal=journal,
+        publisher=publisher,
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW,
+    )
+
+    result = runner.publish_one(classified, caption_provider=None)
+
+    assert result.status == 'complete'
+    assert publisher.calls[0]['start'] == '2026-07-27 19:31:59'
 
 
 def test_runner_resumes_caption_without_reupload(tmp_path):
