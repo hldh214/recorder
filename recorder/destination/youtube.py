@@ -5,6 +5,7 @@ import pickle
 import re
 import socket
 import sys
+import tempfile
 import traceback
 
 import google_auth_oauthlib.flow
@@ -26,6 +27,33 @@ YOUTUBE_QUOTA_REASONS = frozenset(('quotaExceeded', 'dailyLimitExceeded'))
 YOUTUBE_DURATION_PATTERN = re.compile(
     r'^PT(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+(?:\.\d+)?)S)?$'
 )
+
+
+def _atomic_pickle_dump(value, destination):
+    destination = pathlib.Path(destination)
+    file_descriptor, temporary_name = tempfile.mkstemp(
+        dir=destination.parent,
+        prefix=f'.{destination.name}.',
+        suffix='.tmp',
+    )
+    temporary_path = pathlib.Path(temporary_name)
+    try:
+        with os.fdopen(file_descriptor, 'wb') as token:
+            pickle.dump(value, token)
+            token.flush()
+            os.fsync(token.fileno())
+        os.replace(temporary_path, destination)
+        directory_descriptor = os.open(
+            destination.parent,
+            os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0),
+        )
+        try:
+            os.fsync(directory_descriptor)
+        finally:
+            os.close(directory_descriptor)
+    except BaseException:
+        temporary_path.unlink(missing_ok=True)
+        raise
 
 
 def _split_validate_video_name(filename):
@@ -375,8 +403,7 @@ class Youtube:
                 )
                 credentials = flow.run_local_server()
             # Save the credentials for the next run
-            with open(credentials_file, 'wb') as token:
-                pickle.dump(credentials, token)
+            _atomic_pickle_dump(credentials, credentials_file)
 
         self.youtube = googleapiclient.discovery.build(
             api_service_name, api_version, credentials=credentials, cache_discovery=False

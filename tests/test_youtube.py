@@ -36,6 +36,38 @@ class FakeYoutube:
         return self.captions
 
 
+def test_atomic_pickle_dump_replaces_credentials_with_private_file(tmp_path):
+    credentials = tmp_path / 'credentials.pkl'
+    credentials.write_bytes(b'old')
+
+    youtube_module._atomic_pickle_dump({'token': 'new'}, credentials)
+
+    with credentials.open('rb') as token:
+        assert youtube_module.pickle.load(token) == {'token': 'new'}
+    assert credentials.stat().st_mode & 0o777 == 0o600
+    assert list(tmp_path.glob('*.tmp')) == []
+
+
+def test_atomic_pickle_dump_failure_preserves_existing_credentials(
+    tmp_path, monkeypatch
+):
+    credentials = tmp_path / 'credentials.pkl'
+    credentials.write_bytes(b'old')
+
+    def fail_after_partial_write(value, token):
+        del value
+        token.write(b'partial')
+        raise OSError('no space left on device')
+
+    monkeypatch.setattr(youtube_module.pickle, 'dump', fail_after_partial_write)
+
+    with pytest.raises(OSError, match='no space'):
+        youtube_module._atomic_pickle_dump({'token': 'new'}, credentials)
+
+    assert credentials.read_bytes() == b'old'
+    assert list(tmp_path.glob('*.tmp')) == []
+
+
 class ExplodingCaptionList:
     def execute(self):
         raise OSError('google list failed')
