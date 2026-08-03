@@ -120,7 +120,7 @@ class BililivePublishRunner:
         eligible_manifest_ids = set()
         deferred_result = None
         for manifest in manifests:
-            changed_paths = self._manifest_changed_paths(manifest)
+            changed_paths = self._manifest_changed_paths(manifest, replay)
             if changed_paths:
                 if deferred_result is None:
                     deferred_result = self._invalidate_changed_manifest(
@@ -690,7 +690,7 @@ class BililivePublishRunner:
         except MediaProbeRetryableError as exception:
             return RunnerResult('retryable', message=str(exception))
         classified = self.classifier(inspected)
-        changed_paths = self._manifest_changed_paths(manifest)
+        changed_paths = self._manifest_changed_paths(manifest, replay)
         if changed_paths:
             return self._invalidate_changed_manifest(
                 manifest, changed_paths
@@ -890,10 +890,34 @@ class BililivePublishRunner:
             dynamic[str(media.xml_path)] = xml_identity
         return dynamic
 
-    def _manifest_changed_paths(self, manifest: JournalManifest):
+    def _manifest_changed_paths(
+        self,
+        manifest: JournalManifest,
+        replay: JournalReplay | None = None,
+    ):
         return tuple(
             path for path, expected in manifest.snapshot.items()
-            if _identity(path) != tuple(expected)
+            if (
+                _identity(path) != tuple(expected)
+                and not self._durably_deleted_manifest_path(
+                    manifest, path, replay
+                )
+            )
+        )
+
+    def _durably_deleted_manifest_path(self, manifest, path, replay):
+        if replay is None or _identity(path) is not None:
+            return False
+        matches = tuple(
+            state for state in replay.files.values()
+            if (
+                state.manifest_id == manifest.manifest_id
+                and path in state.deleted_paths
+            )
+        )
+        return bool(
+            len(matches) == 1
+            and self._state_complete(matches[0], manifest.room_id)
         )
 
     def _invalidate_changed_manifest(

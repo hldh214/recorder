@@ -582,6 +582,37 @@ def test_run_pending_returns_to_settling_before_probe_when_manifest_changes(tmp_
     assert journal_events(journal.path).count('session_manifest_changed') == 1
 
 
+def test_durably_deleted_completed_source_does_not_resettle_manifest(tmp_path):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    classified = ready_media(tmp_path)
+    append_manifest(journal, 'session-1', classified)
+    journal.append(
+        'video_uploaded', fingerprint='fp1', video_id='yt-complete'
+    )
+    journal.append('youtube_processed', fingerprint='fp1')
+    journal.append(
+        'source_deleted', fingerprint='fp1',
+        path=str(classified.media.path), reason='disk pressure',
+    )
+    classified.media.path.unlink()
+    runner = BililivePublishRunner(
+        journal=journal,
+        publisher=FakePublisher([]),
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW,
+        caption_provider=None,
+    )
+
+    result = runner.run_pending_once(journal.replay())
+
+    assert result.status == 'complete'
+    replay = journal.replay()
+    assert replay.manifests[0].completed is True
+    assert replay.manifests[0].invalidated is False
+    assert replay.pending_resettles == ()
+
+
 def test_changed_manifest_does_not_block_unrelated_due_manifest(tmp_path):
     journal = RecordingJournal(tmp_path / 'state.jsonl')
     changed = ready_media(
