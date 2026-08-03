@@ -109,14 +109,13 @@ def service_for(
 @pytest.mark.parametrize(
     ('room', 'state'),
     [
-        (None, SessionState.WAITING),
         (RoomState(True, False), SessionState.WAITING),
         (RoomState(False, True), SessionState.WAITING),
         (RoomState(False, False), SessionState.RECORDING),
         (RoomState(False, False), SessionState.SETTLING),
     ],
 )
-def test_unsettled_or_unavailable_observation_blocks_cleanup_and_publication(
+def test_available_observation_runs_cleanup_but_blocks_publication(
     room, state
 ):
     cleanup = FakeCleanup()
@@ -130,10 +129,29 @@ def test_unsettled_or_unavailable_observation_blocks_cleanup_and_publication(
 
     service.start()
     observed = service.observe_once()
-    time.sleep(.03)
+    wait_until(lambda: len(cleanup.calls) == 1)
     service.stop()
 
     assert observed.state is state
+    assert len(cleanup.calls) == 1
+    assert runner.calls == 0
+
+
+def test_unavailable_room_blocks_cleanup_and_publication():
+    cleanup = FakeCleanup()
+    runner = FakeRunner()
+    service = service_for(
+        room=None,
+        monitor=FakeMonitor([decision(SessionState.WAITING)]),
+        cleanup=cleanup,
+        runner=runner,
+    )
+
+    service.start()
+    service.observe_once()
+    time.sleep(.03)
+    service.stop()
+
     assert cleanup.calls == []
     assert runner.calls == 0
 
@@ -212,10 +230,10 @@ def test_later_active_observation_closes_gate_before_next_item():
     assert started.wait(1)
     service.observe_once()
     release.set()
-    time.sleep(.03)
+    wait_until(lambda: len(cleanup.calls) == 2)
     service.stop()
 
-    assert len(cleanup.calls) == 1
+    assert len(cleanup.calls) == 2
     assert runner.calls == 1
 
 

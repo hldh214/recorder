@@ -48,6 +48,7 @@ class BililiveDirectoryService:
 
         self._gate_lock = threading.Lock()
         self._cleanup_allowed = False
+        self._publication_allowed = False
         self._wake = threading.Event()
         self._stop = threading.Event()
         self._worker = None
@@ -87,10 +88,11 @@ class BililiveDirectoryService:
         self._wake.set()
 
     def observe_once(self):
-        # Every observation must earn a fresh settled-offline decision. Close
-        # pessimistically before API, filesystem, or monitor code can fail.
+        # Every observation must earn fresh cleanup and publication decisions.
+        # Close pessimistically before API, filesystem, or monitor code can fail.
         with self._gate_lock:
             self._cleanup_allowed = False
+            self._publication_allowed = False
         room = self._read_room_state()
         try:
             snapshot = self.snapshot_provider()
@@ -100,15 +102,19 @@ class BililiveDirectoryService:
             snapshot = {}
 
         decision = self.monitor.observe(self.clock(), room, snapshot)
-        cleanup_allowed = (
+        cleanup_allowed = room is not None
+        publication_allowed = (
             room is not None
             and not room.active
             and decision.state in {SessionState.READY, SessionState.WAITING}
         )
         with self._gate_lock:
             self._cleanup_allowed = cleanup_allowed
+            self._publication_allowed = publication_allowed
         if cleanup_allowed:
-            # The monitor append, including a ready manifest, fsyncs before returning.
+            # The monitor append fsyncs the active session paths before cleanup can
+            # run, so cleanup can safely remove completed historical sources while
+            # a new session is recording.
             self._wake.set()
         return decision
 
@@ -125,9 +131,13 @@ class BililiveDirectoryService:
             return None
         return room
 
-    def _gate_open(self):
+    def _cleanup_gate_open(self):
         with self._gate_lock:
             return self._cleanup_allowed
+
+    def _publication_gate_open(self):
+        with self._gate_lock:
+            return self._publication_allowed
 
     def _worker_main(self):
         while not self._stop.is_set():
@@ -135,19 +145,25 @@ class BililiveDirectoryService:
             self._wake.clear()
             try:
                 replay = self.journal.replay()
-                if self._stop.is_set() or not self._gate_open():
+                if self._stop.is_set() or not self._cleanup_gate_open():
                     continue
 
                 # Gate again immediately before the only source-mutating operation.
-                if not self._gate_open():
+                if not self._cleanup_gate_open():
                     continue
                 self.cleanup.run(tuple(replay.files.values()), dry_run=False)
-                if self._stop.is_set() or not self._gate_open():
+                if self._stop.is_set() or not self._publication_gate_open():
                     continue
 
-                while not self._stop.is_set() and self._gate_open():
+                while (
+                    not self._stop.is_set()
+                    and self._publication_gate_open()
+                ):
                     replay = self.journal.replay()
-                    if self._stop.is_set() or not self._gate_open():
+                    if (
+                        self._stop.is_set()
+                        or not self._publication_gate_open()
+                    ):
                         break
                     result = self.runner.run_pending_once(replay)
                     if result is None:
@@ -156,7 +172,7 @@ class BililiveDirectoryService:
                         break
                     # A live observation may close the gate during an upload. The
                     # current upload finishes, but no following item may start.
-                    if not self._gate_open():
+                    if not self._publication_gate_open():
                         break
             except Exception:
                 logger.exception('Bililive publication worker iteration failed')
