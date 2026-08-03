@@ -204,6 +204,12 @@ def _youtube_duration_seconds(duration):
     if not isinstance(duration, str):
         raise ValueError(f'Unsupported YouTube duration: {duration!r}')
 
+    # YouTube can expose a newly uploaded, not-yet-processed video as P0D.
+    # It is a valid ISO-8601 zero duration even though normal video durations
+    # use the PT... form.
+    if duration == 'P0D':
+        return 0
+
     match = YOUTUBE_DURATION_PATTERN.fullmatch(duration)
     if not match or not any(match.groupdict().values()):
         raise ValueError(f'Unsupported YouTube duration: {duration!r}')

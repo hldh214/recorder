@@ -49,3 +49,19 @@ file under `var/bililive/<room-id>/state.jsonl` is durable application state and
 must not be log-rotated. Keep the old cleanup cron enabled until the new
 cleanup decisions have been reviewed in dry-run output; do not run both cleanup
 paths after cutover.
+
+### Fixed Mongo backfill queue
+
+`bililive_mongo_backfill` is an operator-maintained recovery queue for selected
+BililiveRecorder FLVs. Its file list is intentionally defined as module-level
+constants. It reads each FLV in place, generates VTT captions and highlights
+from MongoDB, and records every YouTube publication stage in a separate JSONL
+journal. It never copies, moves, or deletes source recordings.
+
+```shell
+pipenv run python -u -m recorder.utils.bililive_mongo_backfill run
+```
+
+State is stored under
+`var/bililive-mongo-backfill/<room-id>/state.jsonl`. Do not run more than one
+copy; the process lock rejects overlapping workers.

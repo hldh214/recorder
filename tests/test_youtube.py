@@ -816,6 +816,7 @@ def test_youtube_get_processing_status_normalizes_missing_video():
     ('duration', 'seconds'),
     [
         ('PT0S', 0),
+        ('P0D', 0),
         ('PT45S', 45),
         ('PT2M', 120),
         ('PT3H2M1.5S', 10921.5),
