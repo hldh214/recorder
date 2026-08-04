@@ -1779,6 +1779,38 @@ def test_ambiguous_upload_requires_resolution_before_reupload(tmp_path):
     assert state.ambiguous is False
 
 
+def test_superseded_is_terminal_and_clears_ambiguous_upload_state(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('file_ready', fingerprint='fp1', file='/video.flv')
+    journal.append(
+        'upload_started', fingerprint='fp1', title='Title', duration=120,
+        upload_started_at='2026-07-27T12:00:00+00:00',
+    )
+    journal.append('ambiguous', fingerprint='fp1', stage='video')
+
+    journal.append(
+        'superseded', fingerprint='fp1',
+        reason='complete backup session uploaded as yt-a and yt-b',
+    )
+
+    state = journal.replay().files['fp1']
+    assert state.event == 'superseded'
+    assert state.reason == 'complete backup session uploaded as yt-a and yt-b'
+    assert state.video_id is None
+    assert state.ambiguous is False
+    assert state.video_upload_rejected is False
+    assert state.retry_at is None
+
+
+def test_superseded_cannot_discard_recorded_video_id(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('file_ready', fingerprint='fp1', file='/video.flv')
+    journal.append('video_uploaded', fingerprint='fp1', video_id='yt123')
+
+    with pytest.raises(ValueError, match='existing video_id'):
+        journal.append('superseded', fingerprint='fp1', reason='backup')
+
+
 def test_append_rejects_manifest_completion_without_ready_event(tmp_path):
     path = tmp_path / 'state.jsonl'
 

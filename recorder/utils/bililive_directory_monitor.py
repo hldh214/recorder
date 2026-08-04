@@ -290,5 +290,52 @@ def run_monitor(
             client.close()
 
 
+def retry_ambiguous(state_dir, fingerprint, reason):
+    """Resolve one unknown upload outcome so the monitor may upload it again."""
+    state_path = Path(state_dir).expanduser().resolve()
+    with ProcessLock(state_path):
+        journal = JsonlJournal(state_path / 'state.jsonl')
+        state = journal.replay().files.get(fingerprint)
+        if state is None:
+            raise ValueError(f'unknown fingerprint: {fingerprint}')
+        if state.video_id is not None:
+            raise ValueError('cannot retry a file with a recorded video_id')
+        if not state.ambiguous or state.event != 'ambiguous':
+            raise ValueError('file is not in an ambiguous upload state')
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError('reason must be a non-empty string')
+        journal.append(
+            'video_upload_rejected',
+            fingerprint=fingerprint,
+            stage='video',
+            message=reason.strip(),
+        )
+    return 0
+
+
+def supersede(state_dir, fingerprint, reason):
+    """Mark one unuploaded primary source as replaced by a recovery source."""
+    state_path = Path(state_dir).expanduser().resolve()
+    with ProcessLock(state_path):
+        journal = JsonlJournal(state_path / 'state.jsonl')
+        state = journal.replay().files.get(fingerprint)
+        if state is None:
+            raise ValueError(f'unknown fingerprint: {fingerprint}')
+        if state.video_id is not None:
+            raise ValueError('cannot supersede a file with a recorded video_id')
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError('reason must be a non-empty string')
+        journal.append(
+            'superseded',
+            fingerprint=fingerprint,
+            reason=reason.strip(),
+        )
+    return 0
+
+
 if __name__ == '__main__':
-    fire.Fire({'run': run_monitor})
+    fire.Fire({
+        'run': run_monitor,
+        'retry-ambiguous': retry_ambiguous,
+        'supersede': supersede,
+    })

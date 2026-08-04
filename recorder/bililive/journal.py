@@ -88,6 +88,7 @@ _FILE_EVENT_UPDATES = {
     }),
     'ambiguous': frozenset({'error_stage', 'error_message'}),
     'fatal': frozenset({'error_stage', 'error_message'}),
+    'superseded': frozenset({'reason'}),
     'source_deleted': frozenset(),
 }
 
@@ -244,6 +245,10 @@ def _validate_file_record(record, event, existing, enforce_history=True):
             and existing.video_id != record['video_id']
         ):
             raise ValueError('video_uploaded cannot replace a different video_id')
+    elif event == 'superseded':
+        _require_non_empty_string(record, 'reason', event)
+        if existing is not None and existing.video_id is not None:
+            raise ValueError('superseded cannot discard an existing video_id')
     elif event == 'description_updated':
         _require_non_empty_string(record, 'description_fingerprint', event)
     elif event == 'caption_status':
@@ -367,6 +372,17 @@ def _file_event_updates(record, event, existing=None):
         )
     elif event == 'fatal':
         updates.update(retry_at=None, attempt=0, stage=None, status=None)
+    elif event == 'superseded':
+        updates.update(
+            video_upload_rejected=False,
+            ambiguous=False,
+            retry_at=None,
+            attempt=0,
+            stage=None,
+            status=None,
+            error_stage=None,
+            error_message=None,
+        )
     elif event == 'caption_uploaded':
         updates.update(
             caption_uploaded=True,

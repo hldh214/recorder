@@ -1408,6 +1408,31 @@ def test_run_pending_completes_manifest_only_after_requested_stages(
     assert journal_events(journal.path)[-1] == 'session_manifest_completed'
 
 
+def test_run_pending_completes_manifest_with_superseded_source(tmp_path):
+    journal = RecordingJournal(tmp_path / 'state.jsonl')
+    classified = ready_media(tmp_path)
+    append_manifest(journal, 'session-1', classified)
+    journal.append(
+        'superseded', fingerprint=classified.media.fingerprint,
+        reason='complete backup session uploaded',
+    )
+    publisher = FakePublisher([])
+    publisher.config = {'source': {str(ROOM_ID): {}}}
+    runner = BililivePublishRunner(
+        journal=journal,
+        publisher=publisher,
+        room_id=ROOM_ID,
+        state_dir=tmp_path / 'state',
+        clock=lambda: NOW,
+    )
+
+    result = runner.run_pending_once(journal.replay())
+
+    assert result.status == 'complete'
+    assert publisher.calls == []
+    assert journal.replay().manifests[0].completed is True
+
+
 def test_selection_and_completion_share_one_state_index_per_replay(tmp_path):
     journal = RecordingJournal(tmp_path / 'state.jsonl')
     classified = ready_media(tmp_path)

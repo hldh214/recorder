@@ -2,12 +2,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from recorder.bililive.journal import AlreadyRunningError, ProcessLock
+from recorder.bililive.journal import AlreadyRunningError, JsonlJournal, ProcessLock
 from recorder.bililive.models import RoomState, SessionState
 from recorder.bililive.monitor import MonitorDecision
 from recorder.utils.bililive_directory_monitor import (
     _dry_run_media_report,
+    retry_ambiguous,
     run_monitor,
+    supersede,
 )
 
 
@@ -317,3 +319,30 @@ def test_lock_contention_returns_nonzero_startup_result(tmp_path):
         )
 
     assert result != 0
+
+
+def test_retry_ambiguous_records_operator_resolution(tmp_path):
+    state_dir = tmp_path / 'state'
+    journal = JsonlJournal(state_dir / 'state.jsonl')
+    journal.append('file_ready', fingerprint='fp1', file='/video.flv')
+    journal.append('ambiguous', fingerprint='fp1', stage='video')
+
+    assert retry_ambiguous(state_dir, 'fp1', 'operator requested retry') == 0
+
+    state = journal.replay().files['fp1']
+    assert state.event == 'video_upload_rejected'
+    assert state.video_upload_rejected is True
+    assert state.ambiguous is False
+    assert state.error_message == 'operator requested retry'
+
+
+def test_supersede_records_operator_recovery(tmp_path):
+    state_dir = tmp_path / 'state'
+    journal = JsonlJournal(state_dir / 'state.jsonl')
+    journal.append('file_ready', fingerprint='fp1', file='/video.flv')
+
+    assert supersede(state_dir, 'fp1', 'backup ids: yt-a, yt-b') == 0
+
+    state = journal.replay().files['fp1']
+    assert state.event == 'superseded'
+    assert state.reason == 'backup ids: yt-a, yt-b'

@@ -650,6 +650,37 @@ def test_ignored_final_event_deletes_old_paired_flv_and_xml(
     assert result.exhausted is False
 
 
+def test_superseded_primary_files_are_cleanup_eligible(tmp_path):
+    video = tmp_path / 'recording.flv'
+    xml = tmp_path / 'recording.xml'
+    video.write_bytes(b'video')
+    xml.write_text('<i/>', encoding='utf8')
+    old_ns = NOW_NS - MIN_AGE_NS
+    os.utime(video, ns=(old_ns, old_ns))
+    os.utime(xml, ns=(old_ns, old_ns))
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    video_stat = video.stat()
+    journal.append(
+        'file_ready', fingerprint='fp1', file=str(video), xml_file=str(xml),
+        source_size=video_stat.st_size,
+        source_mtime_ns=video_stat.st_mtime_ns,
+    )
+    journal.append(
+        'superseded', fingerprint='fp1',
+        reason='complete backup session uploaded',
+    )
+    state = journal.replay().files['fp1']
+
+    result = StateAwareCleanup(
+        journal, tmp_path, disk_usage=lambda path: 99,
+        clock_ns=lambda: NOW_NS,
+    ).run([state], dry_run=True)
+
+    assert result.deleted == (video, xml)
+    assert result.protected == ()
+    assert result.exhausted is False
+
+
 def test_baseline_paths_are_never_deleted_even_when_much_older(tmp_path):
     video = tmp_path / 'recording.flv'
     xml = tmp_path / 'recording.xml'

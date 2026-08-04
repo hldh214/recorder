@@ -38,6 +38,7 @@ _IGNORED_STATUSES = frozenset({
     'ignored_invalid',
     'ignored_tiny',
     'ignored_invalid_tail',
+    'superseded',
 })
 
 

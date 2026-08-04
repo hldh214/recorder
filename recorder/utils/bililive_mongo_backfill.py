@@ -24,12 +24,8 @@ logger = logging.getLogger(__name__)
 ROOM_ID = 1829181560
 SOURCE_NAME = str(ROOM_ID)
 BACKFILL_FILES = (
-    '/mnt/ssd-4t/data/bililiverecorder/1829181560/2026-07-31 19:04:59.flv',
-    '/mnt/ssd-4t/data/bililiverecorder/1829181560/2026-08-02 14:41:11.flv',
-    '/mnt/ssd-4t/data/bililiverecorder/1829181560/2026-08-02 17:41:12.flv',
-    '/mnt/ssd-4t/data/bililiverecorder/1829181560/2026-08-02 19:02:38.flv',
-    '/mnt/ssd-4t/data/bililiverecorder/1829181560/2026-08-02 22:02:38.flv',
-    '/mnt/ssd-4t/data/bililiverecorder/1829181560/2026-08-03 01:02:39.flv',
+    '/mnt/ssd-4t/data/bililiverecorder/1829181560/2026-08-03 13:00:21.flv',
+    '/mnt/ssd-4t/data/bililiverecorder/1829181560/2026-08-03 16:00:22.flv',
 )
 STATE_DIR = Path(recorder.base_path) / 'var' / 'bililive-mongo-backfill' / str(ROOM_ID)
 POLL_SECONDS = 5 * 60

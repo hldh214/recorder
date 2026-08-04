@@ -31,6 +31,7 @@ _IGNORED_EVENTS = frozenset({
     'ignored_invalid',
     'ignored_tiny',
     'ignored_invalid_tail',
+    'superseded',
 })
 _KNOWN_FILE_EVENTS = _IGNORED_EVENTS | frozenset({
     'baseline',
