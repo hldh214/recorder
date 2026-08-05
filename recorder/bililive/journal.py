@@ -989,6 +989,30 @@ def _reduce_resettle_started(replay, record):
     )
 
 
+def _reduce_resettle_discarded(replay, record):
+    event = 'session_resettle_discarded'
+    _require_non_empty_string(record, 'source_manifest_id', event)
+    _require_non_empty_string(record, 'reason', event)
+    source_id = record['source_manifest_id']
+    source = next((
+        manifest for manifest in replay.manifests
+        if manifest.manifest_id == source_id
+    ), None)
+    if source is None:
+        raise ValueError(f'{event} requires an existing source manifest')
+    if not source.invalidated:
+        raise ValueError(f'{event} requires an invalidated source manifest')
+    if source.replacement_manifest_id is not None:
+        raise ValueError(f'{event} cannot discard an already claimed manifest')
+    pending = tuple(
+        item for item in replay.pending_resettles
+        if item.source_manifest_id != source_id
+    )
+    if len(pending) == len(replay.pending_resettles):
+        raise ValueError(f'{event} requires a pending resettle request')
+    return replace(replay, pending_resettles=pending)
+
+
 def _owned_source_paths(state):
     owned = {
         canonical_source_path(path)
@@ -1021,6 +1045,7 @@ _CONTROL_REDUCERS = {
     'session_manifest_completed': _reduce_manifest_completed,
     'session_manifest_changed': _reduce_manifest_changed,
     'session_resettle_started': _reduce_resettle_started,
+    'session_resettle_discarded': _reduce_resettle_discarded,
 }
 
 
@@ -1049,6 +1074,10 @@ def _validate_append_record(record):
         return
     if event == 'session_resettle_started':
         for name in ('source_manifest_id', 'replacement_manifest_id'):
+            _require_non_empty_string(record, name, event)
+        return
+    if event == 'session_resettle_discarded':
+        for name in ('source_manifest_id', 'reason'):
             _require_non_empty_string(record, name, event)
         return
     raise ValueError(f'unknown event {event!r}')

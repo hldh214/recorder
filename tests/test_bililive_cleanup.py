@@ -206,6 +206,29 @@ def test_cleanup_deletes_processed_flv_but_retains_invalid_xml(tmp_path):
     assert journal.replay_calls == 1
 
 
+def test_cleanup_retains_published_file_until_manifest_is_completed(tmp_path):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'video')
+    os.utime(video, ns=(NOW_NS - MIN_AGE_NS, NOW_NS - MIN_AGE_NS))
+    item = manifest('session-1', (video,))
+    state = file_state(
+        video,
+        event='youtube_processed',
+        manifest_id='session-1',
+        youtube_processed=True,
+        video_id='yt123',
+    )
+    journal, cleanup = cleanup_for(
+        tmp_path, [state], Usage(99), manifests=(item,)
+    )
+
+    result = cleanup.run([state], dry_run=False)
+
+    assert result.deleted == ()
+    assert video.exists()
+    assert journal.events == []
+
+
 def test_processed_file_younger_than_minimum_age_is_protected(tmp_path):
     video = tmp_path / 'recording.flv'
     video.write_bytes(b'video')

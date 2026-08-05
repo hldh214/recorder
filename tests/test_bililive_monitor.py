@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -1035,6 +1036,64 @@ def test_pending_resettle_without_current_flv_remains_protected(tmp_path):
     replay = journal.replay()
     assert replay.session.state is SessionState.WAITING
     assert len(replay.pending_resettles) == 1
+
+
+def test_pending_resettle_discards_durably_deleted_published_source(tmp_path):
+    video = str(tmp_path / 'video.flv')
+    xml = str(tmp_path / 'video.xml')
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('initialized')
+    journal.append(
+        'session_state',
+        room_id=123,
+        state='waiting',
+        session_id=None,
+        session_paths=(),
+        snapshot={},
+        quiet_since=None,
+        started_at=None,
+    )
+    append_pending_resettle(journal, video)
+    journal.append(
+        'file_ready',
+        fingerprint='published-source',
+        manifest_id='old-session',
+        file=video,
+        xml_file=xml,
+        title='recording',
+        start_time=at(8).isoformat(),
+        duration=60,
+        source_size=100,
+        source_mtime_ns=1,
+        caption_status='pending',
+    )
+    journal.append(
+        'video_uploaded', fingerprint='published-source', video_id='yt-id'
+    )
+    journal.append(
+        'caption_uploaded',
+        fingerprint='published-source',
+        caption_status='uploaded',
+        caption_track_id='caption-id',
+    )
+    journal.append('youtube_processed', fingerprint='published-source')
+    journal.append(
+        'source_deleted',
+        fingerprint='published-source', path=video, reason='disk pressure',
+    )
+
+    monitor = BililiveSessionMonitor(journal=journal, room_id=123)
+    decision = monitor.observe(at(13), RoomState(False, False), {})
+
+    assert decision.state is SessionState.WAITING
+    replay = journal.replay()
+    assert replay.pending_resettles == ()
+    assert replay.manifests[0].invalidated is True
+    events = [
+        record['event']
+        for record in map(json.loads, journal.path.read_text().splitlines())
+    ]
+    assert events[-1] == 'session_resettle_discarded'
 
 
 def test_restart_rejects_observation_before_durable_manifest_settlement(

@@ -132,6 +132,7 @@ class StateAwareCleanup:
         assessments = {}
         owners = {}
         identities = {}
+        protected = set(protected_by_control)
         now_ns = self.clock_ns()
 
         for state in replay.files.values():
@@ -153,8 +154,13 @@ class StateAwareCleanup:
             if (
                 relationship_valid
                 and manifest is not None
-                and manifest.invalidated
+                and (manifest.invalidated or not manifest.completed)
             ):
+                protected.update(
+                    path for path, _, _ in self._state_paths(
+                        state, relationship_valid
+                    )
+                )
                 continue
 
             for path, eligible, is_xml in self._state_paths(
@@ -185,7 +191,6 @@ class StateAwareCleanup:
                 if safe and file_stat is not None:
                     identities[path] = self._stat_identity(file_stat)
 
-        protected = set(protected_by_control)
         candidates = []
         for path, path_assessments in assessments.items():
             if (

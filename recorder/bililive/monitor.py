@@ -543,6 +543,18 @@ class BililiveSessionMonitor:
             path for path in source.flv_paths if path not in current
         ]
         if missing_flvs:
+            if self._can_discard_deleted_published_resettle(
+                source, missing_flvs, replay
+            ):
+                self.journal.append(
+                    'session_resettle_discarded',
+                    source_manifest_id=source.manifest_id,
+                    reason=(
+                        'all source FLVs were durably deleted after '
+                        'successful publication'
+                    ),
+                )
+                return self.observe(now, room, current)
             raise ValueError(
                 'pending resettle current source FLV is missing: '
                 + ', '.join(missing_flvs)
@@ -587,6 +599,30 @@ class BililiveSessionMonitor:
         self.machine._restart_quiet_pending = False
         self.machine._last_observed_at = now
         return self.machine._decision(reason='claimed pending resettle')
+
+    @staticmethod
+    def _can_discard_deleted_published_resettle(source, missing_flvs, replay):
+        if len(missing_flvs) != len(source.flv_paths):
+            return False
+        for path in source.flv_paths:
+            matches = tuple(
+                state for state in replay.files.values()
+                if state.manifest_id == source.manifest_id and state.file == path
+            )
+            if len(matches) != 1:
+                return False
+            state = matches[0]
+            if (
+                path not in state.deleted_paths
+                or not state.video_id
+                or not state.youtube_processed
+                or not (
+                    state.caption_uploaded
+                    or state.caption_status == 'not_requested'
+                )
+            ):
+                return False
+        return True
 
     def _append_baselining_ownership(self, decision):
         self.journal.append(
