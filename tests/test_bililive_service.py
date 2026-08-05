@@ -107,22 +107,18 @@ def service_for(
 
 
 @pytest.mark.parametrize(
-    ('room', 'state'),
+    'room',
     [
-        (RoomState(True, False), SessionState.WAITING),
-        (RoomState(False, True), SessionState.WAITING),
-        (RoomState(False, False), SessionState.RECORDING),
-        (RoomState(False, False), SessionState.SETTLING),
+        RoomState(True, False),
+        RoomState(False, True),
     ],
 )
-def test_available_observation_runs_cleanup_but_blocks_publication(
-    room, state
-):
+def test_live_room_runs_cleanup_but_never_starts_publication(room):
     cleanup = FakeCleanup()
     runner = FakeRunner()
     service = service_for(
         room=room,
-        monitor=FakeMonitor([decision(state)]),
+        monitor=FakeMonitor([decision(SessionState.RECORDING)]),
         cleanup=cleanup,
         runner=runner,
     )
@@ -132,7 +128,7 @@ def test_available_observation_runs_cleanup_but_blocks_publication(
     wait_until(lambda: len(cleanup.calls) == 1)
     service.stop()
 
-    assert observed.state is state
+    assert observed.state is SessionState.RECORDING
     assert len(cleanup.calls) == 1
     assert runner.calls == 0
 

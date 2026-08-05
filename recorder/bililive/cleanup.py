@@ -23,7 +23,7 @@ from recorder.bililive.journal import (
 from recorder.bililive.cleanup_fs import RootDirectory
 
 
-DISK_CLEANUP_THRESHOLD_PERCENT = 85
+DISK_CLEANUP_THRESHOLD_PERCENT = 80
 MIN_CLEANUP_AGE_SECONDS = 6 * 60 * 60
 
 
@@ -63,7 +63,7 @@ _ACTIVE_SESSION_STATES = frozenset({
     SessionState.SETTLING,
     SessionState.READY,
 })
-_DELETE_REASON = 'disk usage at or above 85 percent'
+_DELETE_REASON = 'disk usage at or above 80 percent'
 
 
 def filesystem_usage_percent(path):

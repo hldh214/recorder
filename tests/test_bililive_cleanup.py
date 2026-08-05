@@ -33,6 +33,10 @@ def test_minimum_cleanup_age_is_six_hours():
     assert cleanup_module.MIN_CLEANUP_AGE_SECONDS == 6 * 60 * 60
 
 
+def test_disk_cleanup_threshold_is_eighty_percent():
+    assert cleanup_module.DISK_CLEANUP_THRESHOLD_PERCENT == 80
+
+
 def file_state(
     video,
     xml=None,
@@ -182,7 +186,9 @@ def test_cleanup_deletes_processed_flv_but_retains_invalid_xml(tmp_path):
         video, xml, event='youtube_processed', youtube_processed=True,
         video_id='yt123',
     )
-    journal, cleanup = cleanup_for(tmp_path, [state], Usage(86, 84))
+    journal, cleanup = cleanup_for(
+        tmp_path, [state], Usage(86, DISK_CLEANUP_THRESHOLD_PERCENT - 1)
+    )
 
     result = cleanup.run([state], dry_run=False)
 
@@ -190,7 +196,7 @@ def test_cleanup_deletes_processed_flv_but_retains_invalid_xml(tmp_path):
     assert xml.exists()
     assert result.deleted == (video,)
     assert result.protected == (xml,)
-    assert result.disk_usage_percent == 84
+    assert result.disk_usage_percent == DISK_CLEANUP_THRESHOLD_PERCENT - 1
     assert result.exhausted is False
     assert [event for event, _ in journal.events] == [
         'source_deleted',
@@ -228,7 +234,9 @@ def test_processed_file_exactly_minimum_age_is_deletable(tmp_path):
         video, event='youtube_processed', youtube_processed=True,
         video_id='yt123',
     )
-    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99, 84))
+    journal, cleanup = cleanup_for(
+        tmp_path, [state], Usage(99, DISK_CLEANUP_THRESHOLD_PERCENT - 1)
+    )
 
     result = cleanup.run([state], dry_run=False)
 
@@ -256,7 +264,9 @@ def test_flv_and_xml_each_apply_their_own_minimum_age_gate(tmp_path):
         caption_source_xml_size=xml_stat.st_size,
         caption_source_xml_mtime_ns=xml_stat.st_mtime_ns,
     )
-    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99, 84))
+    journal, cleanup = cleanup_for(
+        tmp_path, [state], Usage(99, DISK_CLEANUP_THRESHOLD_PERCENT - 1)
+    )
 
     result = cleanup.run([state], dry_run=False)
 
@@ -966,7 +976,10 @@ def test_cleanup_deletes_eligible_paths_oldest_first(tmp_path):
             old_video, old_xml, fingerprint='old', event='ignored_invalid'
         ),
     ]
-    journal, cleanup = cleanup_for(tmp_path, states, Usage(99, 99, 99, 84))
+    journal, cleanup = cleanup_for(
+        tmp_path, states,
+        Usage(99, 99, 99, DISK_CLEANUP_THRESHOLD_PERCENT - 1),
+    )
 
     result = cleanup.run(states, dry_run=False)
 
@@ -994,7 +1007,9 @@ def test_cleanup_deletes_caption_uploaded_xml_independently(tmp_path):
         caption_source_xml_size=xml_stat.st_size,
         caption_source_xml_mtime_ns=xml_stat.st_mtime_ns,
     )
-    journal, cleanup = cleanup_for(tmp_path, [state], Usage(90, 84))
+    journal, cleanup = cleanup_for(
+        tmp_path, [state], Usage(90, DISK_CLEANUP_THRESHOLD_PERCENT - 1)
+    )
 
     result = cleanup.run([state], dry_run=False)
 
@@ -1048,7 +1063,9 @@ def test_published_caption_uses_durable_identity_when_manifest_lacks_xml(
         caption_source_xml_size=xml_stat.st_size,
         caption_source_xml_mtime_ns=xml_stat.st_mtime_ns,
     )
-    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99, 84))
+    journal, cleanup = cleanup_for(
+        tmp_path, [state], Usage(99, DISK_CLEANUP_THRESHOLD_PERCENT - 1)
+    )
 
     result = cleanup.run([state], dry_run=False)
 
@@ -1158,13 +1175,16 @@ def test_cleanup_runs_at_exact_disk_threshold(tmp_path):
     _, cleanup = cleanup_for(
         tmp_path,
         [state],
-        Usage(DISK_CLEANUP_THRESHOLD_PERCENT, 84),
+        Usage(
+            DISK_CLEANUP_THRESHOLD_PERCENT,
+            DISK_CLEANUP_THRESHOLD_PERCENT - 1,
+        ),
     )
 
     result = cleanup.run([state], dry_run=False)
 
     assert result.deleted == (video,)
-    assert result.disk_usage_percent == 84
+    assert result.disk_usage_percent == DISK_CLEANUP_THRESHOLD_PERCENT - 1
 
 
 def test_cleanup_above_threshold_without_eligible_paths_is_exhausted(
@@ -1361,7 +1381,9 @@ def test_manifestless_nonbaseline_with_durable_identity_is_eligible(
         source_size=file_stat.st_size,
         source_mtime_ns=file_stat.st_mtime_ns,
     )
-    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99, 84))
+    journal, cleanup = cleanup_for(
+        tmp_path, [state], Usage(99, DISK_CLEANUP_THRESHOLD_PERCENT - 1)
+    )
 
     result = cleanup.run([state], dry_run=False)
 
@@ -1660,7 +1682,10 @@ def test_lexically_equivalent_file_and_xml_binding_remains_eligible(tmp_path):
         ),
         file=str(nested / '..' / video.name),
     )
-    journal, cleanup = cleanup_for(tmp_path, [state], Usage(99, 99, 84))
+    journal, cleanup = cleanup_for(
+        tmp_path, [state],
+        Usage(99, 99, DISK_CLEANUP_THRESHOLD_PERCENT - 1),
+    )
 
     result = cleanup.run([state], dry_run=False)
 
@@ -1847,7 +1872,7 @@ def test_completed_replacement_releases_chain_for_normal_eligibility(tmp_path):
     _, cleanup = cleanup_for(
         tmp_path,
         [state],
-        Usage(99, 99, 84),
+        Usage(99, 99, DISK_CLEANUP_THRESHOLD_PERCENT - 1),
         manifests=(old, replacement_manifest),
     )
 
@@ -1879,7 +1904,7 @@ def test_completed_replacement_allows_declared_flv_identity_change(tmp_path):
     journal, cleanup = cleanup_for(
         tmp_path,
         [state],
-        Usage(99, 84),
+        Usage(99, DISK_CLEANUP_THRESHOLD_PERCENT - 1),
         manifests=(old, replacement_manifest),
     )
 
@@ -1891,7 +1916,7 @@ def test_completed_replacement_allows_declared_flv_identity_change(tmp_path):
         'source_deleted', {
             'fingerprint': 'replacement-generation',
             'path': str(video),
-            'reason': 'disk usage at or above 85 percent',
+            'reason': 'disk usage at or above 80 percent',
         },
     )]
 
@@ -2159,7 +2184,11 @@ def test_real_journal_declared_xml_key_change_eventually_cleans(
         xml.write_text('<i/>', encoding='utf8')
     journal = JsonlJournal(tmp_path / 'state.jsonl')
     _append_real_xml_key_replacement(journal, video, xml, xml_change)
-    usage = Usage(99, 99, 84) if xml_change == 'added' else Usage(99, 84)
+    usage = (
+        Usage(99, 99, DISK_CLEANUP_THRESHOLD_PERCENT - 1)
+        if xml_change == 'added'
+        else Usage(99, DISK_CLEANUP_THRESHOLD_PERCENT - 1)
+    )
 
     result = StateAwareCleanup(
         journal, tmp_path, disk_usage=usage,
@@ -2184,13 +2213,15 @@ def test_cleanup_stops_after_usage_falls_below_threshold(tmp_path):
         file_state(old, event='ignored_tiny'),
         file_state(newer, fingerprint='newer', event='ignored_tiny'),
     ]
-    _, cleanup = cleanup_for(tmp_path, states, Usage(90, 84))
+    _, cleanup = cleanup_for(
+        tmp_path, states, Usage(90, DISK_CLEANUP_THRESHOLD_PERCENT - 1)
+    )
 
     result = cleanup.run(states, dry_run=False)
 
     assert result.deleted == (old,)
     assert newer.exists()
-    assert result.disk_usage_percent == 84
+    assert result.disk_usage_percent == DISK_CLEANUP_THRESHOLD_PERCENT - 1
 
 
 def test_cleanup_never_uses_path_unlink(
@@ -2227,7 +2258,9 @@ def test_direct_unlink_fsyncs_source_parent(tmp_path, monkeypatch):
     video = tmp_path / 'recording.flv'
     video.write_bytes(b'video')
     state = file_state(video, event='ignored_tiny')
-    _, cleanup = cleanup_for(tmp_path, [state], Usage(99, 84))
+    _, cleanup = cleanup_for(
+        tmp_path, [state], Usage(99, DISK_CLEANUP_THRESHOLD_PERCENT - 1)
+    )
     source_parent = video.parent.stat()
     expected_parent = (source_parent.st_dev, source_parent.st_ino)
     synced_directories = []
