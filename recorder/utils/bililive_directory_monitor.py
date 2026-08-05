@@ -25,11 +25,23 @@ from recorder.bililive.monitor import (
 from recorder.bililive.runner import BililivePublishRunner
 from recorder.bililive.service import BililiveDirectoryService
 from recorder.danmaku.bilibili.bililive_xml import iter_bililive_danmaku
-from recorder.destination.youtube import Youtube
+from recorder.destination.youtube import Youtube, _upload_rate_bytes_per_second
 from recorder.publishing.youtube import YoutubePublishService
 
 
 logger = logging.getLogger(__name__)
+
+
+def _youtube_upload_while_live(config):
+    value = config.get('upload_while_live', False)
+    if not isinstance(value, bool):
+        raise TypeError('youtube.upload_while_live must be a boolean')
+    if value and _upload_rate_bytes_per_second(config) is None:
+        raise ValueError(
+            'youtube.upload_while_live requires '
+            'youtube.upload_rate_mib_per_second'
+        )
+    return value
 
 
 def _room_number(value):
@@ -245,7 +257,9 @@ def run_monitor(
                     once=bool(once),
                 )
 
-            youtube = Youtube(recorder.config['youtube'])
+            youtube_config = recorder.config['youtube']
+            upload_while_live = _youtube_upload_while_live(youtube_config)
+            youtube = Youtube(youtube_config)
             publisher = YoutubePublishService(youtube, recorder.config)
             runner = BililivePublishRunner(
                 journal=journal,
@@ -261,6 +275,7 @@ def run_monitor(
                 cleanup=cleanup,
                 room_state_provider=room_state_provider,
                 snapshot_provider=lambda: _snapshot_directory(room_dir),
+                upload_while_live=upload_while_live,
             )
             try:
                 service.start()

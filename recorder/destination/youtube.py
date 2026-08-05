@@ -1,4 +1,6 @@
+import io
 import json
+import math
 import os
 import pathlib
 import pickle
@@ -6,6 +8,7 @@ import re
 import socket
 import sys
 import tempfile
+import time
 import traceback
 
 import google_auth_oauthlib.flow
@@ -27,6 +30,86 @@ YOUTUBE_QUOTA_REASONS = frozenset(('quotaExceeded', 'dailyLimitExceeded'))
 YOUTUBE_DURATION_PATTERN = re.compile(
     r'^PT(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+(?:\.\d+)?)S)?$'
 )
+UPLOAD_READ_SIZE_BYTES = 8 * 1024
+MIB_BYTES = 1024 * 1024
+
+
+def _upload_rate_bytes_per_second(config):
+    value = config.get('upload_rate_mib_per_second')
+    if value is None:
+        return None
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value <= 0
+    ):
+        raise ValueError(
+            'youtube.upload_rate_mib_per_second must be a finite positive number'
+        )
+    return float(value) * MIB_BYTES
+
+
+class RateLimitedFile(io.IOBase):
+    """Seekable file wrapper that paces upload reads without large bursts."""
+
+    def __init__(self, raw, bytes_per_second, clock=None, sleeper=None):
+        super().__init__()
+        if not raw.seekable() or not raw.readable():
+            raise ValueError('rate-limited upload source must be readable and seekable')
+        if (
+            isinstance(bytes_per_second, bool)
+            or not isinstance(bytes_per_second, (int, float))
+            or not math.isfinite(bytes_per_second)
+            or bytes_per_second <= 0
+        ):
+            raise ValueError('bytes_per_second must be a finite positive number')
+        self._raw = raw
+        self._bytes_per_second = float(bytes_per_second)
+        self._clock = clock or time.monotonic
+        self._sleep = sleeper or time.sleep
+        self._next_read_at = None
+
+    def readable(self):
+        return True
+
+    def seekable(self):
+        return True
+
+    def tell(self):
+        return self._raw.tell()
+
+    def seek(self, offset, whence=os.SEEK_SET):
+        position = self._raw.seek(offset, whence)
+        self._next_read_at = None
+        return position
+
+    def read(self, size=-1):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
+        if size is None or size < 0:
+            size = UPLOAD_READ_SIZE_BYTES
+        else:
+            size = min(size, UPLOAD_READ_SIZE_BYTES)
+
+        now = self._clock()
+        scheduled_at = max(self._next_read_at or now, now)
+        delay = scheduled_at - now
+        if delay > 0:
+            self._sleep(delay)
+        data = self._raw.read(size)
+        if data:
+            self._next_read_at = scheduled_at + (
+                len(data) / self._bytes_per_second
+            )
+        return data
+
+    def close(self):
+        if not self.closed:
+            try:
+                self._raw.close()
+            finally:
+                super().close()
 
 
 def _atomic_pickle_dump(value, destination):
@@ -382,6 +465,7 @@ class Youtube:
     DEFAULT_CATEGORY_ID = 20
 
     def __init__(self, config):
+        self.upload_rate_bytes_per_second = _upload_rate_bytes_per_second(config)
         scopes = [
             'https://www.googleapis.com/auth/youtube.readonly',
             'https://www.googleapis.com/auth/youtube.upload',
@@ -431,60 +515,89 @@ class Youtube:
             }
         }
 
-        insert_request = self.youtube.videos().insert(
-            part=','.join(body.keys()),
-            body=body,
-            media_body=googleapiclient.http.MediaFileUpload(
-                video_path, chunksize=chunk_size, resumable=True, mimetype='application/octet-stream'
+        limited_stream = None
+        try:
+            upload_rate = getattr(
+                self, 'upload_rate_bytes_per_second', None
             )
-        )
+            if upload_rate is None:
+                media_body = googleapiclient.http.MediaFileUpload(
+                    video_path,
+                    chunksize=chunk_size,
+                    resumable=True,
+                    mimetype='application/octet-stream',
+                )
+            else:
+                limited_stream = RateLimitedFile(
+                    open(video_path, 'rb'), upload_rate
+                )
+                media_body = googleapiclient.http.MediaIoBaseUpload(
+                    limited_stream,
+                    mimetype='application/octet-stream',
+                    chunksize=chunk_size,
+                    resumable=True,
+                )
 
-        progress_bar = None
-        last_progress = 0  # last known iteration, start at 0
-        status = None
-        response = None
-        retryable_errors = 0
-        while True:
-            error = None
-            retryable_exception = None
-            try:
-                status, response = insert_request.next_chunk()
-            except googleapiclient.errors.HttpError as exception:
-                if exception.resp.status in self.RETRYABLE_STATUS_CODES:
-                    retryable_exception = exception
-                    error = 'A retryable HTTP error {0} occurred:\n{1}'.format(
-                        exception.resp.status, exception.content
-                    )
-                elif exception.resp.status == 403:
-                    if raise_errors and not _is_quota_error(exception):
+            insert_request = self.youtube.videos().insert(
+                part=','.join(body.keys()),
+                body=body,
+                media_body=media_body,
+            )
+
+            progress_bar = None
+            last_progress = 0  # last known iteration, start at 0
+            status = None
+            response = None
+            retryable_errors = 0
+            while True:
+                error = None
+                retryable_exception = None
+                try:
+                    status, response = insert_request.next_chunk()
+                except googleapiclient.errors.HttpError as exception:
+                    if exception.resp.status in self.RETRYABLE_STATUS_CODES:
+                        retryable_exception = exception
+                        error = 'A retryable HTTP error {0} occurred:\n{1}'.format(
+                            exception.resp.status, exception.content
+                        )
+                    elif exception.resp.status == 403:
+                        if raise_errors and not _is_quota_error(exception):
+                            raise
+                        return False
+                    else:
                         raise
-                    return False
-                else:
-                    raise
-            except self.RETRYABLE_EXCEPTIONS as exception:
-                retryable_exception = exception
-                error = 'A retryable error occurred: {}'.format(exception)
+                except self.RETRYABLE_EXCEPTIONS as exception:
+                    retryable_exception = exception
+                    error = 'A retryable error occurred: {}'.format(exception)
 
-            if error is not None:
-                retryable_errors += 1
-                if max_retryable_errors is not None and retryable_errors > max_retryable_errors:
-                    raise retryable_exception
-                print(error)
-                continue
+                if error is not None:
+                    retryable_errors += 1
+                    if (
+                        max_retryable_errors is not None
+                        and retryable_errors > max_retryable_errors
+                    ):
+                        raise retryable_exception
+                    print(error)
+                    continue
 
-            if status:
-                if progress_bar is None:
-                    progress_bar = tqdm.tqdm(
-                        total=status.total_size, unit='B', unit_scale=True
+                if status:
+                    if progress_bar is None:
+                        progress_bar = tqdm.tqdm(
+                            total=status.total_size, unit='B', unit_scale=True
+                        )
+                    progress_bar.update(
+                        status.resumable_progress - last_progress
                     )
-                progress_bar.update(status.resumable_progress - last_progress)
-                last_progress = status.resumable_progress
+                    last_progress = status.resumable_progress
 
-            if response and ('id' in response):
-                if progress_bar is not None:
-                    # todo: 100%???
-                    progress_bar.close()
-                return response['id']
+                if response and ('id' in response):
+                    if progress_bar is not None:
+                        # todo: 100%???
+                        progress_bar.close()
+                    return response['id']
+        finally:
+            if limited_stream is not None:
+                limited_stream.close()
 
     def update(self, video_id, title, description, category_id=None, *, raise_errors=False):
         try:

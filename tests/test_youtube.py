@@ -1,4 +1,5 @@
 import json
+import io
 import runpy
 import sys
 
@@ -11,6 +12,7 @@ from recorder.destination.youtube import (
     find_missing_caption_uploads,
     upload_missing_captions,
     upload_missing_captions_from_roots,
+    RateLimitedFile,
     Youtube,
 )
 
@@ -184,6 +186,89 @@ class UploadYoutubeApi:
 
     def videos(self):
         return self.videos_endpoint
+
+
+def test_rate_limited_file_paces_small_reads_and_resets_after_seek():
+    now = [0.0]
+    sleeps = []
+
+    def sleep(seconds):
+        sleeps.append(seconds)
+        now[0] += seconds
+
+    raw = io.BytesIO(b'a' * (youtube_module.UPLOAD_READ_SIZE_BYTES * 2))
+    limited = RateLimitedFile(
+        raw,
+        youtube_module.UPLOAD_READ_SIZE_BYTES,
+        clock=lambda: now[0],
+        sleeper=sleep,
+    )
+
+    assert len(limited.read(1024 * 1024)) == youtube_module.UPLOAD_READ_SIZE_BYTES
+    assert sleeps == []
+    assert len(limited.read(1024 * 1024)) == youtube_module.UPLOAD_READ_SIZE_BYTES
+    assert sleeps == [pytest.approx(1.0)]
+
+    limited.seek(0)
+    assert limited.tell() == 0
+    assert len(limited.read()) == youtube_module.UPLOAD_READ_SIZE_BYTES
+    assert sleeps == [pytest.approx(1.0)]
+    limited.close()
+    assert raw.closed
+
+
+@pytest.mark.parametrize(
+    'value', [True, False, 0, -1, float('nan'), float('inf'), '2']
+)
+def test_upload_rate_rejects_invalid_config_values(value):
+    with pytest.raises(ValueError, match='finite positive number'):
+        youtube_module._upload_rate_bytes_per_second({
+            'upload_rate_mib_per_second': value,
+        })
+
+
+def test_upload_rate_converts_mib_to_bytes_and_can_be_omitted():
+    assert youtube_module._upload_rate_bytes_per_second({}) is None
+    assert youtube_module._upload_rate_bytes_per_second({
+        'upload_rate_mib_per_second': 2,
+    }) == 2 * 1024 * 1024
+
+
+def test_youtube_upload_uses_and_closes_rate_limited_media_stream(
+    tmp_path, monkeypatch
+):
+    video = tmp_path / 'recording.flv'
+    video.write_bytes(b'video')
+    captured = {}
+
+    def media_upload(stream, **kwargs):
+        captured['stream'] = stream
+        captured['kwargs'] = kwargs
+        return object()
+
+    monkeypatch.setattr(
+        youtube_module.googleapiclient.http,
+        'MediaIoBaseUpload',
+        media_upload,
+    )
+    monkeypatch.setattr(
+        youtube_module.googleapiclient.http,
+        'MediaFileUpload',
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError('limited upload must use MediaIoBaseUpload')
+        ),
+    )
+    youtube = Youtube.__new__(Youtube)
+    youtube.upload_rate_bytes_per_second = 2 * 1024 * 1024
+    youtube.youtube = UploadYoutubeApi(
+        SequenceUploadRequest([(None, {'id': 'yt123'})])
+    )
+
+    assert youtube.upload(str(video), 'title') == 'yt123'
+    assert isinstance(captured['stream'], RateLimitedFile)
+    assert captured['stream'].closed
+    assert captured['kwargs']['resumable'] is True
+    assert captured['kwargs']['chunksize'] == 100 * 1024 * 1024
 
 
 class FailingMutationEndpoint:

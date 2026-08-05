@@ -7,6 +7,7 @@ from recorder.bililive.models import RoomState, SessionState
 from recorder.bililive.monitor import MonitorDecision
 from recorder.utils.bililive_directory_monitor import (
     _dry_run_media_report,
+    _youtube_upload_while_live,
     retry_ambiguous,
     run_monitor,
     supersede,
@@ -20,6 +21,18 @@ def room_root(tmp_path):
     root = tmp_path / 'BililiveRecorder'
     (root / str(ROOM_ID)).mkdir(parents=True)
     return root
+
+
+def test_upload_while_live_requires_a_valid_youtube_rate_limit():
+    assert _youtube_upload_while_live({}) is False
+    assert _youtube_upload_while_live({
+        'upload_while_live': True,
+        'upload_rate_mib_per_second': 2,
+    }) is True
+    with pytest.raises(ValueError, match='requires'):
+        _youtube_upload_while_live({'upload_while_live': True})
+    with pytest.raises(TypeError, match='must be a boolean'):
+        _youtube_upload_while_live({'upload_while_live': 1})
 
 
 def test_dry_run_does_not_initialize_youtube_or_write_journal(monkeypatch, tmp_path):

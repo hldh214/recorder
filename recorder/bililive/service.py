@@ -32,6 +32,7 @@ class BililiveDirectoryService:
         cleanup,
         room_state_provider,
         snapshot_provider,
+        upload_while_live=False,
         clock=None,
         worker_wait_seconds=WORKER_WAIT_SECONDS,
         worker_join_timeout_seconds=WORKER_JOIN_TIMEOUT_SECONDS,
@@ -42,6 +43,9 @@ class BililiveDirectoryService:
         self.cleanup = cleanup
         self.room_state_provider = room_state_provider
         self.snapshot_provider = snapshot_provider
+        if not isinstance(upload_while_live, bool):
+            raise TypeError('upload_while_live must be a boolean')
+        self.upload_while_live = upload_while_live
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self.worker_wait_seconds = worker_wait_seconds
         self.worker_join_timeout_seconds = worker_join_timeout_seconds
@@ -105,8 +109,15 @@ class BililiveDirectoryService:
         cleanup_allowed = room is not None
         publication_allowed = (
             room is not None
-            and not room.active
-            and decision.state in {SessionState.READY, SessionState.WAITING}
+            and (
+                self.upload_while_live
+                or (
+                    not room.active
+                    and decision.state in {
+                        SessionState.READY, SessionState.WAITING
+                    }
+                )
+            )
         )
         with self._gate_lock:
             self._cleanup_allowed = cleanup_allowed

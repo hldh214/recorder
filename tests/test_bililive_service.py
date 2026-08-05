@@ -89,7 +89,8 @@ def decision(state):
 
 def service_for(
     *, room, monitor, journal=None, runner=None, cleanup=None,
-    snapshots=None, worker_wait_seconds=3600, worker_join_timeout_seconds=.1,
+    snapshots=None, upload_while_live=False, worker_wait_seconds=3600,
+    worker_join_timeout_seconds=.1,
 ):
     journal = journal or FakeJournal()
     snapshots = deque(snapshots or ({},))
@@ -100,6 +101,7 @@ def service_for(
         cleanup=cleanup or FakeCleanup(),
         room_state_provider=lambda: room,
         snapshot_provider=lambda: snapshots.popleft(),
+        upload_while_live=upload_while_live,
         clock=lambda: NOW,
         worker_wait_seconds=worker_wait_seconds,
         worker_join_timeout_seconds=worker_join_timeout_seconds,
@@ -131,6 +133,33 @@ def test_live_room_runs_cleanup_but_never_starts_publication(room):
     assert observed.state is SessionState.RECORDING
     assert len(cleanup.calls) == 1
     assert runner.calls == 0
+
+
+@pytest.mark.parametrize(
+    'room',
+    [
+        RoomState(True, False),
+        RoomState(False, True),
+    ],
+)
+def test_live_room_can_run_cleanup_and_publication_when_enabled(room):
+    events = []
+    cleanup = FakeCleanup(events)
+    runner = FakeRunner(events=events)
+    service = service_for(
+        room=room,
+        monitor=FakeMonitor([decision(SessionState.RECORDING)]),
+        cleanup=cleanup,
+        runner=runner,
+        upload_while_live=True,
+    )
+
+    service.start()
+    service.observe_once()
+    wait_until(lambda: runner.calls == 1)
+    service.stop()
+
+    assert events == ['cleanup', 'runner']
 
 
 def test_unavailable_room_blocks_cleanup_and_publication():
