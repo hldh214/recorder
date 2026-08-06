@@ -11,6 +11,7 @@ from recorder.bililive.models import JournalReplay, RoomState, SessionState
 
 POLL_INTERVAL_SECONDS = 60
 QUIET_PERIOD_SECONDS = 30 * 60
+LIVE_SEGMENT_QUIET_PERIOD_SECONDS = QUIET_PERIOD_SECONDS
 
 
 Snapshot = Mapping[str, tuple[int, int]]
@@ -454,11 +455,15 @@ class BililiveSessionMonitor:
         room_id: int,
         machine: SessionMonitorState | None = None,
         id_factory: Callable[[], str] | None = None,
+        live_segment_manifests=False,
     ):
         if isinstance(room_id, bool) or not isinstance(room_id, int):
             raise TypeError('room_id must be an integer')
+        if not isinstance(live_segment_manifests, bool):
+            raise TypeError('live_segment_manifests must be a boolean')
         self.journal = journal
         self.room_id = room_id
+        self.live_segment_manifests = live_segment_manifests
         replay = journal.replay()
         _validate_room_ownership(replay, room_id)
         self.machine = machine or SessionMonitorState.restore(
@@ -489,7 +494,10 @@ class BililiveSessionMonitor:
                 return decision
 
             if decision.state is SessionState.READY:
-                if not decision.ready_paths:
+                ready_paths = self._unmanifested_flv_paths(
+                    decision.ready_paths
+                )
+                if not ready_paths:
                     self.machine.rearm()
                     self._append_session_state()
                     return decision
@@ -499,14 +507,17 @@ class BililiveSessionMonitor:
                     room_id=self.room_id,
                     started_at=decision.started_at.isoformat(),
                     settled_at=now.isoformat(),
-                    flv_paths=decision.ready_paths,
+                    flv_paths=ready_paths,
                     snapshot=_manifest_snapshot(
-                        decision.ready_paths, decision.snapshot
+                        ready_paths, decision.snapshot
                     ),
                 )
                 self.machine.rearm()
                 self._append_session_state()
                 return decision
+
+            if room is not None and room.active:
+                self._append_live_segment_manifests(now, decision)
 
             if previous != self.machine.persistent_signature():
                 self._append_session_state()
@@ -524,6 +535,56 @@ class BililiveSessionMonitor:
                     initialized=False, id_factory=id_factory
                 )
             raise
+
+    def _append_live_segment_manifests(self, now, decision):
+        if (
+            not self.live_segment_manifests
+            or decision.state is not SessionState.RECORDING
+            or decision.started_at is None
+        ):
+            return
+        for path in self._live_ready_paths(now, decision):
+            self.journal.append(
+                'session_manifest_ready',
+                manifest_id=self.machine.id_factory(),
+                room_id=self.room_id,
+                started_at=decision.started_at.isoformat(),
+                settled_at=now.isoformat(),
+                flv_paths=(path,),
+                snapshot=_manifest_snapshot((path,), decision.snapshot),
+            )
+
+    def _live_ready_paths(self, now, decision):
+        candidates = tuple(
+            path for path in self._unmanifested_flv_paths(
+                decision.session_paths
+            )
+            if path in decision.snapshot
+        )
+        if len(candidates) < 2:
+            return ()
+        current = decision.snapshot
+        latest = max(candidates, key=lambda path: (current[path][1], path))
+        cutoff_ns = int(
+            (now - timedelta(seconds=LIVE_SEGMENT_QUIET_PERIOD_SECONDS))
+            .timestamp() * 1_000_000_000
+        )
+        return tuple(
+            path for path in candidates
+            if path != latest and current[path][1] <= cutoff_ns
+        )
+
+    def _unmanifested_flv_paths(self, paths):
+        claimed = {
+            path
+            for manifest in self.journal.replay().manifests
+            if not manifest.invalidated
+            for path in manifest.flv_paths
+        }
+        return tuple(sorted(
+            path for path in paths
+            if path.lower().endswith('.flv') and path not in claimed
+        ))
 
     def _claim_pending_resettle(self, now, room, snapshot, replay):
         if now.tzinfo is None or now.utcoffset() is None:

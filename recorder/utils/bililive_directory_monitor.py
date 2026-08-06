@@ -267,7 +267,11 @@ def run_monitor(
                 room_id=room_id,
                 state_dir=state_path,
             )
-            monitor = BililiveSessionMonitor(journal, room_id)
+            monitor = BililiveSessionMonitor(
+                journal,
+                room_id,
+                live_segment_manifests=upload_while_live,
+            )
             service = BililiveDirectoryService(
                 journal=journal,
                 monitor=monitor,

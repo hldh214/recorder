@@ -52,6 +52,10 @@ def append_pending_resettle(
     )
 
 
+def snapshot_identity(instant, size=100):
+    return size, int(instant.timestamp() * 1_000_000_000)
+
+
 def test_first_offline_observation_baselines_every_path_and_arms():
     machine = SessionMonitorState(initialized=False)
     snapshot = {'/recording/a.flv': (100, 1), '/recording/a.xml': (20, 2)}
@@ -641,6 +645,62 @@ def test_ready_session_without_flv_rearms_without_empty_manifest(tmp_path):
     assert monitor.machine.state is SessionState.WAITING
     assert journal.replay().manifests == ()
     assert journal.replay().session.state is SessionState.WAITING
+
+
+def test_live_segment_manifest_excludes_current_flv_and_leaves_tail(tmp_path):
+    first = str(tmp_path / 'first.flv')
+    current = str(tmp_path / 'current.flv')
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('initialized')
+    ids = iter(('stream-session', 'first-segment'))
+    monitor = BililiveSessionMonitor(
+        journal=journal,
+        room_id=123,
+        id_factory=lambda: next(ids),
+        live_segment_manifests=True,
+    )
+
+    monitor.observe(
+        at(8),
+        RoomState(True, True),
+        {first: snapshot_identity(at(8))},
+    )
+    recording = monitor.observe(
+        at(11),
+        RoomState(True, True),
+        {
+            first: snapshot_identity(at(10, 30)),
+            current: snapshot_identity(at(11)),
+        },
+    )
+
+    assert recording.state is SessionState.RECORDING
+    replay = journal.replay()
+    assert [manifest.flv_paths for manifest in replay.manifests] == [
+        (first,),
+    ]
+
+    monitor.observe(
+        at(11, 10),
+        RoomState(False, False),
+        {
+            first: snapshot_identity(at(10, 30)),
+            current: snapshot_identity(at(11)),
+        },
+    )
+    finished = monitor.observe(
+        at(11, 40),
+        RoomState(False, False),
+        {
+            first: snapshot_identity(at(10, 30)),
+            current: snapshot_identity(at(11)),
+        },
+    )
+
+    assert finished.state is SessionState.READY
+    assert [manifest.flv_paths for manifest in journal.replay().manifests] == [
+        (first,), (current,),
+    ]
 
 
 def test_journal_retains_multiple_ready_manifests(tmp_path):

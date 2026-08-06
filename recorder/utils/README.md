@@ -45,8 +45,10 @@ pipenv run python -u -m recorder.utils.bililive_directory_monitor run \
 The first active/current session is baseline-only; publication starts with the
 next complete session after the directory has settled. By default publication
 waits for the room to go offline. Set both `youtube.upload_while_live = true`
-and a positive `youtube.upload_rate_mib_per_second` to publish older, settled
-sessions while a new session is live. The rate applies to YouTube video media
+and a positive `youtube.upload_rate_mib_per_second` to publish a rotated FLV
+while the room remains live. A live FLV is eligible only after it is no longer
+the newest file and has remained unchanged for 30 minutes; the newest FLV is
+never uploaded until the session ends. The rate applies to YouTube video media
 uploads created from the `[youtube]` configuration; other network traffic is
 not limited. Publication reads FLV/XML files in place and never moves them. The
 JSONL state file under `var/bililive/<room-id>/state.jsonl` is durable
