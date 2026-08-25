@@ -280,6 +280,7 @@ def run_monitor(
                 room_state_provider=room_state_provider,
                 snapshot_provider=lambda: _snapshot_directory(room_dir),
                 upload_while_live=upload_while_live,
+                upload_rate_controller=youtube,
             )
             try:
                 service.start()

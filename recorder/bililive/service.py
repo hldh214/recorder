@@ -33,6 +33,7 @@ class BililiveDirectoryService:
         room_state_provider,
         snapshot_provider,
         upload_while_live=False,
+        upload_rate_controller=None,
         clock=None,
         worker_wait_seconds=WORKER_WAIT_SECONDS,
         worker_join_timeout_seconds=WORKER_JOIN_TIMEOUT_SECONDS,
@@ -46,6 +47,7 @@ class BililiveDirectoryService:
         if not isinstance(upload_while_live, bool):
             raise TypeError('upload_while_live must be a boolean')
         self.upload_while_live = upload_while_live
+        self.upload_rate_controller = upload_rate_controller
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self.worker_wait_seconds = worker_wait_seconds
         self.worker_join_timeout_seconds = worker_join_timeout_seconds
@@ -100,6 +102,7 @@ class BililiveDirectoryService:
             self._publication_allowed = False
             self._compaction_allowed = False
         room = self._read_room_state()
+        self._update_upload_rate_limit(room)
         try:
             snapshot = self.snapshot_provider()
         except Exception as exception:
@@ -144,6 +147,15 @@ class BililiveDirectoryService:
             logger.warning('BililiveRecorder room state is malformed')
             return None
         return room
+
+    def _update_upload_rate_limit(self, room):
+        controller = self.upload_rate_controller
+        if controller is None or room is None:
+            return
+        try:
+            controller.set_upload_rate_limited(room.active)
+        except Exception as exception:
+            logger.warning('Could not update YouTube upload rate limit: %s', exception)
 
     def _cleanup_gate_open(self):
         with self._gate_lock:

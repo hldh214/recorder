@@ -10,6 +10,7 @@ import sys
 import tempfile
 import time
 import traceback
+import threading
 
 import google_auth_oauthlib.flow
 import googleapiclient
@@ -31,6 +32,7 @@ YOUTUBE_DURATION_PATTERN = re.compile(
     r'^PT(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+(?:\.\d+)?)S)?$'
 )
 UPLOAD_READ_SIZE_BYTES = 8 * 1024
+UNLIMITED_UPLOAD_READ_SIZE_BYTES = 1024 * 1024
 MIB_BYTES = 1024 * 1024
 
 
@@ -53,7 +55,10 @@ def _upload_rate_bytes_per_second(config):
 class RateLimitedFile(io.IOBase):
     """Seekable file wrapper that paces upload reads without large bursts."""
 
-    def __init__(self, raw, bytes_per_second, clock=None, sleeper=None):
+    def __init__(
+        self, raw, bytes_per_second, clock=None, sleeper=None,
+        rate_provider=None,
+    ):
         super().__init__()
         if not raw.seekable() or not raw.readable():
             raise ValueError('rate-limited upload source must be readable and seekable')
@@ -66,6 +71,9 @@ class RateLimitedFile(io.IOBase):
             raise ValueError('bytes_per_second must be a finite positive number')
         self._raw = raw
         self._bytes_per_second = float(bytes_per_second)
+        if rate_provider is not None and not callable(rate_provider):
+            raise TypeError('rate_provider must be callable or None')
+        self._rate_provider = rate_provider
         self._clock = clock or time.monotonic
         self._sleep = sleeper or time.sleep
         self._next_read_at = None
@@ -87,22 +95,51 @@ class RateLimitedFile(io.IOBase):
     def read(self, size=-1):
         if self.closed:
             raise ValueError('I/O operation on closed file')
-        if size is None or size < 0:
-            size = UPLOAD_READ_SIZE_BYTES
-        else:
-            size = min(size, UPLOAD_READ_SIZE_BYTES)
+        bytes_per_second = self._current_rate()
+        read_size = self._read_size(size, bytes_per_second)
+        if bytes_per_second is None:
+            self._next_read_at = None
+            return self._raw.read(read_size)
 
         now = self._clock()
         scheduled_at = max(self._next_read_at or now, now)
         delay = scheduled_at - now
         if delay > 0:
             self._sleep(delay)
-        data = self._raw.read(size)
+        data = self._raw.read(read_size)
         if data:
             self._next_read_at = scheduled_at + (
-                len(data) / self._bytes_per_second
+                len(data) / bytes_per_second
             )
         return data
+
+    def _current_rate(self):
+        value = (
+            self._rate_provider()
+            if self._rate_provider is not None
+            else self._bytes_per_second
+        )
+        if value is None:
+            return None
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value <= 0
+        ):
+            raise ValueError('rate_provider must return a finite positive number or None')
+        return float(value)
+
+    @staticmethod
+    def _read_size(size, bytes_per_second):
+        maximum = (
+            UPLOAD_READ_SIZE_BYTES
+            if bytes_per_second is not None
+            else UNLIMITED_UPLOAD_READ_SIZE_BYTES
+        )
+        if size is None or size < 0:
+            return maximum
+        return min(size, maximum)
 
     def close(self):
         if not self.closed:
@@ -466,6 +503,8 @@ class Youtube:
 
     def __init__(self, config):
         self.upload_rate_bytes_per_second = _upload_rate_bytes_per_second(config)
+        self._upload_rate_limit_lock = threading.Lock()
+        self._upload_rate_limited = True
         scopes = [
             'https://www.googleapis.com/auth/youtube.readonly',
             'https://www.googleapis.com/auth/youtube.upload',
@@ -499,6 +538,22 @@ class Youtube:
             api_service_name, api_version, credentials=credentials, cache_discovery=False
         )
 
+    def set_upload_rate_limited(self, limited):
+        if not isinstance(limited, bool):
+            raise TypeError('limited must be a boolean')
+        with self._upload_rate_limit_lock:
+            self._upload_rate_limited = limited
+
+    def _active_upload_rate(self):
+        configured = self.upload_rate_bytes_per_second
+        if configured is None:
+            return None
+        lock = getattr(self, '_upload_rate_limit_lock', None)
+        if lock is None:
+            return configured
+        with lock:
+            return configured if self._upload_rate_limited else None
+
     def upload(
         self,
         video_path,
@@ -517,9 +572,7 @@ class Youtube:
 
         limited_stream = None
         try:
-            upload_rate = getattr(
-                self, 'upload_rate_bytes_per_second', None
-            )
+            upload_rate = getattr(self, 'upload_rate_bytes_per_second', None)
             if upload_rate is None:
                 media_body = googleapiclient.http.MediaFileUpload(
                     video_path,
@@ -529,7 +582,8 @@ class Youtube:
                 )
             else:
                 limited_stream = RateLimitedFile(
-                    open(video_path, 'rb'), upload_rate
+                    open(video_path, 'rb'), upload_rate,
+                    rate_provider=self._active_upload_rate,
                 )
                 media_body = googleapiclient.http.MediaIoBaseUpload(
                     limited_stream,

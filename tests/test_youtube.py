@@ -217,6 +217,25 @@ def test_rate_limited_file_paces_small_reads_and_resets_after_seek():
     assert raw.closed
 
 
+def test_rate_limited_file_stops_pacing_when_rate_provider_disables_limit():
+    now = [0.0]
+    sleeps = []
+    rate = [youtube_module.UPLOAD_READ_SIZE_BYTES]
+    raw = io.BytesIO(b'a' * (youtube_module.UNLIMITED_UPLOAD_READ_SIZE_BYTES * 2))
+    limited = RateLimitedFile(
+        raw,
+        youtube_module.UPLOAD_READ_SIZE_BYTES,
+        clock=lambda: now[0],
+        sleeper=lambda seconds: sleeps.append(seconds),
+        rate_provider=lambda: rate[0],
+    )
+
+    assert len(limited.read(1024 * 1024)) == youtube_module.UPLOAD_READ_SIZE_BYTES
+    rate[0] = None
+    assert len(limited.read(1024 * 1024)) == youtube_module.UNLIMITED_UPLOAD_READ_SIZE_BYTES
+    assert sleeps == []
+
+
 @pytest.mark.parametrize(
     'value', [True, False, 0, -1, float('nan'), float('inf'), '2']
 )

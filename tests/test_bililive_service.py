@@ -95,7 +95,8 @@ def decision(state):
 
 def service_for(
     *, room, monitor, journal=None, runner=None, cleanup=None,
-    snapshots=None, upload_while_live=False, worker_wait_seconds=3600,
+    snapshots=None, upload_while_live=False, upload_rate_controller=None,
+    worker_wait_seconds=3600,
     worker_join_timeout_seconds=.1,
 ):
     journal = journal or FakeJournal()
@@ -108,6 +109,7 @@ def service_for(
         room_state_provider=lambda: room,
         snapshot_provider=lambda: snapshots.popleft(),
         upload_while_live=upload_while_live,
+        upload_rate_controller=upload_rate_controller,
         clock=lambda: NOW,
         worker_wait_seconds=worker_wait_seconds,
         worker_join_timeout_seconds=worker_join_timeout_seconds,
@@ -185,6 +187,34 @@ def test_unavailable_room_blocks_cleanup_and_publication():
 
     assert cleanup.calls == []
     assert runner.calls == 0
+
+
+@pytest.mark.parametrize(
+    ('room', 'expected_limit'),
+    [
+        (RoomState(True, False), True),
+        (RoomState(False, True), True),
+        (RoomState(False, False), False),
+    ],
+)
+def test_observation_sets_youtube_rate_limit_from_live_state(
+    room, expected_limit
+):
+    calls = []
+
+    class Controller:
+        def set_upload_rate_limited(self, limited):
+            calls.append(limited)
+
+    service = service_for(
+        room=room,
+        monitor=FakeMonitor([decision(SessionState.WAITING)]),
+        upload_rate_controller=Controller(),
+    )
+
+    service.observe_once()
+
+    assert calls == [expected_limit]
 
 
 @pytest.mark.parametrize('state', [SessionState.READY, SessionState.WAITING])
