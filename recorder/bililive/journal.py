@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import os
+import tempfile
 import threading
 from collections.abc import Mapping
 from dataclasses import dataclass, fields, replace
@@ -29,6 +30,12 @@ class AlreadyRunningError(RuntimeError):
 
 
 _FILE_FIELD_NAMES = frozenset(field.name for field in fields(JournalFileState))
+_MANIFEST_FIELD_NAMES = frozenset(field.name for field in fields(JournalManifest))
+_SESSION_FIELD_NAMES = frozenset(field.name for field in fields(JournalSessionState))
+_RESETTLE_FIELD_NAMES = frozenset(
+    field.name for field in fields(JournalResettleRequest)
+)
+JOURNAL_COMPACTION_MIN_BYTES = 4 * 1024 * 1024
 _JOURNAL_LOCKS = {}
 _JOURNAL_LOCKS_GUARD = threading.Lock()
 _INITIAL_FILE_EVENTS = frozenset({
@@ -1206,16 +1213,17 @@ class JsonlJournal:
     def __init__(self, path):
         self.path = Path(path).resolve()
         self._mutex = _shared_journal_lock(self.path)
+        self._cached_replay = None
+        self._cached_signature = None
+        self._cached_torn_offset = None
+        self._cached_needs_separator = False
 
     def append(self, event, **fields):
         record = dict(fields, event=event)
         with self._mutex:
             _validate_append_record(record)
+            replay, torn_offset, needs_separator = self._load_replay_locked()
             journal_existed = self.path.exists()
-            existing_payload = self.path.read_bytes() if journal_existed else b''
-            replay, torn_offset, needs_separator = self._replay_payload(
-                existing_payload
-            )
             updated = self._reduce(replay, record)
             if updated is replay:
                 return
@@ -1239,14 +1247,143 @@ class JsonlJournal:
                 os.fsync(journal_file.fileno())
             if not journal_existed:
                 _fsync_directory(self.path.parent)
+            self._cached_replay = updated
+            self._cached_torn_offset = None
+            self._cached_needs_separator = False
+            self._cached_signature = self._path_signature()
 
     def replay(self):
         with self._mutex:
-            if not self.path.exists():
-                return _public_replay(_empty_replay())
-            payload = self.path.read_bytes()
-            replay, _, _ = self._replay_payload(payload)
+            replay, _, _ = self._load_replay_locked()
             return _public_replay(replay)
+
+    def compact_if_idle(self, min_bytes=JOURNAL_COMPACTION_MIN_BYTES):
+        """Atomically checkpoint a fully settled journal when it is large."""
+        if isinstance(min_bytes, bool) or not isinstance(min_bytes, int):
+            raise TypeError('min_bytes must be an integer')
+        if min_bytes < 0:
+            raise ValueError('min_bytes must be non-negative')
+        with self._mutex:
+            replay, _, _ = self._load_replay_locked()
+            if not self._is_idle_for_compaction(replay):
+                return False
+            signature = self._path_signature()
+            if signature is None or signature[2] < min_bytes:
+                return False
+            payload = self._checkpoint_payload(replay)
+            self._replace_payload(payload)
+            self._cached_replay = replay
+            self._cached_torn_offset = None
+            self._cached_needs_separator = False
+            self._cached_signature = self._path_signature()
+            return True
+
+    def _load_replay_locked(self):
+        signature = self._path_signature()
+        if (
+            self._cached_replay is not None
+            and signature == self._cached_signature
+        ):
+            return (
+                self._cached_replay,
+                self._cached_torn_offset,
+                self._cached_needs_separator,
+            )
+        payload = self.path.read_bytes() if signature is not None else b''
+        replay, torn_offset, needs_separator = self._replay_payload(payload)
+        self._cached_replay = replay
+        self._cached_signature = signature
+        self._cached_torn_offset = torn_offset
+        self._cached_needs_separator = needs_separator
+        return replay, torn_offset, needs_separator
+
+    def _path_signature(self):
+        try:
+            file_stat = self.path.stat()
+        except FileNotFoundError:
+            return None
+        return (
+            file_stat.st_dev,
+            file_stat.st_ino,
+            file_stat.st_size,
+            file_stat.st_mtime_ns,
+        )
+
+    @staticmethod
+    def _is_idle_for_compaction(replay):
+        return bool(
+            replay.session.state is SessionState.WAITING
+            and not replay.pending_resettles
+            and all(
+                manifest.completed or manifest.invalidated
+                for manifest in replay.manifests
+            )
+        )
+
+    @staticmethod
+    def _checkpoint_payload(replay):
+        state = {
+            'initialized': replay.initialized,
+            'files': [
+                {
+                    name: getattr(item, name)
+                    for name in _FILE_FIELD_NAMES
+                }
+                for _, item in sorted(replay.files.items())
+            ],
+            'manifests': [
+                {
+                    name: (
+                        dict(item.snapshot)
+                        if name == 'snapshot'
+                        else getattr(item, name)
+                    )
+                    for name in _MANIFEST_FIELD_NAMES
+                }
+                for item in replay.manifests
+            ],
+            'session': {
+                name: (
+                    item.state.value
+                    if name == 'state'
+                    else dict(item.snapshot)
+                    if name == 'snapshot'
+                    else getattr(item, name)
+                )
+                for item in (replay.session,)
+                for name in _SESSION_FIELD_NAMES
+            },
+            'pending_resettles': [
+                {
+                    name: getattr(item, name)
+                    for name in _RESETTLE_FIELD_NAMES
+                }
+                for item in replay.pending_resettles
+            ],
+        }
+        record = {'event': 'checkpoint', 'state': state}
+        return json.dumps(
+            record, ensure_ascii=False, separators=(',', ':'), allow_nan=False
+        ).encode('utf8') + b'\n'
+
+    def _replace_payload(self, payload):
+        _ensure_directory(self.path.parent)
+        file_descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f'.{self.path.name}.', suffix='.tmp', dir=self.path.parent
+        )
+        try:
+            with os.fdopen(file_descriptor, 'wb') as temporary_file:
+                temporary_file.write(payload)
+                temporary_file.flush()
+                os.fsync(temporary_file.fileno())
+            os.replace(temporary_name, self.path)
+            _fsync_directory(self.path.parent)
+        except BaseException:
+            try:
+                os.unlink(temporary_name)
+            except FileNotFoundError:
+                pass
+            raise
 
     @classmethod
     def _replay_payload(cls, payload):
@@ -1275,7 +1412,12 @@ class JsonlJournal:
                 ) from exception
 
             try:
-                replay = cls._reduce(replay, record)
+                if isinstance(record, dict) and record.get('event') == 'checkpoint':
+                    if line_number != 1:
+                        raise ValueError('checkpoint must be the first event')
+                    replay = cls._restore_checkpoint(record)
+                else:
+                    replay = cls._reduce(replay, record)
             except (TypeError, ValueError, KeyError) as exception:
                 raise JournalCorruptError(
                     'Invalid journal event on line '
@@ -1283,6 +1425,87 @@ class JsonlJournal:
                 ) from exception
             byte_offset += len(line) + 1
         return replay, None, not final_is_complete
+
+    @staticmethod
+    def _restore_checkpoint(record):
+        if set(record) != {'event', 'state'}:
+            raise TypeError('checkpoint has unexpected fields')
+        raw_state = record['state']
+        if not isinstance(raw_state, Mapping):
+            raise TypeError('checkpoint state must be an object')
+        required = {
+            'initialized', 'files', 'manifests', 'session',
+            'pending_resettles',
+        }
+        if set(raw_state) != required:
+            raise TypeError('checkpoint state has unexpected fields')
+        if type(raw_state['initialized']) is not bool:
+            raise TypeError('checkpoint initialized must be a boolean')
+        raw_session = raw_state['session']
+        if (
+            not isinstance(raw_session, Mapping)
+            or set(raw_session) != _SESSION_FIELD_NAMES
+        ):
+            raise TypeError('checkpoint session must be an object')
+        session = _reduce_session_state(
+            _empty_replay(), dict(raw_session)
+        ).session
+        raw_files = raw_state['files']
+        if not isinstance(raw_files, list):
+            raise TypeError('checkpoint files must be a list')
+        files = {}
+        for raw_file in raw_files:
+            if not isinstance(raw_file, Mapping) or set(raw_file) != _FILE_FIELD_NAMES:
+                raise TypeError('checkpoint file has unexpected fields')
+            file_data = dict(raw_file)
+            deleted_paths = file_data['deleted_paths']
+            if not isinstance(deleted_paths, list):
+                raise TypeError('checkpoint deleted_paths must be a list')
+            file_data['deleted_paths'] = tuple(deleted_paths)
+            item = JournalFileState(**file_data)
+            if not isinstance(item.fingerprint, str) or not item.fingerprint:
+                raise TypeError('checkpoint file fingerprint must be a string')
+            if item.fingerprint in files:
+                raise ValueError('checkpoint contains duplicate file fingerprint')
+            if item.event not in _FILE_EVENT_UPDATES:
+                raise ValueError('checkpoint file has an unknown event')
+            files[item.fingerprint] = item
+        raw_manifests = raw_state['manifests']
+        if not isinstance(raw_manifests, list):
+            raise TypeError('checkpoint manifests must be a list')
+        manifests = []
+        manifest_ids = set()
+        for raw_manifest in raw_manifests:
+            if (
+                not isinstance(raw_manifest, Mapping)
+                or set(raw_manifest) != _MANIFEST_FIELD_NAMES
+            ):
+                raise TypeError('checkpoint manifest has unexpected fields')
+            item = JournalManifest(**dict(raw_manifest))
+            if item.manifest_id in manifest_ids:
+                raise ValueError('checkpoint contains duplicate manifest ID')
+            manifest_ids.add(item.manifest_id)
+            manifests.append(item)
+        raw_pending = raw_state['pending_resettles']
+        if not isinstance(raw_pending, list):
+            raise TypeError('checkpoint pending_resettles must be a list')
+        pending_resettles = []
+        for raw_pending_item in raw_pending:
+            if (
+                not isinstance(raw_pending_item, Mapping)
+                or set(raw_pending_item) != _RESETTLE_FIELD_NAMES
+            ):
+                raise TypeError('checkpoint resettle has unexpected fields')
+            pending_resettles.append(
+                JournalResettleRequest(**dict(raw_pending_item))
+            )
+        return _ReplayState(
+            files=files,
+            manifests=tuple(manifests),
+            session=session,
+            initialized=raw_state['initialized'],
+            pending_resettles=tuple(pending_resettles),
+        )
 
     @staticmethod
     def _reduce(replay, record):

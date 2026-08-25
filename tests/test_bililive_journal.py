@@ -2991,6 +2991,125 @@ def test_two_journal_instances_share_lock_and_append_without_loss(tmp_path):
     assert len(path.read_bytes().splitlines()) == 50
 
 
+def _completed_idle_journal(tmp_path):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append(
+        'session_state',
+        room_id=123,
+        state='waiting',
+        session_id=None,
+        session_paths=(),
+        snapshot={},
+        quiet_since=None,
+        started_at=None,
+    )
+    journal.append('initialized')
+    journal.append(
+        'session_manifest_ready',
+        manifest_id='manifest-1',
+        room_id=123,
+        started_at='2026-08-01T10:00:00+00:00',
+        settled_at='2026-08-01T11:00:00+00:00',
+        flv_paths=('/video.flv',),
+        snapshot={'/video.flv': (100, 200), '/video.xml': (10, 201)},
+    )
+    journal.append(
+        'file_ready',
+        fingerprint='fp1',
+        manifest_id='manifest-1',
+        file='/video.flv',
+        xml_file='/video.xml',
+        title='Title',
+        start_time='2026-08-01T10:00:00+00:00',
+        duration=60,
+        source_size=100,
+        source_mtime_ns=200,
+        caption_status='pending',
+    )
+    journal.append(
+        'upload_started',
+        fingerprint='fp1',
+        file='/video.flv',
+        xml_file='/video.xml',
+        title='Title',
+        duration=60,
+        upload_started_at='2026-08-01T11:01:00+00:00',
+        attempt=0,
+    )
+    journal.append('video_uploaded', fingerprint='fp1', video_id='youtube-id')
+    journal.append(
+        'description_updated',
+        fingerprint='fp1',
+        description_fingerprint='description',
+    )
+    journal.append('caption_uploaded', fingerprint='fp1', caption_track_id='track')
+    journal.append('playlist_inserted', fingerprint='fp1')
+    journal.append('youtube_processed', fingerprint='fp1')
+    journal.append('session_manifest_completed', manifest_id='manifest-1')
+    return journal
+
+
+def test_replay_uses_cached_state_until_journal_changes(tmp_path, monkeypatch):
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('baseline', fingerprint='one', file='/one.flv')
+    calls = []
+    original = Path.read_bytes
+
+    def counted_read_bytes(path):
+        calls.append(path)
+        return original(path)
+
+    monkeypatch.setattr(Path, 'read_bytes', counted_read_bytes)
+
+    journal.replay()
+    journal.append('baseline', fingerprint='two', file='/two.flv')
+    journal.replay()
+
+    assert calls == []
+
+    JsonlJournal(journal.path).append(
+        'baseline', fingerprint='three', file='/three.flv'
+    )
+
+    assert set(journal.replay().files) == {'one', 'two', 'three'}
+    assert calls == [journal.path, journal.path]
+
+
+def test_idle_compaction_preserves_recoverable_state(tmp_path):
+    journal = _completed_idle_journal(tmp_path)
+    before = journal.replay()
+
+    assert journal.compact_if_idle(min_bytes=0) is True
+    assert json.loads(journal.path.read_text(encoding='utf8'))['event'] == 'checkpoint'
+    assert JsonlJournal(journal.path).replay() == before
+
+    journal.append(
+        'source_deleted',
+        fingerprint='fp1',
+        path='/video.flv',
+        reason='disk usage at or above 80 percent',
+    )
+    assert journal.replay().files['fp1'].deleted_paths == ('/video.flv',)
+
+
+def test_compaction_requires_an_idle_fully_completed_session(tmp_path):
+    journal = _completed_idle_journal(tmp_path)
+    journal.append(
+        'session_state',
+        room_id=123,
+        state='recording',
+        session_id='session-2',
+        session_paths=('/current.flv',),
+        snapshot={'/current.flv': (10, 20)},
+        quiet_since='2026-08-01T12:00:00+00:00',
+        started_at='2026-08-01T12:00:00+00:00',
+    )
+    before = journal.path.read_bytes()
+
+    assert journal.compact_if_idle(min_bytes=0) is False
+    assert journal.path.read_bytes() == before
+
+
 def test_journal_path_is_canonicalized_at_construction(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 

@@ -53,6 +53,7 @@ class BililiveDirectoryService:
         self._gate_lock = threading.Lock()
         self._cleanup_allowed = False
         self._publication_allowed = False
+        self._compaction_allowed = False
         self._wake = threading.Event()
         self._stop = threading.Event()
         self._worker = None
@@ -97,6 +98,7 @@ class BililiveDirectoryService:
         with self._gate_lock:
             self._cleanup_allowed = False
             self._publication_allowed = False
+            self._compaction_allowed = False
         room = self._read_room_state()
         try:
             snapshot = self.snapshot_provider()
@@ -122,6 +124,7 @@ class BililiveDirectoryService:
         with self._gate_lock:
             self._cleanup_allowed = cleanup_allowed
             self._publication_allowed = publication_allowed
+            self._compaction_allowed = bool(room is not None and not room.active)
         if cleanup_allowed:
             # The monitor append fsyncs the active session paths before cleanup can
             # run, so cleanup can safely remove completed historical sources while
@@ -149,6 +152,10 @@ class BililiveDirectoryService:
     def _publication_gate_open(self):
         with self._gate_lock:
             return self._publication_allowed
+
+    def _compaction_gate_open(self):
+        with self._gate_lock:
+            return self._compaction_allowed
 
     def _worker_main(self):
         while not self._stop.is_set():
@@ -185,5 +192,10 @@ class BililiveDirectoryService:
                     # current upload finishes, but no following item may start.
                     if not self._publication_gate_open():
                         break
+                if (
+                    not self._stop.is_set()
+                    and self._compaction_gate_open()
+                ):
+                    self.journal.compact_if_idle()
             except Exception:
                 logger.exception('Bililive publication worker iteration failed')

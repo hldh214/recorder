@@ -27,6 +27,7 @@ class FakeJournal:
     def __init__(self):
         self.replay_calls = 0
         self.events = []
+        self.compaction_calls = 0
         self._lock = threading.Lock()
 
     def replay(self):
@@ -37,6 +38,11 @@ class FakeJournal:
     def append(self, event, **fields):
         with self._lock:
             self.events.append((event, fields))
+
+    def compact_if_idle(self):
+        with self._lock:
+            self.compaction_calls += 1
+        return False
 
 
 class FakeMonitor:
@@ -201,6 +207,41 @@ def test_settled_offline_observation_wakes_one_cleanup_then_runner_iteration(sta
     assert events == ['cleanup', 'runner']
     assert len(cleanup.calls) == 1
     assert runner.calls == 1
+
+
+def test_offline_idle_worker_compacts_only_after_queue_is_empty():
+    journal = FakeJournal()
+    runner = FakeRunner(results=(SimpleNamespace(status='complete'), None))
+    service = service_for(
+        room=RoomState(False, False),
+        monitor=FakeMonitor([decision(SessionState.WAITING)]),
+        journal=journal,
+        runner=runner,
+    )
+
+    service.start()
+    service.observe_once()
+    wait_until(lambda: journal.compaction_calls == 1)
+    service.stop()
+
+    assert runner.calls == 2
+
+
+def test_live_worker_never_compacts_even_when_live_upload_is_enabled():
+    journal = FakeJournal()
+    service = service_for(
+        room=RoomState(True, False),
+        monitor=FakeMonitor([decision(SessionState.RECORDING)]),
+        journal=journal,
+        upload_while_live=True,
+    )
+
+    service.start()
+    service.observe_once()
+    wait_until(lambda: service.runner.calls == 1)
+    service.stop()
+
+    assert journal.compaction_calls == 0
 
 
 def test_retryable_runner_result_waits_for_the_next_worker_wake():
