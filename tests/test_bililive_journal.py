@@ -3092,7 +3092,37 @@ def test_idle_compaction_preserves_recoverable_state(tmp_path):
     assert journal.replay().files['fp1'].deleted_paths == ('/video.flv',)
 
 
-def test_compaction_requires_an_idle_fully_completed_session(tmp_path):
+def test_idle_compaction_preserves_ambiguous_manifest(tmp_path):
+    journal = _completed_idle_journal(tmp_path)
+    journal.append(
+        'session_manifest_ready',
+        manifest_id='ambiguous-manifest',
+        room_id=123,
+        started_at='2026-08-02T10:00:00+00:00',
+        settled_at='2026-08-02T11:00:00+00:00',
+        flv_paths=('/ambiguous.flv',),
+        snapshot={'/ambiguous.flv': (200, 300)},
+    )
+    journal.append(
+        'file_ready',
+        fingerprint='ambiguous-fp',
+        manifest_id='ambiguous-manifest',
+        file='/ambiguous.flv',
+        title='Ambiguous',
+        source_size=200,
+        source_mtime_ns=300,
+    )
+    journal.append(
+        'ambiguous', fingerprint='ambiguous-fp',
+        error_stage='video', error_message='connection interrupted',
+    )
+    before = journal.replay()
+
+    assert journal.compact_if_idle(min_bytes=0) is True
+    assert JsonlJournal(journal.path).replay() == before
+
+
+def test_compaction_requires_a_waiting_session(tmp_path):
     journal = _completed_idle_journal(tmp_path)
     journal.append(
         'session_state',

@@ -1311,14 +1311,11 @@ class JsonlJournal:
 
     @staticmethod
     def _is_idle_for_compaction(replay):
-        return bool(
-            replay.session.state is SessionState.WAITING
-            and not replay.pending_resettles
-            and all(
-                manifest.completed or manifest.invalidated
-                for manifest in replay.manifests
-            )
-        )
+        # The checkpoint retains incomplete, ambiguous, and resettle state.
+        # Publication flow additionally calls this only after an offline worker
+        # iteration has no runnable work, so historical recovery items cannot
+        # permanently prevent journal compaction.
+        return replay.session.state is SessionState.WAITING
 
     @staticmethod
     def _checkpoint_payload(replay):
