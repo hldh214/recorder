@@ -10,6 +10,10 @@ config.toml
 .client_secrets.json
 .recorder-credentials.pkl
 
+# Host-specific deployment units and local recording audits
+/deploy/*.service
+/*-YouTube-*.csv
+
 # IDE
 .idea
 

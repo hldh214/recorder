@@ -703,6 +703,25 @@ def test_live_segment_manifest_excludes_current_flv_and_leaves_tail(tmp_path):
     ]
 
 
+@pytest.mark.parametrize('live', [False, True])
+def test_closed_hls_handoff_is_queued_without_another_video(tmp_path, live):
+    video = tmp_path / '2026-07-27 08:00:00-hls-123.flv'
+    snapshot = {
+        str(video): snapshot_identity(at(11)),
+        str(video.with_suffix('.xml')): snapshot_identity(at(11)),
+    }
+    journal = JsonlJournal(tmp_path / 'state.jsonl')
+    journal.append('initialized')
+    monitor = BililiveSessionMonitor(
+        journal=journal, room_id=123, live_segment_manifests=True,
+    )
+    monitor.observe(at(8), RoomState(False, False), {})
+    monitor.observe(at(11), RoomState(False, live), snapshot)
+    assert not journal.replay().manifests
+    monitor.observe(at(11, 31), RoomState(False, live), snapshot)
+    assert [m.flv_paths for m in journal.replay().manifests] == [(str(video),)]
+
+
 def test_journal_retains_multiple_ready_manifests(tmp_path):
     journal = JsonlJournal(tmp_path / 'state.jsonl')
     journal.append('initialized')

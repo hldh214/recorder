@@ -1,0 +1,17 @@
+[Unit]
+Description=BililiveRecorder HLS fallback
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=recorder
+WorkingDirectory=/opt/recorder
+EnvironmentFile=/etc/recorder/bililive-hls.env
+ExecStart=/opt/recorder/.venv/bin/python -u -m recorder.utils.bililive_hls --root ${RECORDING_ROOT} --room-id ${ROOM_ID} --api-url ${ROOM_API_URL} --segment-seconds ${SEGMENT_SECONDS}
+Restart=on-failure
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

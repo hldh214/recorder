@@ -334,12 +334,23 @@ class SessionMonitorState:
     def _observe_waiting(self, now, room, current):
         previous = self.snapshot
         self.snapshot = current
+        changed = _changed_paths(previous, current)
         if not room.active:
-            return self._decision()
+            # The HLS fallback exposes only closed files, with XML linked first.
+            recovered = {
+                path for path in changed
+                if path in current and '-hls-' in Path(path).name
+                and path.endswith('.flv') and str(Path(path).with_suffix('.xml')) in current
+            }
+            if not recovered:
+                return self._decision()
+            self.state = SessionState.SETTLING
+            changed = recovered
+        else:
+            self.state = SessionState.RECORDING
 
-        self.state = SessionState.RECORDING
         self.session_id = self.id_factory()
-        self.session_paths = _changed_paths(previous, current)
+        self.session_paths = changed
         self.quiet_since = now
         self.started_at = now
         return self._decision()
@@ -561,7 +572,7 @@ class BililiveSessionMonitor:
             )
             if path in decision.snapshot
         )
-        if len(candidates) < 2:
+        if not candidates:
             return ()
         current = decision.snapshot
         latest = max(candidates, key=lambda path: (current[path][1], path))
@@ -571,7 +582,10 @@ class BililiveSessionMonitor:
         )
         return tuple(
             path for path in candidates
-            if path != latest and current[path][1] <= cutoff_ns
+            if (path != latest or (
+                '-hls-' in Path(path).name
+                and str(Path(path).with_suffix('.xml')) in current
+            )) and current[path][1] <= cutoff_ns
         )
 
     def _unmanifested_flv_paths(self, paths):
